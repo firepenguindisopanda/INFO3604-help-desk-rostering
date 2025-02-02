@@ -23,9 +23,7 @@ def Question1():
     # Constraint: 2l + 2w <= 80
     solver.Add(2 * l + 2 * w <= 80)
 
-    # Linearize the product constraint using a piecewise linear approximation
-    # Here we use a simple approach by adding multiple constraints
-    # You can refine this by adding more constraints for better approximation
+    #Linearizing the product constraint using a piecewise linear approximation
     for i in range(1, 11):
         solver.Add(z <= l * (i / 10) + w * (1 - i / 10))
 
