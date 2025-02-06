@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimization Models</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .model-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        h2 {
+            color: #444;
+            margin-bottom: 15px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        /* Updated input styling to remove arrows */
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            -moz-appearance: textfield; /* Firefox */
+        }
+        /* Remove arrows for Chrome, Safari, Edge, Opera */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            display: none;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Optimization Models</h1>
+
+        <!-- Question 1 Section -->
+        <div class="model-section">
+            <h2>Question 1: Rectangle Area Optimization</h2>
+            <p>Maximize the area of a rectangle given perimeter constraints.</p>
+            <form id="question1Form">
+                <div class="form-group">
+                    <label for="perimeterConstraint">Perimeter Constraint:</label>
+                    <input type="number" id="perimeterConstraint" value="80" required min="0" step="any">
+                </div>
+                <button type="submit">Solve Question 1</button>
+            </form>
+            <div id="error1" class="error"></div>
+            <div id="result1" class="result">
+                <h3>Results:</h3>
+                <p>Optimal Length: <span id="length"></span></p>
+                <p>Optimal Width: <span id="width"></span></p>
+                <p>Maximum Area: <span id="area"></span></p>
+            </div>
+        </div>
+
+        <!-- Question 2 Section -->
+        <div class="model-section">
+            <h2>Question 2: Resource Allocation</h2>
+            <p>Maximize profit with resource constraints.</p>
+            <form id="question2Form">
+                <div class="form-group">
+                    <label for="maxA">Maximum value for A:</label>
+                    <input type="number" id="maxA" value="4" required min="0" step="any">
+                </div>
+                <div class="form-group">
+                    <label for="maxB">Maximum value for B:</label>
+                    <input type="number" id="maxB" value="6" required min="0" step="any">
+                </div>
+                <div class="form-group">
+                    <label for="resourceConstraint">Resource Constraint:</label>
+                    <input type="number" id="resourceConstraint" value="18" required min="0" step="any">
+                </div>
+                <button type="submit">Solve Question 2</button>
+            </form>
+            <div id="error2" class="error"></div>
+            <div id="result2" class="result">
+                <h3>Results:</h3>
+                <p>Optimal A: <span id="optA"></span></p>
+                <p>Optimal B: <span id="optB"></span></p>
+                <p>Maximum Profit: <span id="profit"></span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('question1Form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const perimeter = document.getElementById('perimeterConstraint').value;
+            const errorDiv = document.getElementById('error1');
+            const resultDiv = document.getElementById('result1');
+            
+            try {
+                const response = await fetch('/solve_q1', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        perimeter: parseFloat(perimeter)
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    errorDiv.textContent = data.error;
+                    errorDiv.style.display = 'block';
+                    resultDiv.style.display = 'none';
+                } else {
+                    errorDiv.style.display = 'none';
+                    resultDiv.style.display = 'block';
+                    document.getElementById('length').textContent = data.length.toFixed(2);
+                    document.getElementById('width').textContent = data.width.toFixed(2);
+                    document.getElementById('area').textContent = data.area.toFixed(2);
+                }
+            } catch (error) {
+                errorDiv.textContent = 'An error occurred while solving the problem.';
+                errorDiv.style.display = 'block';
+                resultDiv.style.display = 'none';
+            }
+        });
+
+        document.getElementById('question2Form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const maxA = document.getElementById('maxA').value;
+            const maxB = document.getElementById('maxB').value;
+            const resourceConstraint = document.getElementById('resourceConstraint').value;
+            const errorDiv = document.getElementById('error2');
+            const resultDiv = document.getElementById('result2');
+            
+            try {
+                const response = await fetch('/solve_q2', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        max_a: parseFloat(maxA),
+                        max_b: parseFloat(maxB),
+                        resource_constraint: parseFloat(resourceConstraint)
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    errorDiv.textContent = data.error;
+                    errorDiv.style.display = 'block';
+                    resultDiv.style.display = 'none';
+                } else {
+                    errorDiv.style.display = 'none';
+                    resultDiv.style.display = 'block';
+                    document.getElementById('optA').textContent = data.a.toFixed(2);
+                    document.getElementById('optB').textContent = data.b.toFixed(2);
+                    document.getElementById('profit').textContent = data.profit.toFixed(2);
+                }
+            } catch (error) {
+                errorDiv.textContent = 'An error occurred while solving the problem.';
+                errorDiv.style.display = 'block';
+                resultDiv.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

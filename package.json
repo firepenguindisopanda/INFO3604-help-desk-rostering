@@ -22,6 +22,7 @@
   "homepage": "https://github.com/Snickdx/flask-template#readme",
   "dependencies": {
     "chai": "^4.3.6",
+    "flask-template": "file:",
     "mocha": "^10.0.0",
     "puppeteer-core": "^17.1.3"
   }
