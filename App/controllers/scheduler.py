@@ -130,7 +130,7 @@ def help_desk_scheduler(I, J, K):
             print('\nProbleam is infeasible.')
         elif status == cp_model.MODEL_INVALID:
             print('\nModel is invalid.')
-        elif staus == cp_model.UNKNOWN:
+        elif status == cp_model.UNKNOWN:
             print('\nSolver status is unknown.')
 
 
