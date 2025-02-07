@@ -35,7 +35,7 @@ def help_desk_scheduler(I, J, K):
     # 6: Veron Ramkissoon
     # 7: Tamika Ramkissoon
     # 8: Samuel Mahadeo
-    # 0: Neha Maharaj
+    # 9: Neha Maharaj
     
     a = {}
     a = [
@@ -83,10 +83,10 @@ def help_desk_scheduler(I, J, K):
         constraint = sum(x[i, j] for i in range(I))
         model.Add(constraint >= 2)
     
-    # # Constraint 4: xij <= aij for all i,j pairs
-    # for i in range(I):
-    #     for j in range(J):
-    #         model.Add((1, 0)[x[i, j] <= a[i, j]])
+    # Constraint 4: xij <= aij for all i,j pairs
+    for i in range(I):
+        for j in range(J):
+            model.Add(x[i, j] <= a[i][j])
 
     # --- Solve ---
     solver = cp_model.CpSolver()
@@ -121,17 +121,16 @@ def help_desk_scheduler(I, J, K):
         print('\nConstraint 4')
         for i in range(I):
             for j in range(J):
-                pass
-                # constraint_value = solver.Value(x[i, j])
-                # print(f'\nStaff {i}, Shift {j}: x_ij = {constraint_value}, a_ij = {a[i, j]}, Constraint satisfied: {constraint_value <= a[i, j]}')
+                constraint_value = solver.Value(x[i, j])
+                print(f'Staff {i}, Shift {j}: x_ij = {constraint_value}, a_ij = {a[i][j]}, Constraint satisfied: {constraint_value <= a[i][j]}')
     else:
-        print('\nNo solution found>')
+        print('\nNo solution found.')
         if status == cp_model.INFEASIBLE:
-            print('\nProbleam is infeasible.')
+            print('Probleam is infeasible.\n')
         elif status == cp_model.MODEL_INVALID:
-            print('\nModel is invalid.')
+            print('Model is invalid.\n')
         elif status == cp_model.UNKNOWN:
-            print('\nSolver status is unknown.')
+            print('Solver status is unknown.\n')
 
 
 def lab_assistant_scheduler():
