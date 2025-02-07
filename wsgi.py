@@ -5,8 +5,8 @@ from flask.cli import with_appcontext, AppGroup
 from App.database import db, get_migrate
 from App.models import User
 from App.main import create_app
-from App.controllers import ( create_user, get_all_users_json, get_all_users, initialize )
-
+from App.controllers import ( create_user, get_all_users_json, get_all_users, initialize, 
+    help_desk_scheduler)
 
 # This commands file allow you to create convenient CLI commands for testing controllers
 
@@ -19,12 +19,12 @@ def init():
     initialize()
     print('database intialized')
 
+
+
 '''
 User Commands
 '''
-
 # Commands can be organized using groups
-
 # create a group, it would be the first argument of the comand
 # eg : flask user <command>
 user_cli = AppGroup('user', help='User object commands') 
@@ -38,7 +38,6 @@ def create_user_command(username, password):
     print(f'{username} created!')
 
 # this command will be : flask user create bob bobpass
-
 @user_cli.command("list", help="Lists users in the database")
 @click.argument("format", default="string")
 def list_user_command(format):
@@ -48,6 +47,23 @@ def list_user_command(format):
         print(get_all_users_json())
 
 app.cli.add_command(user_cli) # add the group to the cli
+
+
+
+'''
+Scheduling Commands
+'''
+
+schedule = AppGroup('schedule', help='Scheduling algorithm commands')
+
+# This command will be flask schedule hdesk
+@schedule.command("hdesk", help="Creates an optimal solution for the help desk scheduler")
+def schedule_help_desk_command():
+    help_desk_scheduler(10, 45, 1)
+
+app.cli.add_command(schedule) # add the group to the cli
+
+
 
 '''
 Test Commands
@@ -64,6 +80,5 @@ def user_tests_command(type):
         sys.exit(pytest.main(["-k", "UserIntegrationTests"]))
     else:
         sys.exit(pytest.main(["-k", "App"]))
-    
 
 app.cli.add_command(test)
