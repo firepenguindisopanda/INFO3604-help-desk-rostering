@@ -12,12 +12,12 @@ from App.controllers import (
     add_auth_context
 )
 from App.views import views, setup_admin
-from App.controllers.lab import lab_bp  # Add this new import
+from App.views.lab_views import lab_bp
 
 def add_views(app):
     for view in views:
         app.register_blueprint(view)
-    app.register_blueprint(lab_bp)  # Add the lab blueprint
+    app.register_blueprint(lab_bp)  # Register lab blueprint separately
 
 def create_app(overrides={}):
     app = Flask(__name__, static_url_path='/static')
