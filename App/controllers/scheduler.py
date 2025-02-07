@@ -76,12 +76,12 @@ def help_desk_scheduler(I, J, K):
     # Constraint 2: Σxij >= 4 for all i
     for i in range(I):
         constraint = sum(x[i, j] for j in range(J))
-        model.Add(constraint >= 4)
+        model.Add(constraint >= 2)
     
     # Constraint 3: Σxij >= 2 for all j
     for i in range(I):
         constraint = sum(x[i, j] for i in range(I))
-        model.Add(constraint >= 2)
+        model.Add(constraint >= 0)
     
     # Constraint 4: xij <= aij for all i,j pairs
     for i in range(I):
@@ -104,9 +104,10 @@ def help_desk_scheduler(I, J, K):
         print('\nConstraint 1')
         for j in range(J):
             for k in range(K):
-                pass
-                # constraint_value = sum(solver.Value(x[i, j] * t[i, k] for i in range(I)))
-                # print(f'\nShift {j}, Course {k}: Assigned = {constraint_value}, Desired = {d[j, k]}, Constraint satisfied: {constraint_value <= d[j, k]}')
+                constraint_value = 0
+                for i in range(I):
+                    constraint_value += solver.Value(x[i, j]) * t[i, k]
+                print(f'Shift {j}, Course {k}: Assigned = {constraint_value}, Desired = {d[j, k]}, Constraint satisfied: {constraint_value <= d[j, k]}')
         
         print('\nConstraint 2')
         for i in range(I):
