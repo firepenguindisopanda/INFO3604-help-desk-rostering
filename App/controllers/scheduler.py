@@ -6,9 +6,6 @@ def help_desk_scheduler(I, J, K):
     
     # --- Data ---
     # Hard coded ranges for staff, shift and course indexes
-    # I = 10
-    # J = 45
-    # K = 1
 
     # Assuming staff can help with all courses
     t = {}
@@ -37,7 +34,7 @@ def help_desk_scheduler(I, J, K):
     # 5: Selena Madrey
     # 6: Veron Ramkissoon
     # 7: Tamika Ramkissoon
-    # 8: Samuel Mahadeo TONOTE ADDED A 1 AT THE START MIGHT FUCK SHIT UP
+    # 8: Samuel Mahadeo
     # 0: Neha Maharaj
     
     a = {}
@@ -97,31 +94,31 @@ def help_desk_scheduler(I, J, K):
 
     if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
         print('\nSolution:')
-        print(f'\nOptimal objective value = {solver.ObjectiveValue()}')
-        print('\n\nAssignments:')
+        print(f'Optimal objective value = {solver.ObjectiveValue()}')
+        print('\nAssignments:')
         for i in range(I):
             for j in range(J):
                 if solver.Value(x[i, j]) == 1:
-                    print(f'\nStaff {i} assigned to Shift {j}')
+                    print(f'Staff {i} assigned to Shift {j}')
         
-        print('\n\nConstraint 1')
+        print('\nConstraint 1')
         for j in range(J):
             for k in range(K):
                 pass
                 # constraint_value = sum(solver.Value(x[i, j] * t[i, k] for i in range(I)))
                 # print(f'\nShift {j}, Course {k}: Assigned = {constraint_value}, Desired = {d[j, k]}, Constraint satisfied: {constraint_value <= d[j, k]}')
         
-        print('\n\nConstraint 2')
+        print('\nConstraint 2')
         for i in range(I):
             constraint_value = sum(solver.Value(x[i, j]) for j in range(J))
             print(f'Staff {i} Assigned shifts = {constraint_value}, Constraint satisfied: {constraint_value >= 4}')
         
-        print('\n\nConstraint 3')
+        print('\nConstraint 3')
         for j in range(J):
             constraint_value = sum(solver.Value(x[i, j]) for i in range(I))
             print(f'Shift {j}: Assigned staff = {constraint_value}, Constraint satisfied: {constraint_value >= 2}')
         
-        print('\n\nConstraint 4')
+        print('\nConstraint 4')
         for i in range(I):
             for j in range(J):
                 pass
