@@ -50,6 +50,10 @@ def help_desk_scheduler(I, J, K):
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0], 
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ]
+    
+    # Hard coded minimum shifts
+    r = {}
+    r = [4, 4, 4, 4, 4, 4, 4, 4, 3, 4]
 
     # --- Variables ---
     x = {}
@@ -76,7 +80,7 @@ def help_desk_scheduler(I, J, K):
     # Constraint 2: Σxij >= 4 for all i
     for i in range(I):
         constraint = sum(x[i, j] for j in range(J))
-        model.Add(constraint >= 2)
+        model.Add(constraint >= r[i])
     
     # Constraint 3: Σxij >= 2 for all j
     for i in range(I):
