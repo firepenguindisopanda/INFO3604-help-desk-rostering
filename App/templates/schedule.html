@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Schedule View - Help Desk System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            background-color: white;
+            border-bottom: 1px solid #eee;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: #333;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+        }
+
+        .nav-link.active {
+            background-color: #e6f0ff;
+            color: #0066cc;
+        }
+
+        .bell-icon {
+            font-size: 1.2rem;
+            margin: 0 1rem;
+        }
+
+        .sign-out-btn {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .schedule-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            margin-top: 1rem;
+        }
+
+        .week-selector {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #0066cc;
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+
+        .create-edit-btn {
+            background-color: #e6f0ff;
+            color: #0066cc;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .schedule-grid {
+            margin: 1rem 2rem;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .schedule-table th,
+        .schedule-table td {
+            border: 1px solid #eee;
+            padding: 1rem;
+        }
+
+        .schedule-table th {
+            background-color: #f8f9fa;
+            font-weight: normal;
+            text-align: left;
+        }
+
+        .time-cell {
+            color: #666;
+            width: 80px;
+        }
+
+        .schedule-cell {
+            vertical-align: top;
+        }
+
+        .staff-name {
+            background-color: #fff3dc;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            margin: 0.25rem 0;
+            display: inline-block;
+            font-size: 0.9rem;
+        }
+
+        .staff-name.alternate {
+            background-color: #e6f0ff;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container">
+        <div class="nav-links">
+            <a href="#" class="nav-link active">Schedule</a>
+            <a href="#" class="nav-link">Time Tracking</a>
+            <a href="#" class="nav-link">Requests</a>
+            <a href="#" class="nav-link">Profile</a>
+        </div>
+        <div class="nav-links">
+            <span class="bell-icon">🔔</span>
+            <button class="sign-out-btn">Sign Out</button>
+        </div>
+    </nav>
+
+    <div class="schedule-header">
+        <div class="week-selector">
+            Week 5: September 30th - October 4th ▼
+        </div>
+        <button class="create-edit-btn">Create/Edit Schedule</button>
+    </div>
+
+    <div class="schedule-grid">
+        <table class="schedule-table">
+            <thead>
+                <tr>
+                    <th class="time-cell">Time</th>
+                    <th>30<br>Sept, Monday</th>
+                    <th>01<br>Oct, Tuesday</th>
+                    <th>02<br>Oct, Wednesday</th>
+                    <th>03<br>Oct, Thursday</th>
+                    <th>04<br>Oct, Friday</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Example of one time slot -->
+                <tr>
+                    <td class="time-cell">9:00 am</td>
+                    <td class="schedule-cell">
+                        <div class="staff-name">Daniel Martinez</div>
+                        <div class="staff-name alternate">Noah Brown</div>
+                        <div class="staff-name">Liam Johnson</div>
+                    </td>
+                    <td class="schedule-cell">
+                        <!-- Additional cells -->
+                    </td>
+                    <td class="schedule-cell"></td>
+                    <td class="schedule-cell"></td>
+                    <td class="schedule-cell"></td>
+                </tr>
+                <!-- Additional time slots would be added here -->
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

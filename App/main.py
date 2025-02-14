@@ -36,10 +36,32 @@ def create_app(overrides={}):
     def custom_unauthorized_response(error):
         return render_template('401.html', error=error), 401
         
-    # Add a route for the lab interface
+    
     @app.route('/lab')
     def lab_interface():
         return render_template('lab.html')
+    
+    @app.route('/login', methods=['GET', 'POST'])
+    def login():
+        return render_template('login.html')
+    
+    @app.route('/assistant-login')
+    def assistant_login():
+        return render_template('login.html', login_type='assistant')
+
+    @app.route('/admin-login')
+    def admin_login():
+        return render_template('login.html', login_type='admin')   
+
+    @app.route('/schedule')
+    def schedule():
+        return render_template('schedule.html') 
+    
+    @app.route('/timeTracking')
+    def time_tracking():
+        return render_template('timeTracking.html')
+    
+    
     
     app.app_context().push()
     return app
