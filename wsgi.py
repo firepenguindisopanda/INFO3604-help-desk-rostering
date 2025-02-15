@@ -57,7 +57,7 @@ Scheduling Commands
 schedule = AppGroup('schedule', help='Scheduling algorithm commands')
 
 # This command will be flask schedule hdesk
-@schedule.command("hdesk", help="Creates an optimal solution for the help desk scheduler")
+@schedule.command("help", help="Creates an optimal solution for the help desk scheduler")
 def schedule_help_desk_command():
     help_desk_scheduler(10, 45, 1)
 
