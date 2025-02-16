@@ -1,0 +1,63 @@
+/* Schedule view specific styles */
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  margin-top: 1rem;
+}
+
+.week-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #0066cc;
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.schedule-grid {
+  margin: 1rem 2rem;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.schedule-table th,
+.schedule-table td {
+  border: 1px solid #eee;
+  padding: 1rem;
+}
+
+.schedule-table th {
+  background-color: #f8f9fa;
+  font-weight: normal;
+  text-align: left;
+}
+
+.time-cell {
+  color: #666;
+  width: 80px;
+}
+
+.schedule-cell {
+  vertical-align: top;
+}
+
+.staff-name {
+  background-color: #fff3dc;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  margin: 0.25rem 0;
+  display: inline-block;
+  font-size: 0.9rem;
+}
+
+.staff-name.alternate {
+  background-color: #e6f0ff;
+}

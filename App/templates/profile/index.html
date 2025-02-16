@@ -1,0 +1,56 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Profile - Help Desk System{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='profile.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="welcome-text">Welcome, Sharlene Mohan</div>
+
+<div class="profile-card">
+    <h2>Your Profile</h2>
+    <div class="profile-info">
+        <img src="/api/placeholder/80/80" alt="Sharlene Mohan" class="avatar avatar-lg">
+        <div class="profile-details">
+            <h3 class="profile-name">Sharlene Mohan</h3>
+            <p class="profile-id">916938547</p>
+            <p class="profile-email">sharlenemohan@sta.uwi.edu</p>
+        </div>
+        <button class="btn btn-primary">Edit</button>
+    </div>
+</div>
+
+<div class="staff-card">
+    <h2>Staff Profiles</h2>
+    <div class="staff-grid">
+        <div class="staff-item">
+            <img src="/api/placeholder/48/48" alt="Lisa Jerado" class="avatar avatar-sm">
+            <div class="staff-info">
+                <h4 class="staff-name">Lisa Jerado</h4>
+                <p class="staff-id">816019228</p>
+            </div>
+            <button class="btn btn-primary">Manage</button>
+        </div>
+
+        <div class="staff-item">
+            <img src="/api/placeholder/48/48" alt="Liam Johnson" class="avatar avatar-sm">
+            <div class="staff-info">
+                <h4 class="staff-name">Liam Johnson</h4>
+                <p class="staff-id">816017282</p>
+            </div>
+            <button class="btn btn-primary">Manage</button>
+        </div>
+
+        <div class="staff-item">
+            <img src="/api/placeholder/48/48" alt="Taylor Swift" class="avatar avatar-sm">
+            <div class="staff-info">
+                <h4 class="staff-name">Taylor Swift</h4>
+                <p class="staff-id">816019284</p>
+            </div>
+            <button class="btn btn-primary">Manage</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

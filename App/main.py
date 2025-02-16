@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template
+from flask import Flask, render_template, redirect, url_for
 from flask_uploads import DOCUMENTS, IMAGES, TEXT, UploadSet, configure_uploads
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -12,12 +12,10 @@ from App.controllers import (
     add_auth_context
 )
 from App.views import views, setup_admin
-from App.views.lab_views import lab_bp
 
 def add_views(app):
     for view in views:
         app.register_blueprint(view)
-    app.register_blueprint(lab_bp)  # Register lab blueprint separately
 
 def create_app(overrides={}):
     app = Flask(__name__, static_url_path='/static')
@@ -34,34 +32,15 @@ def create_app(overrides={}):
     @jwt.invalid_token_loader
     @jwt.unauthorized_loader
     def custom_unauthorized_response(error):
-        return render_template('401.html', error=error), 401
-        
+        return render_template('errors/401.html', error=error), 401
+    
+    @jwt.expired_token_loader
+    def expired_token_callback(jwt_header, jwt_data):
+        return redirect(url_for('auth_views.login_page'))
     
     @app.route('/lab')
     def lab_interface():
         return render_template('lab.html')
-    
-    @app.route('/login', methods=['GET', 'POST'])
-    def login():
-        return render_template('login.html')
-    
-    @app.route('/assistant-login')
-    def assistant_login():
-        return render_template('login.html', login_type='assistant')
-
-    @app.route('/admin-login')
-    def admin_login():
-        return render_template('login.html', login_type='admin')   
-
-    @app.route('/schedule')
-    def schedule():
-        return render_template('schedule.html') 
-    
-    @app.route('/timeTracking')
-    def time_tracking():
-        return render_template('timeTracking.html')
-    
-    
     
     app.app_context().push()
     return app
