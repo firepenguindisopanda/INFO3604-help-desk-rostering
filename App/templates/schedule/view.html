@@ -1,0 +1,48 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Schedule - Help Desk System{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='schedule.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="schedule-header">
+    <div class="week-selector">
+        Week 5: September 30th - October 4th ▼
+    </div>
+    <button class="btn btn-secondary">Create/Edit Schedule</button>
+</div>
+
+<div class="schedule-grid">
+    <table class="schedule-table">
+        <thead>
+            <tr>
+                <th class="time-cell">Time</th>
+                <th>30<br>Sept, Monday</th>
+                <th>01<br>Oct, Tuesday</th>
+                <th>02<br>Oct, Wednesday</th>
+                <th>03<br>Oct, Thursday</th>
+                <th>04<br>Oct, Friday</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="time-cell">9:00 am</td>
+                <td class="schedule-cell">
+                    <div class="staff-name">Daniel Martinez</div>
+                    <div class="staff-name alternate">Noah Brown</div>
+                    <div class="staff-name">Liam Johnson</div>
+                </td>
+                <td class="schedule-cell">
+                    <!-- Additional cells -->
+                </td>
+                <td class="schedule-cell"></td>
+                <td class="schedule-cell"></td>
+                <td class="schedule-cell"></td>
+            </tr>
+            <!-- Additional time slots -->
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Time Tracking - Help Desk System{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='tracking.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h2>Attendance</h2>
+    <div class="filters">
+        <span>Month</span>
+        <div class="dropdown">Nov ▼</div>
+        <span>Week</span>
+        <div class="dropdown">5 ▼</div>
+    </div>
+</div>
+
+<div class="attendance-cards">
+    <div class="staff-card selected">
+        <div class="staff-header">
+            <img src="/api/placeholder/50/50" alt="Lisa Jerado" class="avatar avatar-md">
+            <div>
+                <h3>Lisa Jerado</h3>
+                <small>816023111</small>
+            </div>
+        </div>
+        <div class="attendance-stats">
+            <div class="stat">
+                <div class="stat-value">84%</div>
+                <div class="stat-label">Semester</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">85%</div>
+                <div class="stat-label">Week</div>
+            </div>
+        </div>
+        <button class="btn btn-secondary">Profile Details</button>
+    </div>
+</div>
+
+<div class="attendance-table">
+    <div class="table-header">
+        <h3>Weekly Attendance List</h3>
+        <button class="btn btn-primary">Generate Report</button>
+    </div>
+    <table class="attendance-list">
+        <thead>
+            <tr>
+                <th>Staff ID</th>
+                <th>Staff Name</th>
+                <th>Date</th>
+                <th>Login Time</th>
+                <th>Logout Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>816023111</td>
+                <td>
+                    <div class="staff-row">
+                        <img src="/api/placeholder/30/30" alt="Lisa Jerado" class="avatar avatar-sm">
+                        Lisa Jerado
+                    </div>
+                </td>
+                <td>11-23-24<br>Thursday</td>
+                <td>09:30AM</td>
+                <td>ON DUTY</td>
+            </tr>
+        </tbody>
+    </table>
+    <div class="pagination">
+        <button class="page-btn">←</button>
+        <button class="page-btn active">1</button>
+        <button class="page-btn">2</button>
+        <button class="page-btn">3</button>
+        <button class="page-btn">→</button>
+    </div>
+</div>
+{% endblock %}

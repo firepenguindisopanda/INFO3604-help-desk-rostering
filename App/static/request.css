@@ -1,0 +1,52 @@
+/* Requests page specific styles */
+.user-card {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  background-color: white;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  cursor: pointer;
+  transition: box-shadow 0.3s;
+}
+
+.user-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.user-info {
+  flex-grow: 1;
+}
+
+.user-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.user-role {
+  display: inline-block;
+  padding: 0.2rem 0.8rem;
+  background-color: #e8f0fe;
+  color: #1a73e8;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
+
+.user-id {
+  color: #666;
+  font-size: 0.8rem;
+  margin-top: 0.2rem;
+}
+
+.expand-icon {
+  color: #666;
+  margin-left: 1rem;
+  transition: transform 0.3s ease;
+}
+
+.user-card.expanded .expand-icon {
+  transform: rotate(180deg);
+}

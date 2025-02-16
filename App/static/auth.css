@@ -1,0 +1,52 @@
+/* Login page specific styles */
+.login-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.left-side {
+  flex: 1;
+  background-color: #0066cc;
+  padding: 2rem;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.left-side h1 {
+  font-size: 3.5rem;
+  margin-bottom: 2rem;
+  line-height: 1.2;
+}
+
+.right-side {
+  flex: 1;
+  padding: 2rem;
+  position: relative;
+}
+
+.auth-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+}
+
+.login-form-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-form {
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-form h2 {
+  font-size: 2.5rem;
+  margin-bottom: 2rem;
+  color: #0066cc;
+}

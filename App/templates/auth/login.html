@@ -1,0 +1,49 @@
+{% extends "shared/base.html" %}
+{% set hide_nav = true %}
+
+{% block title %}Login - Help Desk System{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="left-side">
+        <h1>Help Desk Rostering and Claiming System</h1>
+        <img src="{{ url_for('static', filename='illustration.svg') }}" alt="Login illustration" class="illustration">
+    </div>
+    <div class="right-side">
+        <button id="toggleLogin" class="btn btn-primary auth-button">Admin Login</button>
+        <div class="login-form-container">
+            <form class="login-form" method="POST" action="{{ url_for('auth_views.login_action') }}">
+                <input type="hidden" id="loginType" name="login_type" value="assistant">
+                <h2>Login</h2>
+                <div class="form-group">
+                    <label for="id">ID</label>
+                    <input type="text" id="id" name="username" placeholder="816xxxxxx" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Sign In</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const toggleButton = document.getElementById('toggleLogin');
+    const loginTypeInput = document.getElementById('loginType');
+    let isAssistant = true;
+
+    toggleButton.addEventListener('click', () => {
+        isAssistant = !isAssistant;
+        toggleButton.textContent = isAssistant ? 'Admin Login' : 'Assistant Login';
+        loginTypeInput.value = isAssistant ? 'assistant' : 'admin';
+    });
+</script>
+{% endblock %}

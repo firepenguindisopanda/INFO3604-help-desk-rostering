@@ -1,0 +1,20 @@
+{% extends "shared/base.html" %}
+{% set hide_nav = true %}
+
+{% block title %}Not Authorized{% endblock %}
+
+{% block content %}
+<div class="content">
+    <div class="card" style="margin-top: 10%;">
+        <div class="card-content">
+            <h1>401 - Not Authorized</h1>
+            <p>You do not have permission to access this resource. Please check your credentials and try again.</p>
+            <p>{{error}}</p>
+        </div>
+        <div style="margin-top: 20px;">
+            <a href="{{ url_for('auth_views.login_page') }}" class="btn btn-primary">Go to Login</a>
+            <button onclick="history.back()" class="btn btn-secondary">Go Back</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

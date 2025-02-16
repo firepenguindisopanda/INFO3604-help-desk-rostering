@@ -1,0 +1,67 @@
+/* Profile page specific styles */
+.welcome-text {
+  font-size: 1.5rem;
+  margin-bottom: 2rem;
+  color: #333;
+}
+
+.profile-card, .staff-card {
+  background: linear-gradient(135deg, #e8f0fe 0%, #fff5f5 100%);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.profile-info {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+}
+
+.profile-details {
+  flex-grow: 1;
+}
+
+.profile-name {
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.profile-id, .profile-email {
+  color: #666;
+  margin: 0.2rem 0;
+}
+
+.staff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.staff-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.staff-info {
+  flex-grow: 1;
+}
+
+.staff-name {
+  font-weight: 500;
+  margin: 0;
+}
+
+.staff-id {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0;
+}
