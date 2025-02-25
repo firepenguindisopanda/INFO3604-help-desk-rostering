@@ -6,4 +6,4 @@ requests_views = Blueprint('requests_views', __name__, template_folder='../templ
 @requests_views.route('/requests')
 @jwt_required()
 def requests():
-    return render_template('requests/index.html')
+    return render_template('admin/requests/index.html')

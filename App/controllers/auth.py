@@ -4,17 +4,18 @@ from App.models import User
 def login(username, password):
     user = User.query.filter_by(username=username).first()
     if user and user.check_password(password):
-        # Create token with username as the identity
-        access_token = create_access_token(identity=str(username))
-        return access_token
-    return None
+        access_token = create_access_token(
+            identity=str(username),
+            additional_claims={'role': user.role}  
+        )
+        return access_token, user.role
+    return None, None
 
 def setup_jwt(app):
     jwt = JWTManager(app)
 
     @jwt.user_identity_loader
     def user_identity_lookup(identity):
-        # Convert identity to string if it isn't already
         return str(identity)
 
     @jwt.user_lookup_loader

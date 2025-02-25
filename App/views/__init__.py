@@ -7,6 +7,7 @@ from .tracking import tracking_views
 from .requests import requests_views
 from .profile import profile_views
 from .lab import lab_views
+from .volunteer import volunteer_views 
 
 # All blueprints to be registered
 views = [
@@ -17,6 +18,5 @@ views = [
     tracking_views,    # Time tracking
     requests_views,    # Request management
     profile_views,     # User profiles
+    volunteer_views,   # New volunteer views
 ]
-
-# Note: lab_bp is registered separately in main.py

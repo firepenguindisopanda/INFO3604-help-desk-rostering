@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Volunteer Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteer/dashboard.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">Assistant - {% block header_title %}Dashboard{% endblock %}</div>
+        <div class="nav-container">
+            <ul class="nav-items">
+                <li><a href="{{ url_for('volunteer_views.dashboard') }}" class="nav-item {% if request.endpoint == 'volunteer_views.dashboard' %}active{% endif %}">Dashboard</a></li>
+                <li><a href="#" class="nav-item {% if request.endpoint == 'volunteer_views.time_tracking' %}active{% endif %}">Time Tracking</a></li>
+                <li><a href="#" class="nav-item {% if request.endpoint == 'volunteer_views.requests' %}active{% endif %}">Requests</a></li>
+                <li><a href="#" class="nav-item {% if request.endpoint == 'volunteer_views.profile' %}active{% endif %}">Profile</a></li>
+            </ul>
+            <div class="notifications">🔔</div>
+            <a href="{{ url_for('auth_views.logout_action') }}" class="sign-out-btn">Sign Out</a>
+        </div>
+    </header>
+    
+    <div class="wrapper">
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

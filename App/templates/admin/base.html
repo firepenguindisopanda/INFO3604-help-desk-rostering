@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Help Desk System{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/base.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="nav-container">
+        <div class="nav-links">
+            <a href="{{ url_for('schedule_views.schedule') }}" class="nav-link {% if request.endpoint == 'schedule_views.schedule' %}active{% endif %}">Schedule</a>
+            <a href="{{ url_for('tracking_views.time_tracking') }}" class="nav-link {% if request.endpoint.startswith('tracking') %}active{% endif %}">Time Tracking</a>
+            <a href="{{ url_for('requests_views.requests') }}" class="nav-link {% if request.endpoint.startswith('requests') %}active{% endif %}">Requests</a>
+            <a href="{{ url_for('profile_views.profile') }}" class="nav-link {% if request.endpoint.startswith('profile') %}active{% endif %}">Profile</a>
+            <span class="notification-badge">🔔</span>
+        </div>
+        <a href="{{ url_for('auth_views.logout_action') }}" class="btn btn-primary">Sign Out</a>
+    </nav>
+
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for message in messages %}
+                    <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

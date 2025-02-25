@@ -7,7 +7,7 @@ schedule_views = Blueprint('schedule_views', __name__, template_folder='../templ
 @schedule_views.route('/schedule')
 @jwt_required()
 def schedule():
-    return render_template('schedule/view.html')
+    return render_template('admin/schedule/view.html')
 
 @schedule_views.route('/api/generate_schedule', methods=['GET'])
 @jwt_required()

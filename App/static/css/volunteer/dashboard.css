@@ -1,0 +1,176 @@
+/* Dashboard styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  background-color: #f7f7f9;
+}
+
+.wrapper {
+  max-width: 1024px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header styles */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background-color: white;
+  border-bottom: 1px solid #eee;
+}
+
+.header-left {
+  font-size: 16px;
+  font-weight: 500;
+  color: #666;
+}
+
+.nav-container {
+  display: flex;
+  align-items: center;
+}
+
+.nav-items {
+  display: flex;
+  list-style: none;
+  gap: 24px;
+}
+
+.nav-item {
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #333;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.nav-item.active {
+  background-color: #f0f7ff;
+  color: #0066cc;
+}
+
+.notifications {
+  margin: 0 24px;
+  cursor: pointer;
+}
+
+.sign-out-btn {
+  background-color: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+/* Main content styles */
+.content {
+  padding: 24px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #333;
+}
+
+/* Next shift card */
+.next-shift-card {
+  background-color: #f0f7ff;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.shift-info p {
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.arrow-icon {
+  font-size: 24px;
+}
+
+/* Schedule section */
+.schedule-row {
+  display: flex;
+  background-color: #faf0ff;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.date-column {
+  width: 120px;
+  padding: 12px;
+  background-color: #f7e6ff;
+  font-weight: 500;
+}
+
+.time-column {
+  flex: 1;
+  padding: 12px;
+}
+
+/* Full schedule grid */
+.full-schedule {
+  margin-top: 32px;
+}
+
+.week-header {
+  display: grid;
+  grid-template-columns: 50px repeat(5, 1fr);
+  margin-bottom: 8px;
+}
+
+.day-header {
+  text-align: center;
+  font-weight: 600;
+  padding: 8px;
+  background-color: #f0f0f0;
+  border-radius: 4px 4px 0 0;
+}
+
+.schedule-grid {
+  display: grid;
+  grid-template-columns: 50px repeat(5, 1fr);
+}
+
+.time-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 12px;
+  font-size: 12px;
+  color: #666;
+  height: 120px;
+}
+
+.schedule-cell {
+  padding: 8px;
+  background-color: #e6ffe6;
+  border: 1px solid #ddd;
+  height: 120px;
+}
+
+.staff-name {
+  background-color: white;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  border-radius: 3px;
+  font-size: 13px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}

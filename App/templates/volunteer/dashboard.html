@@ -1,0 +1,53 @@
+{% extends "volunteer/base.html" %}
+
+{% block title %}Assistant - Dashboard{% endblock %}
+{% block header_title %}Dashboard{% endblock %}
+
+{% block content %}
+<h2 class="section-title">Next Shift</h2>
+
+<div class="next-shift-card">
+    <div class="shift-info">
+        <p>Date: {{ next_shift.date }}</p>
+        <p>Time: {{ next_shift.time }}</p>
+        {% if next_shift.starts_now %}
+        <p>Starts now</p>
+        {% endif %}
+    </div>
+    <div class="arrow-icon">→</div>
+</div>
+
+<h2 class="section-title">My Schedule</h2>
+
+{% for shift in my_shifts %}
+<div class="schedule-row">
+    <div class="date-column">{{ shift.date }}</div>
+    <div class="time-column">{{ shift.time }}</div>
+</div>
+{% endfor %}
+
+<h2 class="section-title">Full Schedule</h2>
+
+<div class="full-schedule">
+    <div class="week-header">
+        <div></div>
+        {% for day in days_of_week %}
+        <div class="day-header">{{ day }}</div>
+        {% endfor %}
+    </div>
+    
+    {% for time in time_slots %}
+    <div class="schedule-grid">
+        <div class="time-label">{{ time }}</div>
+        
+        {% for day in days_of_week %}
+        <div class="schedule-cell">
+            {% for staff in staff_schedule[time][day] %}
+            <div class="staff-name">{{ staff }}</div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

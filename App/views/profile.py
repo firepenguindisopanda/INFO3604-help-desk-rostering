@@ -6,4 +6,4 @@ profile_views = Blueprint('profile_views', __name__, template_folder='../templat
 @profile_views.route('/profile')
 @jwt_required()
 def profile():
-    return render_template('profile/index.html')
+    return render_template('admin/profile/index.html')
