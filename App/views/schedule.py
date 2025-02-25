@@ -18,15 +18,12 @@ def generate_schedule():
         # J = 45 shifts
         # K = 1 course (simplified for now)
         I, J, K = 10, 45, 1
-        help_desk_scheduler(I, J, K)
+        # help_desk_scheduler(I, J, K)
         
         # For now return dummy data - will need to capture actual scheduler output
-        schedule = [[0 for _ in range(J)] for _ in range(I)]
+        # schedule = [[0 for _ in range(J)] for _ in range(I)]
         
-        return jsonify({
-            'status': 'success',
-            'schedule': schedule
-        })
+        return jsonify(help_desk_scheduler(I, J, K))
     except Exception as e:
         return jsonify({
             'status': 'error',

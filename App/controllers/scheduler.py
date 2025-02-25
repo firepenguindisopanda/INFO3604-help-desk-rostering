@@ -26,17 +26,6 @@ def help_desk_scheduler(I, J, K):
             w[j, k] = d[j, k]
 
     # Hard coded availability data
-    # 0: Daniel Rasheed
-    # 1: Michelle Liu
-    # 2: Stayaan Maharaj
-    # 3: Daniel Yatali
-    # 4: Satish Maharaj
-    # 5: Selena Madrey
-    # 6: Veron Ramkissoon
-    # 7: Tamika Ramkissoon
-    # 8: Samuel Mahadeo
-    # 9: Neha Maharaj
-    
     a = {}
     a = [
         [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 
@@ -107,45 +96,44 @@ def help_desk_scheduler(I, J, K):
     status = solver.Solve(model)
 
     if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
-        print('\nSolution:')
-        print(f'Optimal objective value = {solver.ObjectiveValue()}')
-        print('\nAssignments:')
+        assignments = {}
+        
         for i in range(I):
             for j in range(J):
                 if solver.Value(x[i, j]) == 1:
-                    print(f'Staff {i} assigned to Shift {j}')
+                    if j not in assignments:
+                        assignments[j] = []
+                    assignments[j].append(i)
         
-        print('\nConstraint 1')
-        for j in range(J):
-            for k in range(K):
-                constraint_value = 0
-                for i in range(I):
-                    constraint_value += solver.Value(x[i, j]) * t[i, k]
-                print(f'Shift {j}, Course {k}: Assigned = {constraint_value}, Desired = {d[j, k]}, Constraint satisfied: {constraint_value <= d[j, k]}')
-        
-        print('\nConstraint 2')
-        for i in range(I):
-            constraint_value = sum(solver.Value(x[i, j]) for j in range(J))
-            print(f'Staff {i} Assigned shifts = {constraint_value}, Minimum shifts = {r[i]}, Constraint satisfied: {constraint_value >= r[i]}')
-        
-        print('\nConstraint 3')
-        for j in range(J):
-            constraint_value = sum(solver.Value(x[i, j]) for i in range(I))
-            print(f'Shift {j}: Assigned staff = {constraint_value}, Constraint satisfied: {constraint_value >= 2}')
-        
-        print('\nConstraint 4')
-        for i in range(I):
-            for j in range(J):
-                constraint_value = solver.Value(x[i, j])
-                print(f'Staff {i}, Shift {j}: x_ij = {constraint_value}, a_ij = {a[i][j]}, Constraint satisfied: {constraint_value <= a[i][j]}')
+        return {
+            'status': 'success',
+            'staff_index': {
+                0: 'Daniel Rasheed',
+                1: 'Michelle Liu',
+                2: 'Stayaan Maharaj',
+                3: 'Daniel Yatali',
+                4: 'Satish Maharaj',
+                5: 'Selena Madrey',
+                6: 'Veron Ramkissoon',
+                7: 'Tamika Ramkissoon',
+                8: 'Samuel Mahadeo',
+                9: 'Neha Maharaj'
+            },
+            'assignments': assignments
+        }
     else:
-        print('\nNo solution found.')
+        message = 'No solution found.'
         if status == cp_model.INFEASIBLE:
-            print('Probleam is infeasible.\n')
+            message = 'Probleam is infeasible.'
         elif status == cp_model.MODEL_INVALID:
-            print('Model is invalid.\n')
+            message = 'Model is invalid.'
         elif status == cp_model.UNKNOWN:
-            print('Solver status is unknown.\n')
+            message = 'Solver status is unknown.'
+        
+        return {
+            'status': 'error',
+            'message': message
+        }
 
 
 def lab_assistant_scheduler():

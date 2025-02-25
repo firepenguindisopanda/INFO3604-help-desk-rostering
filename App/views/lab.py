@@ -3,9 +3,9 @@ from App.controllers.lab import L1Question1, L1Question2
 from ortools.linear_solver import pywraplp
 
 # Give the blueprint a unique name and URL prefix
-lab_bp = Blueprint('lab_blueprint', __name__)
+lab_views = Blueprint('lab_views', __name__)
 
-@lab_bp.route('/solve_q1', methods=['POST'])
+@lab_views.route('/solve_q1', methods=['POST'])
 def solve_q1():
     try:
         data = request.get_json()
@@ -25,7 +25,7 @@ def solve_q1():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-@lab_bp.route('/solve_q2', methods=['POST'])
+@lab_views.route('/solve_q2', methods=['POST'])
 def solve_q2():
     try:
         data = request.get_json()
