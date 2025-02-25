@@ -6,7 +6,7 @@ from .schedule import schedule_views
 from .tracking import tracking_views
 from .requests import requests_views
 from .profile import profile_views
-from .lab_views import lab_bp
+from .lab import lab_views
 
 # All blueprints to be registered
 views = [
