@@ -287,6 +287,35 @@
   color: #0066cc;
 }
 
+
+/* Improve drag and drop styling */
+.staff-name.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.schedule-cell.droppable {
+  background-color: #e3f2fd;
+  border: 2px dashed #2196f3;
+}
+
+.schedule-cell.drag-over {
+  background-color: #bbdefb;
+}
+
+.staff-item {
+  cursor: grab;
+}
+
+.staff-name {
+  cursor: grab;
+}
+
+.staff-name:active,
+.staff-item:active {
+  cursor: grabbing;
+}
+
 /* Responsive adjustments */
 @media (max-width: 992px) {
   .staff-panel {
