@@ -4,30 +4,53 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Volunteer Dashboard{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteer/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <header class="header">
-        <div class="header-left">Assistant - {% block header_title %}Dashboard{% endblock %}</div>
-        <div class="nav-container">
-            <ul class="nav-items">
-                <li><a href="{{ url_for('volunteer_views.dashboard') }}" class="nav-item {% if request.endpoint == 'volunteer_views.dashboard' %}active{% endif %}">Dashboard</a></li>
-                <li><a href="#" class="nav-item {% if request.endpoint == 'volunteer_views.time_tracking' %}active{% endif %}">Time Tracking</a></li>
-                <li><a href="#" class="nav-item {% if request.endpoint == 'volunteer_views.requests' %}active{% endif %}">Requests</a></li>
-                <li><a href="#" class="nav-item {% if request.endpoint == 'volunteer_views.profile' %}active{% endif %}">Profile</a></li>
-            </ul>
-            <div class="notifications">🔔</div>
-            <a href="{{ url_for('auth_views.logout_action') }}" class="sign-out-btn">Sign Out</a>
+    <nav class="nav-container">
+        <div class="nav-links">
+            <a href="{{ url_for('volunteer_views.dashboard') }}" class="nav-link {% if request.endpoint == 'volunteer_views.dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('volunteer_views.time_tracking') }}" class="nav-link {% if request.endpoint == 'volunteer_views.time_tracking' %}active{% endif %}">Time Tracking</a>
+            <a href="{{ url_for('volunteer_views.requests') }}" class="nav-link {% if request.endpoint == 'volunteer_views.requests' %}active{% endif %}">Requests</a>
+            <a href="{{ url_for('volunteer_views.profile') }}" class="nav-link {% if request.endpoint == 'volunteer_views.profile' %}active{% endif %}">Profile</a>
+            <div class="notification-badge" id="notificationBadge">
+                <span class="material-icons">notifications</span>
+            </div>
         </div>
-    </header>
-    
-    <div class="wrapper">
-        <div class="content">
-            {% block content %}{% endblock %}
-        </div>
+        <a href="{{ url_for('auth_views.logout_action') }}" class="btn btn-primary">Sign Out</a>
+    </nav>
+
+    <div class="content">
+        {% block content %}{% endblock %}
     </div>
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for message in messages %}
+                    <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    
+    <!-- Notifications Panel (hidden by default) -->
+    <div class="notifications-panel" id="notificationsPanel" style="display: none;">
+        <div class="notifications-header">
+            <h3>Notifications</h3>
+            <button class="close-btn" id="closeNotifications">&times;</button>
+        </div>
+        <div class="notifications-list" id="quickNotificationsList">
+            <div class="loading-indicator">Loading...</div>
+        </div>
+        <a href="{{ url_for('notification_views.volunteer_notifications') }}" class="view-all-link" id="viewAllNotificationsLink">View all notifications</a>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
     
     {% block scripts %}{% endblock %}
 </body>

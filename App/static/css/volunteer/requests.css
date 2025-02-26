@@ -1,0 +1,208 @@
+/* Requests page styles based on the provided screenshots */
+
+.requests-page {
+    padding: 1rem 0;
+}
+
+/* Request Cards */
+.request-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.request-card {
+    background-color: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+    min-width: 280px;
+    flex: 1;
+}
+
+.requested-shift {
+    background-color: #f5f9ff;
+    padding: 0.75rem;
+    border-radius: 8px;
+    width: 180px;
+}
+
+.date-label {
+    color: #666;
+    font-size: 12px;
+    margin-bottom: 0.5rem;
+}
+
+.shift-date {
+    font-weight: 600;
+    font-size: 16px;
+    margin-bottom: 0.25rem;
+}
+
+.shift-time {
+    color: #333;
+    font-size: 14px;
+}
+
+.request-details {
+    flex-grow: 1;
+}
+
+.submission-date {
+    margin-bottom: 1rem;
+}
+
+.label {
+    color: #666;
+    font-size: 12px;
+    margin-bottom: 0.25rem;
+}
+
+.value {
+    color: #333;
+    font-size: 14px;
+}
+
+.status {
+    margin-top: 0.5rem;
+}
+
+.status.pending .value {
+    color: #f59e0b;
+    font-weight: 600;
+}
+
+.status.approved .value {
+    color: #10b981;
+    font-weight: 600;
+}
+
+.status.rejected .value {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.cancel-btn {
+    background: none;
+    border: 1px solid #ef4444;
+    color: #ef4444;
+    border-radius: 4px;
+    padding: 0.35rem 1rem;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+    background-color: #fef2f2;
+}
+
+/* Request Form Section */
+.request-form-section {
+    background-color: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.form-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: #333;
+}
+
+.new-request-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group label {
+    font-weight: 500;
+    color: #333;
+    font-size: 14px;
+}
+
+.optional {
+    color: #666;
+    font-weight: normal;
+    font-size: 12px;
+}
+
+.custom-select {
+    position: relative;
+}
+
+.custom-select select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    appearance: none;
+    background-color: white;
+    font-size: 14px;
+    color: #333;
+}
+
+.select-arrow {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: #666;
+}
+
+textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    resize: vertical;
+    font-family: inherit;
+}
+
+.submit-btn {
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.75rem;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: background-color 0.2s;
+}
+
+.submit-btn:hover {
+    background-color: #1d4ed8;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .request-cards {
+        flex-direction: column;
+    }
+    
+    .request-card {
+        flex-direction: column;
+    }
+    
+    .requested-shift {
+        width: 100%;
+    }
+}

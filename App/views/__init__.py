@@ -8,6 +8,7 @@ from .requests import requests_views
 from .profile import profile_views
 from .lab import lab_views
 from .volunteer import volunteer_views 
+from .notification import notification_views
 
 # All blueprints to be registered
 views = [
@@ -19,4 +20,5 @@ views = [
     requests_views,    # Request management
     profile_views,     # User profiles
     volunteer_views,   # New volunteer views
+    notification_views,
 ]
