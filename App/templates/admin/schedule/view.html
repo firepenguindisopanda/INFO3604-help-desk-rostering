@@ -9,14 +9,23 @@
 {% block content %}
 <div class="schedule-header">
     <div class="week-selector" id="weekSelector">
-        Week 5: September 30th - October 4th ▼
+        Week 5: September 30th - October 5th ▼
         <div class="week-dropdown" id="weekDropdown">
             <div class="week-option">Week 4: September 23rd - 27th</div>
-            <div class="week-option">Week 5: September 30th - October 4th</div>
+            <div class="week-option">Week 5: September 30th - October 5th</div>
             <div class="week-option">Week 6: October 7th - 11th</div>
             <div class="week-option">Week 7: October 14th - 18th</div>
         </div>
     </div>
+    
+    <div class="scheduler-options">
+        <button class="btn btn-primary" id="generateSchedule">Generate Schedule</button>
+    </div>
+</div>
+
+<div class="loading-indicator" id="loadingIndicator" style="display: none;">
+    <div class="spinner"></div>
+    <p>Generating schedule...</p>
 </div>
 
 <div class="schedule-grid">
@@ -57,178 +66,327 @@
             </tr>
         </thead>
         <tbody id="scheduleBody">
-            {% for hour in range(9, 17) %}
+            <!-- Schedule will be loaded dynamically -->
             <tr>
-                <td class="time-cell">{{ hour }}:00</td>
-                {% for day in range(5) %}
-                <td class="schedule-cell" data-hour="{{ hour }}" data-day="{{ day }}" ondrop="drop(event)" ondragover="allowDrop(event)">
-                    <div class="staff-container">
-                        <div class="staff-slot-indicator">Drop staff here (0/3)</div>
-                    </div>
+                <td colspan="6" class="empty-schedule">
+                    <p>No schedule generated yet. Click "Generate Schedule" to create a new schedule.</p>
                 </td>
-                {% endfor %}
             </tr>
-            {% endfor %}
         </tbody>
     </table>
 </div>
 
+<div class="schedule-stats" id="scheduleStats" style="display: none;">
+    <h3>Schedule Statistics</h3>
+    <div class="stats-list" id="statsList">
+        <!-- Statistics will be loaded dynamically -->
+    </div>
+</div>
+
 <div class="staff-panel">
-    <h3>Available Staff</h3>
-    <div class="available-staff" id="staffList">
-        <!-- Staff will be populated by JavaScript -->
+    <h3>Staff Legend</h3>
+    <div class="staff-legend" id="staffLegend">
+        <!-- Staff legend will be loaded dynamically -->
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-const staffData = {
-    0: "Daniel Rasheed",
-    1: "Michelle Liu",
-    2: "Stayaan Maharaj",
-    3: "Daniel Yatali",
-    4: "Satish Maharaj",
-    5: "Selena Madrey",
-    6: "Veron Ramkissoon",
-    7: "Tamika Ramkissoon",
-    8: "Samuel Mahadeo",
-    9: "Neha Maharaj"
-};
+    document.addEventListener('DOMContentLoaded', function() {
+        // Week selector dropdown functionality
+        const weekSelector = document.getElementById('weekSelector');
+        const weekDropdown = document.getElementById('weekDropdown');
+        
+        weekSelector.addEventListener('click', function() {
+            weekDropdown.classList.toggle('active');
+        });
 
-const MAX_STAFF_PER_SLOT = 3;
+        document.addEventListener('click', function(event) {
+            if (!weekSelector.contains(event.target)) {
+                weekDropdown.classList.remove('active');
+            }
+        });
 
-function initializeStaffPanel() {
-    const staffList = document.getElementById('staffList');
-    Object.entries(staffData).forEach(([id, name]) => {
-        const staffDiv = document.createElement('div');
-        staffDiv.className = 'staff-item';
-        staffDiv.draggable = true;
-        staffDiv.setAttribute('data-staff-id', id);
-        staffDiv.textContent = name;
-        staffDiv.addEventListener('dragstart', drag);
-        staffList.appendChild(staffDiv);
+        document.querySelectorAll('.week-option').forEach(option => {
+            option.addEventListener('click', function() {
+                weekSelector.firstChild.textContent = this.textContent;
+                weekDropdown.classList.remove('active');
+            });
+        });
+
+        // Schedule generation
+        const generateBtn = document.getElementById('generateSchedule');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        
+        generateBtn.addEventListener('click', function() {
+            loadingIndicator.style.display = 'flex';
+            
+            fetch('/api/schedule/details')
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(errorData => {
+                            throw new Error(errorData.message || 'Failed to generate schedule.');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    loadingIndicator.style.display = 'none';
+                    
+                    if (data.status === 'success') {
+                        renderSchedule(data.schedule, data.staff_index);
+                        renderStaffLegend(data.staff_index);
+                        
+                        // Show schedule stats
+                        const statsDiv = document.getElementById('scheduleStats');
+                        statsDiv.style.display = 'block';
+                        
+                        // Add stats
+                        const statsList = document.getElementById('statsList');
+                        statsList.innerHTML = `
+                            <div class="stat-item">
+                                <div class="stat-label">Total Staff:</div>
+                                <div class="stat-value">${Object.keys(data.staff_index).length}</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">Total Shifts:</div>
+                                <div class="stat-value">45</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">Schedule Type:</div>
+                                <div class="stat-value">Help Desk</div>
+                            </div>
+                        `;
+                    } else {
+                        alert(`Failed to generate schedule: ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    loadingIndicator.style.display = 'none';
+                    console.error('Error generating schedule:', error);
+                    alert(`An error occurred: ${error.message || 'Unknown error'}`);
+                });
+        });
     });
-}
-
-function allowDrop(ev) {
-    ev.preventDefault();
-    const cell = ev.currentTarget;
-    const staffCount = cell.querySelectorAll('.staff-name').length;
     
-    if (staffCount < MAX_STAFF_PER_SLOT) {
-        cell.classList.add('droppable');
+    function renderSchedule(schedule, staffIndex) {
+        const scheduleBody = document.getElementById('scheduleBody');
+        scheduleBody.innerHTML = '';
+        
+        // For the help desk, we have hourly slots from 9am to 5pm
+        const timeSlots = ["9:00 am", "10:00 am", "11:00 am", "12:00 pm", 
+                          "1:00 pm", "2:00 pm", "3:00 pm", "4:00 pm", "5:00 pm"];
+        
+        // Create a row for each time slot
+        timeSlots.forEach((timeSlot, timeIndex) => {
+            const row = document.createElement('tr');
+            
+            // Add time cell
+            const timeCell = document.createElement('td');
+            timeCell.className = 'time-cell';
+            timeCell.textContent = timeSlot;
+            row.appendChild(timeCell);
+            
+            // Add cells for each day
+            schedule.forEach(day => {
+                const shift = day.shifts[timeIndex];
+                const cell = document.createElement('td');
+                cell.className = 'schedule-cell';
+                cell.setAttribute('data-time', timeSlot);
+                cell.setAttribute('data-day', day.day);
+                cell.setAttribute('ondrop', 'drop(event)');
+                cell.setAttribute('ondragover', 'allowDrop(event)');
+                
+                if (shift && shift.staff.length > 0) {
+                    const staffContainer = document.createElement('div');
+                    staffContainer.className = 'staff-container';
+                    
+                    // Show the number of staff assigned
+                    const staffIndicator = document.createElement('div');
+                    staffIndicator.className = 'staff-slot-indicator';
+                    staffIndicator.textContent = `Staff: ${shift.staff.length}`;
+                    staffContainer.appendChild(staffIndicator);
+                    
+                    // Add each staff member
+                    shift.staff.forEach(staffId => {
+                        const staffName = document.createElement('div');
+                        staffName.className = 'staff-name';
+                        staffName.setAttribute('draggable', 'true');
+                        staffName.setAttribute('ondragstart', 'drag(event)');
+                        staffName.setAttribute('data-staff-id', staffId);
+                        staffName.textContent = staffIndex[staffId];
+                        
+                        // Add remove button
+                        const removeBtn = document.createElement('button');
+                        removeBtn.className = 'remove-staff';
+                        removeBtn.innerHTML = '&times;';
+                        removeBtn.onclick = function(e) {
+                            e.stopPropagation();
+                            staffName.remove();
+                            updateStaffCounter(cell);
+                        };
+                        staffName.appendChild(removeBtn);
+                        
+                        staffContainer.appendChild(staffName);
+                    });
+                    
+                    cell.appendChild(staffContainer);
+                } else {
+                    const staffContainer = document.createElement('div');
+                    staffContainer.className = 'staff-container';
+                    
+                    // Create empty staff indicator
+                    const emptyIndicator = document.createElement('div');
+                    emptyIndicator.className = 'staff-slot-indicator';
+                    emptyIndicator.textContent = 'Drop staff here (0/3)';
+                    staffContainer.appendChild(emptyIndicator);
+                    
+                    cell.appendChild(staffContainer);
+                }
+                
+                row.appendChild(cell);
+            });
+            
+            scheduleBody.appendChild(row);
+        });
     }
-}
-
-function drag(ev) {
-    const staffId = ev.target.getAttribute('data-staff-id');
-    ev.dataTransfer.setData("text", staffId);
-    ev.dataTransfer.setData("sourceId", ev.target.id);
-}
-
-function drop(ev) {
-    ev.preventDefault();
-    const cell = ev.currentTarget;
-    const staffCount = cell.querySelectorAll('.staff-name').length;
     
-    if (staffCount >= MAX_STAFF_PER_SLOT) {
-        cell.classList.remove('droppable');
-        return;
-    }
-
-    const staffId = ev.dataTransfer.getData("text");
-    const sourceId = ev.dataTransfer.getData("sourceId");
-    const sourceElement = document.getElementById(sourceId);
-    
-    // Remove droppable highlight
-    cell.classList.remove('droppable');
-    
-    // Create new staff name element
-    const staffName = document.createElement('div');
-    staffName.className = 'staff-name';
-    staffName.draggable = true;
-    staffName.setAttribute('data-staff-id', staffId);
-    staffName.textContent = staffData[staffId];
-    
-    // Add remove button
-    const removeButton = document.createElement('button');
-    removeButton.className = 'remove-staff';
-    removeButton.innerHTML = '×';
-    removeButton.onclick = function(e) {
-        e.stopPropagation();
-        staffName.remove();
-        updateStaffCounter(cell);
-    };
-    staffName.appendChild(removeButton);
-    
-    // Add drag functionality to the new element
-    staffName.addEventListener('dragstart', drag);
-    
-    // Get or create staff container
-    let staffContainer = cell.querySelector('.staff-container');
-    if (!staffContainer) {
-        staffContainer = document.createElement('div');
-        staffContainer.className = 'staff-container';
-        cell.appendChild(staffContainer);
-    }
-
-    // Add the new staff name
-    staffContainer.appendChild(staffName);
-    
-    // Update counter
-    updateStaffCounter(cell);
-}
-
-function updateStaffCounter(cell) {
-    const staffCount = cell.querySelectorAll('.staff-name').length;
-    let indicator = cell.querySelector('.staff-slot-indicator');
-    
-    if (!indicator) {
-        indicator = document.createElement('div');
-        indicator.className = 'staff-slot-indicator';
-        cell.querySelector('.staff-container').appendChild(indicator);
+    function renderStaffLegend(staffIndex) {
+        const staffLegend = document.getElementById('staffLegend');
+        staffLegend.innerHTML = '';
+        
+        Object.entries(staffIndex).forEach(([id, name]) => {
+            const staffItem = document.createElement('div');
+            staffItem.className = 'staff-item';
+            staffItem.draggable = true;
+            staffItem.setAttribute('ondragstart', 'drag(event)');
+            staffItem.setAttribute('data-staff-id', id);
+            
+            const colorIndicator = document.createElement('div');
+            colorIndicator.className = 'staff-color-indicator';
+            colorIndicator.style.backgroundColor = getStaffColor(id);
+            
+            const staffText = document.createElement('div');
+            staffText.className = 'staff-name-text';
+            staffText.textContent = name;
+            
+            staffItem.appendChild(colorIndicator);
+            staffItem.appendChild(staffText);
+            staffLegend.appendChild(staffItem);
+        });
     }
     
-    indicator.textContent = `Drop staff here (${staffCount}/${MAX_STAFF_PER_SLOT})`;
-    
-    if (staffCount === 0) {
-        indicator.style.display = 'block';
-    } else if (staffCount >= MAX_STAFF_PER_SLOT) {
-        indicator.style.display = 'none';
+    function getStaffColor(id) {
+        // Generate a consistent color based on staff ID
+        const colors = [
+            '#FF5733', '#33FF57', '#3357FF', '#F3FF33', '#FF33F3',
+            '#33FFF3', '#FF8033', '#8033FF', '#33FF80', '#FF3380'
+        ];
+        
+        return colors[id % colors.length];
     }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    initializeStaffPanel();
     
-    // Week selector dropdown functionality
-    const weekSelector = document.getElementById('weekSelector');
-    const weekDropdown = document.getElementById('weekDropdown');
-    
-    weekSelector.addEventListener('click', function() {
-        weekDropdown.classList.toggle('active');
-    });
-
-    document.addEventListener('click', function(event) {
-        if (!weekSelector.contains(event.target)) {
-            weekDropdown.classList.remove('active');
+    // Drag and drop functionality
+    function allowDrop(ev) {
+        ev.preventDefault();
+        const cell = ev.currentTarget;
+        const staffCount = cell.querySelectorAll('.staff-name').length;
+        
+        if (staffCount < 3) {
+            cell.classList.add('droppable');
         }
-    });
+    }
 
-    document.querySelectorAll('.week-option').forEach(option => {
-        option.addEventListener('click', function() {
-            weekSelector.firstChild.textContent = this.textContent;
-            weekDropdown.classList.remove('active');
-        });
-    });
+    function drag(ev) {
+        const staffId = ev.target.getAttribute('data-staff-id');
+        ev.dataTransfer.setData("text", staffId);
+        ev.dataTransfer.setData("sourceId", ev.target.id);
+    }
 
-    // Handle dragover/dragleave highlighting
-    document.querySelectorAll('.schedule-cell').forEach(cell => {
-        cell.addEventListener('dragleave', (ev) => {
-            ev.currentTarget.classList.remove('droppable');
-        });
-    });
-});
+    function drop(ev) {
+        ev.preventDefault();
+        const cell = ev.currentTarget;
+        const staffCount = cell.querySelectorAll('.staff-name').length;
+        
+        if (staffCount >= 3) {
+            cell.classList.remove('droppable');
+            return;
+        }
+
+        const staffId = ev.dataTransfer.getData("text");
+        
+        // Remove droppable highlight
+        cell.classList.remove('droppable');
+        
+        // Get or create staff container
+        let staffContainer = cell.querySelector('.staff-container');
+        if (!staffContainer) {
+            staffContainer = document.createElement('div');
+            staffContainer.className = 'staff-container';
+            cell.appendChild(staffContainer);
+        }
+        
+        // Create new staff name element
+        const staffName = document.createElement('div');
+        staffName.className = 'staff-name';
+        staffName.draggable = true;
+        staffName.setAttribute('ondragstart', 'drag(event)');
+        staffName.setAttribute('data-staff-id', staffId);
+        
+        // Get staff name from legend
+        const staffLegend = document.getElementById('staffLegend');
+        const staffItems = staffLegend.querySelectorAll('.staff-item');
+        let staffNameText = '';
+        
+        for (let i = 0; i < staffItems.length; i++) {
+            if (staffItems[i].getAttribute('data-staff-id') === staffId) {
+                staffNameText = staffItems[i].querySelector('.staff-name-text').textContent;
+                break;
+            }
+        }
+        
+        staffName.textContent = staffNameText;
+        
+        // Add remove button
+        const removeButton = document.createElement('button');
+        removeButton.className = 'remove-staff';
+        removeButton.innerHTML = '&times;';
+        removeButton.onclick = function(e) {
+            e.stopPropagation();
+            staffName.remove();
+            updateStaffCounter(cell);
+        };
+        staffName.appendChild(removeButton);
+        
+        // Add the new staff name
+        staffContainer.appendChild(staffName);
+        
+        // Update counter
+        updateStaffCounter(cell);
+    }
+
+    function updateStaffCounter(cell) {
+        const staffCount = cell.querySelectorAll('.staff-name').length;
+        let indicator = cell.querySelector('.staff-slot-indicator');
+        
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.className = 'staff-slot-indicator';
+            cell.querySelector('.staff-container').prepend(indicator);
+        }
+        
+        indicator.textContent = `Staff: ${staffCount}/3`;
+        
+        if (staffCount === 0) {
+            indicator.textContent = 'Drop staff here (0/3)';
+        } else if (staffCount >= 3) {
+            // Disable dropping if max staff reached
+            cell.ondragover = null;
+        } else {
+            // Re-enable dropping
+            cell.setAttribute('ondragover', 'allowDrop(event)');
+        }
+    }
 </script>
 {% endblock %}
