@@ -4,11 +4,16 @@ from .user import User
 class Assistant(User):
     __tablename__ = 'assistant'
     
+    username = db.Column(db.String(20), db.ForeignKey('user.username'), primary_key=True)
     degree = db.Column(db.String(3), nullable=False)
     rate = db.Column(db.Float, nullable=False)
     active = db.Column(db.Boolean, nullable=False)
     hours_worked = db.Column(db.Integer, nullable=False)
     hours_minimum = db.Column(db.Integer, nullable=False)
+    
+    __mapper_args__ = {
+        'polymorphic_identity': 'assistant'
+    }
     
     def __init__(self, username, password, degree):
         super().__init__(username, password)
