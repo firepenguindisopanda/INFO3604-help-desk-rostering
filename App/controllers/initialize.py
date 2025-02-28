@@ -18,10 +18,10 @@ def initialize():
     db.create_all()
     
     # Create default admin account
-    admin = create_user('admin', 'admin123', role='admin')
+    admin = admin = create_user('admin', 'admin123', role='admin')
     
     # Create default volunteer/assistant account
-    volunteer = create_user('816000000', 'assistant123', role='volunteer')
+    volunteer = assistant = create_user('816000000', 'assistant123', role='volunteer')
 
     # Create sample notifications for demo purposes
     create_sample_notifications(admin.id, volunteer.id)
