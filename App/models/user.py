@@ -2,8 +2,16 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from App.database import db
 
 class User(db.Model):
+    __tablename__ = 'user'
+    
     username = db.Column(db.String(20), nullable=False, primary_key=True)
     password = db.Column(db.String(120), nullable=False)
+    type = db.Column(db.String(50), nullable=False) # 'admin' or 'assistant'
+    
+    __mapper_args__ = {
+        'polymorphic_identity': 'user',
+        'polymorphic_on': type
+    }
     role = db.Column(db.String(20), nullable=False, default='volunteer')  # New field for user role
 
     def __init__(self, username, password, role='volunteer'):
