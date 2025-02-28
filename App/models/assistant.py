@@ -1,19 +1,22 @@
 from App.database import db
-from App.models import User
+from .user import User
 
 class Assistant(User):
     __tablename__ = 'assistant'
     
     degree = db.Column(db.String(3), nullable=False)
     rate = db.Column(db.Float, nullable=False)
-    active = db.Column(db.Boolean, nullable=False, default=True)
-    hours_worked = db.Column(db.Integer, nullable=False, default=0)
-    hours_minimum = db.Column(db.Integer, nullable=False, default=4)
+    active = db.Column(db.Boolean, nullable=False)
+    hours_worked = db.Column(db.Integer, nullable=False)
+    hours_minimum = db.Column(db.Integer, nullable=False)
     
     def __init__(self, username, password, degree):
         super().__init__(username, password)
         self.degree = degree
         self.rate = 20.00 if degree == 'BSc' else 35.00 if degree == 'MSc' else 0.00
+        self.active = True
+        self.hours_worked = 0
+        self.hours_minimum = 4
     
     def get_json(self):
         return {

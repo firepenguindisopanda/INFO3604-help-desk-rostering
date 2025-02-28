@@ -1,5 +1,5 @@
 from App.database import db
-from App.models import User
+from .user import User
 
 class Admin(User):
     __tablename__ = 'admin'
