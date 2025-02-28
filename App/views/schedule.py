@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, jsonify
 from flask_jwt_extended import jwt_required
-from App.controllers.scheduler import help_desk_scheduler
+from App.controllers.schedule import help_desk_scheduler
 
 schedule_views = Blueprint('schedule_views', __name__, template_folder='../templates')
 
