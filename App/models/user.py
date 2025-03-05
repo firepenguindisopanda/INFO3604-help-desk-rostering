@@ -6,7 +6,7 @@ class User(db.Model):
     
     username =  db.Column(db.String(20), nullable=False, primary_key=True)
     password = db.Column(db.String(120), nullable=False)
-    type = db.Column(db.String(50), nullable=False) # 'admin' or 'assistant'
+    type = db.Column(db.String(50), nullable=False) # 'admin' or 'student'
     
     __mapper_args__ = {
         'polymorphic_identity': 'user',
