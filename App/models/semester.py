@@ -3,9 +3,9 @@ from App.database import db
 class Semester(db.Model):
     __tablename__ = 'semester'
     
-    id = db.Column(db.Integer, primary_key=True)
-    academic_year = db.Column(db.String(9), nullable=False)
-    semester = db.Column(db.Integer, nullable=False)
+    # id = db.Column(db.Integer, primary_key=True)
+    academic_year = db.Column(db.String(9), nullable=False, primary_key=True)
+    semester = db.Column(db.Integer, nullable=False, primary_key=True)
     start = db.Column(db.DateTime, nullable=False)
     end = db.Column(db.DateTime, nullable=False)
     
@@ -17,7 +17,7 @@ class Semester(db.Model):
     
     def get_json(self):
         return {
-            'Semester ID': self.id,
+            # 'Semester ID': self.id,
             'Academic Year': self.academic_year,
             'Semester': self.semester,
             'Start Date': self.start,
