@@ -1,0 +1,198 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Notifications - Help Desk System{% endblock %}
+
+{% block extra_css %}
+
+{% endblock %}
+
+{% block content %}
+<div class="notifications-container">
+    <div class="notifications-header">
+        <h2>Notifications</h2>
+        <div class="notifications-actions">
+            <button class="mark-all-btn" id="markAllAsRead">Mark all as read</button>
+        </div>
+    </div>
+    
+    <div id="notificationsList" class="notifications-list">
+        <!-- Notifications will be loaded here via JavaScript -->
+        <div class="loading-indicator">Loading notifications...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load notifications when the page loads
+        loadNotifications();
+        
+        // Set up event listeners
+        document.getElementById('markAllAsRead').addEventListener('click', markAllAsRead);
+    });
+    
+    function loadNotifications() {
+        fetch('/api/notifications?limit=50&include_read=true')
+            .then(response => response.json())
+            .then(notifications => {
+                const notificationsList = document.getElementById('notificationsList');
+                
+                // Clear loading indicator
+                notificationsList.innerHTML = '';
+                
+                if (notifications.length === 0) {
+                    notificationsList.innerHTML = '<div class="empty-state">No notifications yet</div>';
+                    return;
+                }
+                
+                notifications.forEach(notification => {
+                    const notificationItem = createNotificationElement(notification);
+                    notificationsList.appendChild(notificationItem);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading notifications:', error);
+                document.getElementById('notificationsList').innerHTML = 
+                    '<div class="error-state">Failed to load notifications. Please try again.</div>';
+            });
+    }
+    
+    function createNotificationElement(notification) {
+        const item = document.createElement('div');
+        item.classList.add('notification-item');
+        if (notification.is_read) {
+            item.classList.add('read');
+        }
+        
+        // Add icon based on notification type
+        let iconClass = 'info-circle';
+        if (notification.notification_type === 'approval') iconClass = 'check-circle';
+        if (notification.notification_type === 'clock_in' || notification.notification_type === 'clock_out') iconClass = 'access-time';
+        if (notification.notification_type === 'schedule') iconClass = 'event';
+        if (notification.notification_type === 'reminder') iconClass = 'alarm';
+        if (notification.notification_type === 'request') iconClass = 'assignment';
+        if (notification.notification_type === 'missed') iconClass = 'error';
+        if (notification.notification_type === 'update') iconClass = 'update';
+        
+        item.innerHTML = `
+            <div class="notification-icon">
+                <span class="material-icons">${iconClass}</span>
+            </div>
+            <div class="notification-content">
+                <p>${notification.message}</p>
+                <div class="notification-time">${notification.friendly_time}</div>
+            </div>
+            <div class="notification-actions">
+                ${!notification.is_read ? 
+                    `<button class="mark-read-btn" data-id="${notification.id}">
+                        <span class="material-icons">done</span>
+                    </button>` : ''}
+                <button class="delete-btn" data-id="${notification.id}">
+                    <span class="material-icons">delete</span>
+                </button>
+            </div>
+        `;
+        
+        // Add event listeners
+        setTimeout(() => {
+            const markReadBtn = item.querySelector('.mark-read-btn');
+            if (markReadBtn) {
+                markReadBtn.addEventListener('click', function() {
+                    markAsRead(notification.id, item);
+                });
+            }
+            
+            const deleteBtn = item.querySelector('.delete-btn');
+            deleteBtn.addEventListener('click', function() {
+                deleteNotification(notification.id, item);
+            });
+        }, 0);
+        
+        return item;
+    }
+    
+    function markAsRead(notificationId, element) {
+        fetch(`/api/notifications/${notificationId}/read`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                element.classList.add('read');
+                const markReadBtn = element.querySelector('.mark-read-btn');
+                if (markReadBtn) markReadBtn.remove();
+                updateNotificationCount();
+            }
+        })
+        .catch(error => console.error('Error marking notification as read:', error));
+    }
+    
+    function markAllAsRead() {
+        fetch('/api/notifications/read-all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mark all notifications as read in the UI
+                document.querySelectorAll('.notification-item:not(.read)').forEach(item => {
+                    item.classList.add('read');
+                    const markReadBtn = item.querySelector('.mark-read-btn');
+                    if (markReadBtn) markReadBtn.remove();
+                });
+                updateNotificationCount();
+            }
+        })
+        .catch(error => console.error('Error marking all notifications as read:', error));
+    }
+    
+    function deleteNotification(notificationId, element) {
+        if (!confirm('Are you sure you want to delete this notification?')) return;
+        
+        fetch(`/api/notifications/${notificationId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                element.remove();
+                
+                // Check if there are any notifications left
+                const notificationsList = document.getElementById('notificationsList');
+                if (notificationsList.children.length === 0) {
+                    notificationsList.innerHTML = '<div class="empty-state">No notifications yet</div>';
+                }
+                
+                updateNotificationCount();
+            }
+        })
+        .catch(error => console.error('Error deleting notification:', error));
+    }
+    
+    function updateNotificationCount() {
+        fetch('/api/notifications/count')
+            .then(response => response.json())
+            .then(data => {
+                // This function will update the notification badge count in the UI
+                // You'll need to implement this based on your UI structure
+                console.log('Unread notifications:', data.count);
+                
+                // For example, if you have a badge element:
+                const badge = document.querySelector('.notification-badge');
+                if (badge) {
+                    if (data.count > 0) {
+                        badge.classList.add('has-notifications');
+                        badge.setAttribute('data-count', data.count);
+                    } else {
+                        badge.classList.remove('has-notifications');
+                        badge.removeAttribute('data-count');
+                    }
+                }
+            })
+            .catch(error => console.error('Error updating notification count:', error));
+    }
+</script>
+{% endblock %}

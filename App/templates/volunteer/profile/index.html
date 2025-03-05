@@ -1,0 +1,262 @@
+{% extends "volunteer/base.html" %}
+
+{% block title %}Assistant - Profile{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/volunteer/profile.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <!-- Profile Information Section -->
+    <div class="profile-info-section">
+        <div class="profile-image">
+            <img src="{{ url_for('static', filename='placeholder-profile.jpg') }}" alt="Profile Image">
+        </div>
+        
+        <div class="profile-details">
+            <div class="info-block role-block">
+                <div class="label">STUDENT ASSISTANT</div>
+                <div class="value">Liam Johnson</div>
+            </div>
+            
+            <div class="info-block id-block">
+                <div class="label">ID</div>
+                <div class="value">816031872</div>
+            </div>
+            
+            <div class="info-block contact-block">
+                <div class="label">CONTACT</div>
+                <div class="value">398-3921</div>
+                <div class="email">liam.johnson@my.uwi.edu</div>
+            </div>
+            
+            <div class="info-block address-block">
+                <div class="label">ADDRESS</div>
+                <div class="value">45 Coconut Drive</div>
+                <div class="city">San Fernando</div>
+                <div class="country">Trinidad and Tobago</div>
+            </div>
+        </div>
+        
+        <div class="profile-actions">
+            <button class="edit-profile-btn">Edit Profile</button>
+            <button class="update-availability-btn">Update Availability</button>
+        </div>
+    </div>
+    
+    <!-- Enrolled Courses Section -->
+    <div class="enrolled-courses-section">
+        <h3 class="section-title">ENROLLED COURSES</h3>
+        <div class="course-tags">
+            <span class="course-tag">COMP 3602</span>
+            <span class="course-tag">COMP 3603</span>
+            <span class="course-tag">COMP 3605</span>
+            <span class="course-tag">COMP 3607</span>
+            <span class="course-tag">COMP 3613</span>
+        </div>
+    </div>
+    
+    <!-- Availability Section -->
+    <div class="availability-section">
+        <h3 class="section-title">AVAILABILITY</h3>
+        <div class="availability-table">
+            <div class="day-column header-column">
+                <div class="header"></div>
+                <div class="time-slot">10am - 11am</div>
+                <div class="time-slot">1pm - 2pm</div>
+                <div class="time-slot">2pm - 3pm</div>
+                <div class="time-slot">3pm - 4pm</div>
+            </div>
+            
+            <div class="day-column">
+                <div class="header">MON</div>
+                <div class="time-slot available">10am - 11am</div>
+                <div class="time-slot available">1pm - 2pm</div>
+                <div class="time-slot available">2pm - 3pm</div>
+                <div class="time-slot available">3pm - 4pm</div>
+            </div>
+            
+            <div class="day-column">
+                <div class="header">TUE</div>
+                <div class="time-slot available">10am - 11am</div>
+                <div class="time-slot available">11am - 12pm</div>
+                <div class="time-slot available">1pm - 2pm</div>
+                <div class="time-slot available">2pm - 3pm</div>
+            </div>
+            
+            <div class="day-column">
+                <div class="header">WED</div>
+                <div class="time-slot available">10am - 11am</div>
+                <div class="time-slot available">1pm - 2pm</div>
+            </div>
+            
+            <div class="day-column">
+                <div class="header">THUR</div>
+                <div class="time-slot available">9am - 10am</div>
+                <div class="time-slot available">10am - 11am</div>
+                <div class="time-slot available">11am - 12pm</div>
+                <div class="time-slot available">12pm - 1pm</div>
+            </div>
+            
+            <div class="day-column">
+                <div class="header">FRI</div>
+                <div class="time-slot available">10am - 11am</div>
+                <div class="time-slot available">11am - 12pm</div>
+                <div class="time-slot available">2pm - 3pm</div>
+                <div class="time-slot available">3pm - 4pm</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Hours Stats Section -->
+    <div class="hours-stats-section">
+        <div class="stats-card weekly">
+            <div class="stat-title">WEEKLY TOTAL</div>
+            <div class="stat-info">Week 5, Sept 30 - Oct 4</div>
+            <div class="stat-value">00 hours</div>
+        </div>
+        
+        <div class="stats-card monthly">
+            <div class="stat-title">MONTHLY TOTAL</div>
+            <div class="stat-info">September, 2024</div>
+            <div class="stat-value">59 hours</div>
+        </div>
+        
+        <div class="stats-card semester">
+            <div class="stat-title">SEMESTER TOTAL</div>
+            <div class="stat-info">Sept. 24 - Nov. 24</div>
+            <div class="stat-value">59 hours</div>
+        </div>
+        
+        <div class="stats-card absences">
+            <div class="stat-title">TOTAL ABSENCES</div>
+            <div class="stat-value">3 Shifts</div>
+        </div>
+    </div>
+</div>
+
+<!-- Availability Update Modal (hidden by default) -->
+<div id="availabilityModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h2 class="modal-title">Update Availability</h2>
+        <p class="modal-subtitle">Select your availability by clicking the time slots</p>
+        
+        <div class="availability-grid">
+            <div class="day-column header-column">
+                <div class="header"></div>
+                <div class="time-slot">9am - 10am</div>
+                <div class="time-slot">10am - 11am</div>
+                <div class="time-slot">11am - 12pm</div>
+                <div class="time-slot">12pm - 1pm</div>
+                <div class="time-slot">1pm - 2pm</div>
+                <div class="time-slot">2pm - 3pm</div>
+                <div class="time-slot">3pm - 4pm</div>
+            </div>
+            
+            <div class="day-column">
+                <div class="header">MON</div>
+                <div class="time-slot selectable">9am - 10am</div>
+                <div class="time-slot selectable selected">10am - 11am</div>
+                <div class="time-slot selectable">11am - 12pm</div>
+                <div class="time-slot selectable">12pm - 1pm</div>
+                <div class="time-slot selectable selected">1pm - 2pm</div>
+                <div class="time-slot selectable selected">2pm - 3pm</div>
+                <div class="time-slot selectable selected">3pm - 4pm</div>
+            </div>
+            
+            <div class="day-column">
+                <div class="header">TUE</div>
+                <div class="time-slot selectable">9am - 10am</div>
+                <div class="time-slot selectable selected">10am - 11am</div>
+                <div class="time-slot selectable selected">11am - 12pm</div>
+                <div class="time-slot selectable">12pm - 1pm</div>
+                <div class="time-slot selectable selected">1pm - 2pm</div>
+                <div class="time-slot selectable selected">2pm - 3pm</div>
+                <div class="time-slot selectable selected">3pm - 4pm</div>
+            </div>
+            
+            <div class="day-column">
+                <div class="header">WED</div>
+                <div class="time-slot selectable">9am - 10am</div>
+                <div class="time-slot selectable selected">10am - 11am</div>
+                <div class="time-slot selectable">11am - 12pm</div>
+                <div class="time-slot selectable">12pm - 1pm</div>
+                <div class="time-slot selectable selected">1pm - 2pm</div>
+                <div class="time-slot selectable selected">2pm - 3pm</div>
+                <div class="time-slot selectable selected">3pm - 4pm</div>
+            </div>
+            
+            <div class="day-column">
+                <div class="header">THUR</div>
+                <div class="time-slot selectable selected">9am - 10am</div>
+                <div class="time-slot selectable selected">10am - 11am</div>
+                <div class="time-slot selectable selected">11am - 12pm</div>
+                <div class="time-slot selectable selected">12pm - 1pm</div>
+                <div class="time-slot selectable">1pm - 2pm</div>
+                <div class="time-slot selectable">2pm - 3pm</div>
+                <div class="time-slot selectable">3pm - 4pm</div>
+            </div>
+            
+            <div class="day-column">
+                <div class="header">FRI</div>
+                <div class="time-slot selectable">9am - 10am</div>
+                <div class="time-slot selectable selected">10am - 11am</div>
+                <div class="time-slot selectable selected">11am - 12pm</div>
+                <div class="time-slot selectable">12pm - 1pm</div>
+                <div class="time-slot selectable selected">1pm - 2pm</div>
+                <div class="time-slot selectable selected">2pm - 3pm</div>
+                <div class="time-slot selectable selected">3pm - 4pm</div>
+            </div>
+        </div>
+        
+        <div class="modal-actions">
+            <button class="submit-btn">Submit</button>
+            <button class="cancel-btn" id="closeModal">Cancel</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const updateAvailabilityBtn = document.querySelector('.update-availability-btn');
+        const availabilityModal = document.getElementById('availabilityModal');
+        const closeModalBtn = document.getElementById('closeModal');
+        const submitBtn = document.querySelector('.modal-actions .submit-btn');
+        const selectableSlots = document.querySelectorAll('.selectable');
+        
+        // Open modal
+        updateAvailabilityBtn.addEventListener('click', function() {
+            availabilityModal.style.display = 'block';
+        });
+        
+        // Close modal
+        closeModalBtn.addEventListener('click', function() {
+            availabilityModal.style.display = 'none';
+        });
+        
+        // Click outside to close
+        window.addEventListener('click', function(event) {
+            if (event.target === availabilityModal) {
+                availabilityModal.style.display = 'none';
+            }
+        });
+        
+        // Toggle time slots
+        selectableSlots.forEach(slot => {
+            slot.addEventListener('click', function() {
+                this.classList.toggle('selected');
+            });
+        });
+        
+        // Submit availability
+        submitBtn.addEventListener('click', function() {
+            // Here you would collect all selected slots and send to server
+            alert('Availability updated successfully!');
+            availabilityModal.style.display = 'none';
+        });
+    });
+</script>
+{% endblock %}

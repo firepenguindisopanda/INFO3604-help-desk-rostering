@@ -1,0 +1,147 @@
+{% extends "volunteer/base.html" %}
+
+{% block title %}Assistant - Requests{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/volunteer/requests.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="requests-page">
+    <!-- Request Cards Section -->
+    <div class="request-cards">
+        <div class="request-card">
+            <div class="requested-shift">
+                <div class="date-label">Requested Shift</div>
+                <div class="shift-date">03 Oct</div>
+                <div class="shift-time">11:00 am to 12:00 pm</div>
+            </div>
+            <div class="request-details">
+                <div class="submission-date">
+                    <div class="label">Submission Date</div>
+                    <div class="value">October 1st 2024, 3:33 pm</div>
+                </div>
+                <div class="status pending">
+                    <div class="label">Status</div>
+                    <div class="value">PENDING</div>
+                </div>
+            </div>
+            <button class="cancel-btn">Cancel</button>
+        </div>
+
+        <div class="request-card">
+            <div class="requested-shift">
+                <div class="date-label">Requested Shift</div>
+                <div class="shift-date">24 Sept</div>
+                <div class="shift-time">10:00 am to 12:00 pm</div>
+            </div>
+            <div class="request-details">
+                <div class="submission-date">
+                    <div class="label">Submission Date</div>
+                    <div class="value">September 24th 2024, 08:00 am</div>
+                </div>
+                <div class="status approved">
+                    <div class="label">Status</div>
+                    <div class="value">APPROVED</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="request-card">
+            <div class="requested-shift">
+                <div class="date-label">Requested Shift</div>
+                <div class="shift-date">11 Sept</div>
+                <div class="shift-time">01:00 pm to 02:00 pm</div>
+            </div>
+            <div class="request-details">
+                <div class="submission-date">
+                    <div class="label">Submission Date</div>
+                    <div class="value">September 10th 2024, 08:00 am</div>
+                </div>
+                <div class="status rejected">
+                    <div class="label">Status</div>
+                    <div class="value">REJECTED</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Request Form Section -->
+    <div class="request-form-section">
+        <h2 class="form-title">Submit A New Request</h2>
+        
+        <form class="new-request-form">
+            <div class="form-group">
+                <label for="shiftToChange">Shift to Change</label>
+                <div class="custom-select">
+                    <select id="shiftToChange" name="shiftToChange" required>
+                        <option value="" selected disabled>Select shift...</option>
+                        <option value="1">Mon, 30 Sept - 10:00 am to 11:00 am</option>
+                        <option value="2">Wed, 02 Oct - 01:00 pm to 02:00 pm</option>
+                        <option value="3">Fri, 04 Oct - 11:00 am to 12:00 pm</option>
+                    </select>
+                    <div class="select-arrow">&#9662;</div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="reasonForChange">Reason for Change</label>
+                <textarea id="reasonForChange" name="reasonForChange" placeholder="Indicate reason for change..." required></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="proposedReplacement">Proposed Replacement <span class="optional">(Optional)</span></label>
+                <div class="custom-select">
+                    <select id="proposedReplacement" name="proposedReplacement">
+                        <option value="" selected disabled>Select replacement...</option>
+                        <option value="1">Daniel Martinez</option>
+                        <option value="2">Michelle Liu</option>
+                        <option value="3">Joshua Anderson</option>
+                    </select>
+                    <div class="select-arrow">&#9662;</div>
+                </div>
+            </div>
+            
+            <button type="submit" class="submit-btn">Submit New Request</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle form submission
+        const requestForm = document.querySelector('.new-request-form');
+        
+        requestForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get form data
+            const shiftId = document.getElementById('shiftToChange').value;
+            const reason = document.getElementById('reasonForChange').value;
+            const replacement = document.getElementById('proposedReplacement').value;
+            
+            // Here you would typically send an AJAX request to submit the form
+            // For now, we'll just show an alert
+            alert('Request submitted successfully!');
+            
+            // Reset form
+            requestForm.reset();
+        });
+        
+        // Handle cancel button clicks
+        const cancelButtons = document.querySelectorAll('.cancel-btn');
+        
+        cancelButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                if (confirm('Are you sure you want to cancel this request?')) {
+                    // Here you would typically send an AJAX request to cancel the request
+                    // For now, we'll just hide the card
+                    this.closest('.request-card').style.display = 'none';
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

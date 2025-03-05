@@ -6,4 +6,4 @@ tracking_views = Blueprint('tracking_views', __name__, template_folder='../templ
 @tracking_views.route('/timeTracking')
 @jwt_required()
 def time_tracking():
-    return render_template('tracking/index.html')
+    return render_template('admin/tracking/index.html')
