@@ -1,8 +1,8 @@
 from App.database import db
 from .student import Student
 
-class Assistant(Student):
-    __tablename__ = 'assistant'
+class HelpDeskAssistant(db.Model):
+    __tablename__ = 'help_desk_assistant'
     
     username = db.Column(db.String(20), db.ForeignKey('student.username'), primary_key=True)
     rate = db.Column(db.Float, nullable=False)
@@ -10,20 +10,17 @@ class Assistant(Student):
     hours_worked = db.Column(db.Integer, nullable=False)
     hours_minimum = db.Column(db.Integer, nullable=False)
     
-    __mapper_args__ = {
-        'polymorphic_identity': 'assistant'
-    }
-    
-    def __init__(self, username, password, degree):
-        super().__init__(username, password, degree)
-        self.rate = 20.00 if degree == 'BSc' else 35.00 if degree == 'MSc' else 0.00
+    def __init__(self, username):
+        self.username = username
+        student = Student.query.get(username)
+        self.rate = 20.00 if student.degree == 'BSc' else 35.00 if student.degree == 'MSc' else 0.00
         self.active = True
         self.hours_worked = 0
         self.hours_minimum = 4
     
     def get_json(self):
         return {
-            'Ássistant ID': self.username,
+            'Student ID': self.username,
             'Degree Level': self.degree,
             'Rate': f'${self.rate}',
             'Account State': 'Active' if self.active == True else 'Inactive',
