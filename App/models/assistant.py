@@ -1,11 +1,10 @@
 from App.database import db
-from .user import User
+from .student import Student
 
-class Assistant(User):
+class Assistant(Student):
     __tablename__ = 'assistant'
     
-    username = db.Column(db.String(20), db.ForeignKey('user.username'), primary_key=True)
-    degree = db.Column(db.String(3), nullable=False)
+    username = db.Column(db.String(20), db.ForeignKey('student.username'), primary_key=True)
     rate = db.Column(db.Float, nullable=False)
     active = db.Column(db.Boolean, nullable=False)
     hours_worked = db.Column(db.Integer, nullable=False)
@@ -16,8 +15,7 @@ class Assistant(User):
     }
     
     def __init__(self, username, password, degree):
-        super().__init__(username, password)
-        self.degree = degree
+        super().__init__(username, password, degree)
         self.rate = 20.00 if degree == 'BSc' else 35.00 if degree == 'MSc' else 0.00
         self.active = True
         self.hours_worked = 0
@@ -33,14 +31,15 @@ class Assistant(User):
             'Minimum Hours': self.hours_minimum
         }
     
-    def update_hours_worked(self, hours):
-        self.hours_worked += hours
+    def activate(self):
+        self.active = True
     
     def deactivate(self):
         self.active = False
     
-    def activate(self):
-        self.active = True
-    
     def set_minimum_hours(self, hours):
         self.hours_minimum = hours
+    
+    def update_hours_worked(self, hours):
+        self.hours_worked += hours
+    
