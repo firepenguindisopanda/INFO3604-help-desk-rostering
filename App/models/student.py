@@ -17,6 +17,7 @@ class Student(User):
     
     def get_json(self):
         return {
-            'Student ID': self.username
+            'Student ID': self.username,
+            'Degree Level': self.degree
         }
     

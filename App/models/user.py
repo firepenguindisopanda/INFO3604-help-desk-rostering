@@ -12,17 +12,17 @@ class User(db.Model):
         'polymorphic_identity': 'user',
         'polymorphic_on': type
     }
-    role = db.Column(db.String(20), nullable=False, default='volunteer')  # New field for user role
 
-    def __init__(self, username, password, role='volunteer'):
+    def __init__(self, username, password, type='student'):
         self.username = username
         self.set_password(password)
-        self.role = role
+        self.type = type
 
     def get_json(self):
         return{
-            'username': self.username,
-            'role': self.role
+            'Username': self.username,
+            'Password': self.password,
+            'Type': self.type
         }
 
     def set_password(self, password):
@@ -36,5 +36,5 @@ class User(db.Model):
     def is_admin(self):
         return self.role == 'admin'
 
-    def is_volunteer(self):
-        return self.role == 'volunteer'
+    def is_student(self):
+        return self.type == 'student'

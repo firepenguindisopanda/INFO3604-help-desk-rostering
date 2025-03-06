@@ -3,7 +3,7 @@ from App.database import db
 
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    username = db.Column(db.Integer, db.ForeignKey('user.username'), nullable=False)
     message = db.Column(db.String(255), nullable=False)
     notification_type = db.Column(db.String(50), nullable=False)
     is_read = db.Column(db.Boolean, default=False)
@@ -19,8 +19,8 @@ class Notification(db.Model):
     TYPE_MISSED = 'missed'
     TYPE_UPDATE = 'update'
     
-    def __init__(self, user_id, message, notification_type):
-        self.user_id = user_id
+    def __init__(self, username, message, notification_type):
+        self.username = username
         self.message = message
         self.notification_type = notification_type
         self.is_read = False
@@ -28,7 +28,7 @@ class Notification(db.Model):
     def get_json(self):
         return {
             'id': self.id,
-            'user_id': self.user_id,
+            'username': self.username,
             'message': self.message,
             'notification_type': self.notification_type,
             'is_read': self.is_read,

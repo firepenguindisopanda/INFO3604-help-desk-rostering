@@ -2,10 +2,10 @@ from App.models import Notification, User
 from App.database import db
 from datetime import datetime
 
-def create_notification(user_id, message, notification_type):
+def create_notification(username, message, notification_type):
     """Create a new notification for a user"""
     notification = Notification(
-        user_id=user_id,
+        username=username,
         message=message,
         notification_type=notification_type
     )
@@ -13,9 +13,9 @@ def create_notification(user_id, message, notification_type):
     db.session.commit()
     return notification
 
-def get_user_notifications(user_id, limit=20, include_read=False):
+def get_user_notifications(username, limit=20, include_read=False):
     """Get notifications for a user, with newest first"""
-    query = Notification.query.filter_by(user_id=user_id)
+    query = Notification.query.filter_by(username=username)
     
     if not include_read:
         query = query.filter_by(is_read=False)
@@ -36,9 +36,9 @@ def mark_notification_as_read(notification_id):
         return True
     return False
 
-def mark_all_notifications_as_read(user_id):
+def mark_all_notifications_as_read(username):
     """Mark all notifications for a user as read"""
-    notifications = Notification.query.filter_by(user_id=user_id, is_read=False).all()
+    notifications = Notification.query.filter_by(username=username, is_read=False).all()
     for notification in notifications:
         notification.is_read = True
         db.session.add(notification)
@@ -54,43 +54,43 @@ def delete_notification(notification_id):
         return True
     return False
 
-def count_unread_notifications(user_id):
+def count_unread_notifications(username):
     """Count unread notifications for a user"""
-    return Notification.query.filter_by(user_id=user_id, is_read=False).count()
+    return Notification.query.filter_by(username=username, is_read=False).count()
 
 # Function to create common notification types
-def notify_shift_approval(user_id, shift_details):
+def notify_shift_approval(username, shift_details):
     message = f"Your shift change request for {shift_details} was approved."
-    return create_notification(user_id, message, Notification.TYPE_APPROVAL)
+    return create_notification(username, message, Notification.TYPE_APPROVAL)
 
-def notify_shift_rejection(user_id, shift_details):
+def notify_shift_rejection(username, shift_details):
     message = f"Your shift change request for {shift_details} was rejected."
-    return create_notification(user_id, message, Notification.TYPE_APPROVAL)
+    return create_notification(username, message, Notification.TYPE_APPROVAL)
 
-def notify_clock_in(user_id, shift_details):
+def notify_clock_in(username, shift_details):
     message = f"You clocked in for your {shift_details} shift."
-    return create_notification(user_id, message, Notification.TYPE_CLOCK_IN)
+    return create_notification(username, message, Notification.TYPE_CLOCK_IN)
 
-def notify_clock_out(user_id, shift_details):
+def notify_clock_out(username, shift_details):
     message = f"You clocked out for your {shift_details} shift."
-    return create_notification(user_id, message, Notification.TYPE_CLOCK_OUT)
+    return create_notification(username, message, Notification.TYPE_CLOCK_OUT)
 
-def notify_schedule_published(user_id, week_number):
+def notify_schedule_published(username, week_number):
     message = f"Week {week_number} Schedule has been published. Check out your shifts for the week."
-    return create_notification(user_id, message, Notification.TYPE_SCHEDULE)
+    return create_notification(username, message, Notification.TYPE_SCHEDULE)
 
-def notify_shift_reminder(user_id, shift_details, minutes_before=15):
+def notify_shift_reminder(username, shift_details, minutes_before=15):
     message = f"Your {shift_details} shift starts in {minutes_before} minutes."
-    return create_notification(user_id, message, Notification.TYPE_REMINDER)
+    return create_notification(username, message, Notification.TYPE_REMINDER)
 
-def notify_request_submitted(user_id, shift_details):
+def notify_request_submitted(username, shift_details):
     message = f"Your request for {shift_details} was submitted and is pending approval."
-    return create_notification(user_id, message, Notification.TYPE_REQUEST)
+    return create_notification(username, message, Notification.TYPE_REQUEST)
 
-def notify_missed_shift(user_id, shift_details):
+def notify_missed_shift(username, shift_details):
     message = f"You missed your {shift_details} shift."
-    return create_notification(user_id, message, Notification.TYPE_MISSED)
+    return create_notification(username, message, Notification.TYPE_MISSED)
 
-def notify_availability_updated(user_id):
+def notify_availability_updated(username):
     message = "Your availability was successfully updated."
-    return create_notification(user_id, message, Notification.TYPE_UPDATE)
+    return create_notification(username, message, Notification.TYPE_UPDATE)
