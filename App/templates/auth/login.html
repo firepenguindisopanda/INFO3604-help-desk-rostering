@@ -5,6 +5,51 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/auth/auth.css') }}">
+<style>
+    .error-message {
+        color: #dc3545;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+        display: none;
+    }
+    
+    .form-group input.invalid {
+        border-color: #dc3545;
+    }
+    
+    .password-recovery {
+        text-align: right;
+        margin-bottom: 1rem;
+        font-size: 0.85rem;
+    }
+    
+    .password-recovery a {
+        color: #0066cc;
+        text-decoration: none;
+    }
+    
+    .password-recovery a:hover {
+        text-decoration: underline;
+    }
+    
+    .login-tips {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+    
+    .login-tips h3 {
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .login-tips ul {
+        padding-left: 1.5rem;
+        margin-bottom: 0;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -14,20 +59,42 @@
         <img src="{{ url_for('static', filename='illustration.svg') }}" alt="Login illustration" class="illustration">
     </div>
     <div class="right-side">
-        <button id="toggleLogin" class="btn btn-primary auth-button">Admin Login</button>
         <div class="login-form-container">
-            <form class="login-form" method="POST" action="{{ url_for('auth_views.login_action') }}">
-                <input type="hidden" id="loginType" name="login_type" value="assistant">
+            <form class="login-form" method="POST" action="{{ url_for('auth_views.login_action') }}" id="loginForm">
                 <h2>Login</h2>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}" style="color: {% if category == 'error' %}#dc3545{% else %}#28a745{% endif %}; margin-bottom: 1rem; padding: 0.75rem; background-color: {% if category == 'error' %}#f8d7da{% else %}#d4edda{% endif %}; border-radius: 4px;">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
                 <div class="form-group">
                     <label for="id">ID</label>
-                    <input type="text" id="id" name="username" placeholder="816xxxxxx" required>
+                    <input type="text" id="id" name="username" placeholder="Enter your ID" required>
+                    <div class="error-message" id="idError">Please enter a valid ID</div>
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
                     <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                    <div class="error-message" id="passwordError">Password is required</div>
+                </div>
+                <div class="password-recovery">
+                    <a href="{{ url_for('auth_views.forgot_password') }}">Forgot password?</a>
                 </div>
                 <button type="submit" class="btn btn-primary">Sign In</button>
+                
+                <div class="login-tips">
+                    <h3>Demo Accounts:</h3>
+                    <ul>
+                        <li><strong>Admin:</strong> Username: a, Password: 123</li>
+                        <li><strong>Assistant:</strong> Username: 8, Password: a</li>
+                    </ul>
+                </div>
             </form>
         </div>
     </div>
@@ -36,14 +103,53 @@
 
 {% block scripts %}
 <script>
-    const toggleButton = document.getElementById('toggleLogin');
-    const loginTypeInput = document.getElementById('loginType');
-    let isAssistant = true;
-
-    toggleButton.addEventListener('click', () => {
-        isAssistant = !isAssistant;
-        toggleButton.textContent = isAssistant ? 'Admin Login' : 'Assistant Login';
-        loginTypeInput.value = isAssistant ? 'assistant' : 'admin';
+    document.addEventListener('DOMContentLoaded', function() {
+        const loginForm = document.getElementById('loginForm');
+        const idInput = document.getElementById('id');
+        const passwordInput = document.getElementById('password');
+        const idError = document.getElementById('idError');
+        const passwordError = document.getElementById('passwordError');
+        
+        // Form validation
+        loginForm.addEventListener('submit', function(e) {
+            let isValid = true;
+            
+            // Validate ID
+            if (!idInput.value) {
+                idInput.classList.add('invalid');
+                idError.style.display = 'block';
+                idError.textContent = 'ID is required';
+                isValid = false;
+            } else {
+                idInput.classList.remove('invalid');
+                idError.style.display = 'none';
+            }
+            
+            // Validate password
+            if (!passwordInput.value) {
+                passwordInput.classList.add('invalid');
+                passwordError.style.display = 'block';
+                isValid = false;
+            } else {
+                passwordInput.classList.remove('invalid');
+                passwordError.style.display = 'none';
+            }
+            
+            if (!isValid) {
+                e.preventDefault();
+            }
+        });
+        
+        // Clear errors on input
+        idInput.addEventListener('input', function() {
+            idInput.classList.remove('invalid');
+            idError.style.display = 'none';
+        });
+        
+        passwordInput.addEventListener('input', function() {
+            passwordInput.classList.remove('invalid');
+            passwordError.style.display = 'none';
+        });
     });
 </script>
 {% endblock %}

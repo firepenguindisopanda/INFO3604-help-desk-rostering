@@ -18,17 +18,19 @@ def initialize():
     db.create_all()
     
     # Create default admin account
-    admin = create_user('admin', 'admin123', role='admin')
+    admin = create_user('a', '123', role='admin')
     
     # Create default volunteer/assistant account
-    volunteer = create_user('816000000', 'assistant123', role='volunteer')
+    volunteer = create_user('8', 'a', role='volunteer')
 
     # Create sample notifications for demo purposes
     create_sample_notifications(admin.id, volunteer.id)
     
     print('Database initialized with default accounts:')
-    print('Admin - username: admin, password: admin123')
-    print('Volunteer - username: 816000000, password: assistant123')
+    # print('Admin - username: admin, password: admin123')
+    # print('Volunteer - username: 816000000, password: assistant123')
+    print('Admin - username: a, password: 123')
+    print('Volunteer - username: 8, password: a')
 
 def create_sample_notifications(admin_id, volunteer_id):
     """Create sample notifications for the demo"""
