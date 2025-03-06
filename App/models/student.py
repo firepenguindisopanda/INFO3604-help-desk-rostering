@@ -12,7 +12,7 @@ class Student(User):
     }
     
     def __init__(self, username, password, degree):
-        super().__init__(username, password)
+        super().__init__(username, password, type='student')
         self.degree = degree
     
     def get_json(self):

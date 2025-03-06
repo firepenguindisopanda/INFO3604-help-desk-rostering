@@ -10,8 +10,8 @@ class Admin(User):
         'polymorphic_identity': 'admin'
     }
     
-    def init(self, username, password):
-        super().__init__(username, password)
+    def __init__(self, username, password):
+        super().__init__(username, password, type='admin')
     
     def get_json(self):
         return {
