@@ -32,7 +32,7 @@ def dashboard():
     # In a real application, this data would be pulled from your database
     # or calculated by your scheduling algorithm
     days_of_week = ['MON', 'TUE', 'WED', 'THUR', 'FRI']
-    time_slots = ['9:00 am', '10:00 am', '11:00 am']
+    time_slots = ['9:00 am', '10:00 am', '11:00 am', '12:00 pm', '1:00 pm', '2:00 pm', '3:00 pm', '4:00 pm']
     
     # Sample staff assignments - in reality this would come from your database
     staff_schedule = {

@@ -15,9 +15,9 @@ def generate_schedule():
     try:
         # Call the help desk scheduler with default parameters
         # I = 10 staff members
-        # J = 45 shifts (9 hours x 5 days)
+        # J = 40 shifts (8 hours x 5 days) - Changed from 45 (9 hours) to 40 (8 hours)
         # K = 1 course (simplified)
-        I, J, K = 10, 45, 1
+        I, J, K = 10, 40, 1
         result = help_desk_scheduler(I, J, K)
         
         return jsonify(result)
@@ -36,7 +36,8 @@ def get_schedule_details():
     """Get a more detailed view of the schedule for the admin page"""
     try:
         # Call the help desk scheduler
-        I, J, K = 10, 45, 1
+        # Changed J from 45 (9 hours) to 40 (8 hours)
+        I, J, K = 10, 40, 1
         result = help_desk_scheduler(I, J, K)
         
         if result['status'] != 'success':
@@ -49,7 +50,7 @@ def get_schedule_details():
         # Define days and shift times for hourly slots
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
         shift_times = ["9:00 am", "10:00 am", "11:00 am", "12:00 pm", 
-                      "1:00 pm", "2:00 pm", "3:00 pm", "4:00 pm", "5:00 pm"]
+                      "1:00 pm", "2:00 pm", "3:00 pm", "4:00 pm"]
         
         # Create a formatted schedule
         formatted_schedule = []

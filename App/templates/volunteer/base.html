@@ -30,7 +30,7 @@
 
     {% with messages = get_flashed_messages() %}
         {% if messages %}
-            <div class="flash-messages">
+            <div id="flash-container">
                 {% for message in messages %}
                     <div class="flash-message">{{ message }}</div>
                 {% endfor %}
@@ -51,6 +51,23 @@
     </div>
     
     <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    
+    <script>
+        // Handle flash messages
+        document.addEventListener('DOMContentLoaded', function() {
+            const flashMessages = document.querySelectorAll('.flash-message');
+            
+            flashMessages.forEach(message => {
+                // Auto-remove flash messages after 5 seconds
+                setTimeout(() => {
+                    message.style.opacity = '0';
+                    setTimeout(() => {
+                        message.remove();
+                    }, 500);
+                }, 5000);
+            });
+        });
+    </script>
     
     {% block scripts %}{% endblock %}
 </body>
