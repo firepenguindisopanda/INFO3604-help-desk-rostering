@@ -16,7 +16,7 @@ def volunteer_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         verify_jwt_in_request()
-        if not current_user or not current_user.is_volunteer():
+        if not current_user or not current_user.is_student():
             flash("You don't have permission to access this resource", "error")
             return redirect(url_for('auth_views.login_page'))
         return f(*args, **kwargs)
