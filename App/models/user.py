@@ -21,7 +21,6 @@ class User(db.Model):
     def get_json(self):
         return{
             'Username': self.username,
-            'Password': self.password,
             'Type': self.type
         }
 

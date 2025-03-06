@@ -27,8 +27,8 @@ def initialize():
     create_sample_notifications(admin.username, student.username)
     
     print('Database initialized with default accounts:')
-    print(admin.get_json())
-    print(student.get_json())
+    print(admin.get_json(), "Password: admin123")
+    print(student.get_json(), "Password: student123")
 
 def create_sample_notifications(admin_username, student_username):
     """Create sample notifications for the demo"""

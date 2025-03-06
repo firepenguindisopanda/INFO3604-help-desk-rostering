@@ -1,6 +1,6 @@
 from App.database import db
 
-class Availability(db.model):
+class Availability(db.Model):
     __tablename__ = 'availability'
     
     id = db.Column(db.Integer, primary_key=True)
@@ -12,7 +12,7 @@ class Availability(db.model):
     
     def __init__(self, username, shift):
         self.username = username
-        self.shift_id = shift
+        self.shift = shift
     
     def get_json(self):
         return {
