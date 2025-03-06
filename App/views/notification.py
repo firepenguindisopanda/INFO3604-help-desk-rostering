@@ -19,14 +19,14 @@ def get_notifications_api():
     limit = request.args.get('limit', 10, type=int)
     include_read = request.args.get('include_read', False, type=bool)
     
-    notifications = get_user_notifications(current_user.id, limit, include_read)
+    notifications = get_user_notifications(current_user.username, limit, include_read)
     return jsonify([notification.get_json() for notification in notifications])
 
 @notification_views.route('/api/notifications/count', methods=['GET'])
 @jwt_required()
 def count_notifications_api():
     """Count unread notifications for the current user"""
-    count = count_unread_notifications(current_user.id)
+    count = count_unread_notifications(current_user.username)
     return jsonify({'count': count})
 
 @notification_views.route('/api/notifications/<int:notification_id>/read', methods=['POST'])
@@ -40,7 +40,7 @@ def mark_as_read_api(notification_id):
 @jwt_required()
 def mark_all_as_read_api():
     """Mark all notifications as read"""
-    count = mark_all_notifications_as_read(current_user.id)
+    count = mark_all_notifications_as_read(current_user.username)
     return jsonify({'success': True, 'count': count})
 
 @notification_views.route('/api/notifications/<int:notification_id>', methods=['DELETE'])
