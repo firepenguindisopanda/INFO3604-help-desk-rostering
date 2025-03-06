@@ -11,7 +11,7 @@ class Student(User):
         'polymorphic_identity': 'student'
     }
     
-    def init(self, username, password, degree):
+    def __init__(self, username, password, degree):
         super().__init__(username, password)
         self.degree = degree
     
