@@ -6,9 +6,9 @@ def login(username, password):
     if user and user.check_password(password):
         access_token = create_access_token(
             identity=str(username),
-            additional_claims={'role': user.role}  
+            additional_claims={'type': user.type}  
         )
-        return access_token, user.role
+        return access_token, user.type
     return None, None
 
 def setup_jwt(app):
