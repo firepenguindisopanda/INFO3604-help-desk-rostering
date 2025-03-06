@@ -35,6 +35,7 @@ def dashboard():
     time_slots = ['9:00 am', '10:00 am', '11:00 am', '12:00 pm', '1:00 pm', '2:00 pm', '3:00 pm', '4:00 pm']
     
     # Sample staff assignments - in reality this would come from your database
+    # Make sure all time slots in time_slots are defined here
     staff_schedule = {
         '9:00 am': {
             'MON': ['Liam Johnson', 'Joshua Anderson', 'Daniel Martinez'],
@@ -56,6 +57,41 @@ def dashboard():
             'WED': ['Joshua Anderson', 'Liam Johnson'],
             'THUR': ['Joshua Anderson', 'Liam Johnson', 'Ethan Roberts'],
             'FRI': ['Joshua Anderson', 'Liam Johnson', 'Ethan Roberts']
+        },
+        '12:00 pm': {
+            'MON': ['Michelle Liu', 'Sarah Johnson'],
+            'TUE': ['Michelle Liu', 'Sarah Johnson'],
+            'WED': ['Michelle Liu', 'Sarah Johnson'],
+            'THUR': ['Michelle Liu', 'Sarah Johnson'],
+            'FRI': ['Michelle Liu', 'Sarah Johnson']
+        },
+        '1:00 pm': {
+            'MON': ['Emily Davis', 'Michael Brown'],
+            'TUE': ['Emily Davis', 'Michael Brown'],
+            'WED': ['Emily Davis', 'Michael Brown'],
+            'THUR': ['Emily Davis', 'Michael Brown'],
+            'FRI': ['Emily Davis', 'Michael Brown']
+        },
+        '2:00 pm': {
+            'MON': ['James Wilson', 'Robert Taylor'],
+            'TUE': ['James Wilson', 'Robert Taylor'],
+            'WED': ['James Wilson', 'Robert Taylor'],
+            'THUR': ['James Wilson', 'Robert Taylor'],
+            'FRI': ['James Wilson', 'Robert Taylor']
+        },
+        '3:00 pm': {
+            'MON': ['Jennifer Thomas', 'Lisa Anderson'],
+            'TUE': ['Jennifer Thomas', 'Lisa Anderson'],
+            'WED': ['Jennifer Thomas', 'Lisa Anderson'],
+            'THUR': ['Jennifer Thomas', 'Lisa Anderson'],
+            'FRI': ['Jennifer Thomas', 'Lisa Anderson']
+        },
+        '4:00 pm': {
+            'MON': ['David Clark', 'Andrew Parker'],
+            'TUE': ['David Clark', 'Andrew Parker'],
+            'WED': ['David Clark', 'Andrew Parker'],
+            'THUR': ['David Clark', 'Andrew Parker'],
+            'FRI': ['David Clark', 'Andrew Parker']
         }
     }
     

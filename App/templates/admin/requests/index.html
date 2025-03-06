@@ -11,58 +11,49 @@
 
 <div class="search-container">
     <i class="material-icons">search</i>
-    <input type="text" placeholder="Search" class="search-input">
+    <input type="text" id="searchInput" placeholder="Search" class="search-input">
 </div>
 
 <div class="user-list">
-    <div class="user-card">
-        <img src="/api/placeholder/48/48" alt="John Doe" class="avatar avatar-sm">
+    {% for tutor in tutors %}
+    <div class="user-card" data-id="{{ tutor.id }}">
+        <img src="{{ tutor.image }}" alt="{{ tutor.name }}" class="avatar avatar-sm">
         <div class="user-info">
-            <h5 class="user-name">John Doe</h5>
-            <span class="user-role">Tutor</span>
-            <div class="user-id">816031882</div>
+            <h5 class="user-name">{{ tutor.name }}</h5>
+            <span class="user-role">{{ tutor.role }}</span>
+            <div class="user-id">{{ tutor.id_number }}</div>
         </div>
         <i class="material-icons expand-icon">expand_more</i>
     </div>
-
-    <div class="user-card">
-        <img src="/api/placeholder/48/48" alt="Sam Rico" class="avatar avatar-sm">
-        <div class="user-info">
-            <h5 class="user-name">Sam Rico</h5>
-            <span class="user-role">Tutor</span>
-            <div class="user-id">816031873</div>
+    <div class="request-details" id="details-{{ tutor.id }}" style="display: none;">
+        <div class="request-list">
+            <h6>Requests History</h6>
+            {% if tutor.requests %}
+                {% for req in tutor.requests %}
+                <div class="request-item {% if req.status == 'pending' %}pending{% elif req.status == 'approved' %}approved{% elif req.status == 'rejected' %}rejected{% endif %}">
+                    <div class="request-header">
+                        <span class="request-date">{{ req.date }}</span>
+                        <span class="request-status">{{ req.status|upper }}</span>
+                    </div>
+                    <div class="request-time">{{ req.time_slot }}</div>
+                    <div class="request-reason">{{ req.reason }}</div>
+                    {% if req.status == 'pending' %}
+                    <div class="request-actions">
+                        <button class="btn btn-reject" onclick="rejectRequest({{ req.id }})">Reject</button>
+                        <button class="btn btn-approve" onclick="approveRequest({{ req.id }})">Approve</button>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-requests">No requests found</div>
+            {% endif %}
         </div>
-        <i class="material-icons expand-icon">expand_more</i>
     </div>
+    {% endfor %}
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script>
-    document.querySelectorAll('.user-card').forEach(card => {
-        card.addEventListener('click', () => {
-            card.classList.toggle('expanded');
-            const icon = card.querySelector('.expand-icon');
-            icon.textContent = card.classList.contains('expanded') ? 'expand_less' : 'expand_more';
-        });
-    });
-
-    const searchInput = document.querySelector('.search-input');
-    searchInput.addEventListener('input', (e) => {
-        const searchTerm = e.target.value.toLowerCase();
-        document.querySelectorAll('.user-card').forEach(card => {
-            const userName = card.querySelector('.user-name').textContent.toLowerCase();
-            const userId = card.querySelector('.user-id').textContent.toLowerCase();
-            const userRole = card.querySelector('.user-role').textContent.toLowerCase();
-            
-            if (userName.includes(searchTerm) || 
-                userId.includes(searchTerm) || 
-                userRole.includes(searchTerm)) {
-                card.style.display = 'flex';
-            } else {
-                card.style.display = 'none';
-            }
-        });
-    });
-</script>
+<script src="{{ url_for('static', filename='js/admin-requests.js') }}"></script>
 {% endblock %}

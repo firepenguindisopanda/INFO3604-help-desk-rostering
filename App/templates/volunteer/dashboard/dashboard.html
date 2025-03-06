@@ -42,9 +42,11 @@
         
         {% for day in days_of_week %}
         <div class="schedule-cell">
-            {% for staff in staff_schedule[time][day] %}
-            <div class="staff-name">{{ staff }}</div>
-            {% endfor %}
+            {% if time in staff_schedule and day in staff_schedule[time] %}
+                {% for staff in staff_schedule[time][day] %}
+                <div class="staff-name">{{ staff }}</div>
+                {% endfor %}
+            {% endif %}
         </div>
         {% endfor %}
     </div>
