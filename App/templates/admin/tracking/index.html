@@ -10,41 +10,52 @@
 <div class="header">
     <h2>Attendance</h2>
     <div class="filters">
-        <span>Month</span>
-        <div class="dropdown">Nov ▼</div>
-        <span>Week</span>
-        <div class="dropdown">5 ▼</div>
+        <div class="filter-group">
+            <span>Month</span>
+            <div class="dropdown">
+                <button class="dropdown-btn">{{ current_month }} ▼</button>
+            </div>
+        </div>
+        <div class="filter-group">
+            <span>Week</span>
+            <div class="dropdown">
+                <button class="dropdown-btn">{{ current_week }} ▼</button>
+            </div>
+        </div>
     </div>
 </div>
 
 <div class="attendance-cards">
-    <div class="staff-card selected">
+    {% for staff in staff_data %}
+    <div class="staff-card {% if staff.selected %}selected{% endif %}" data-staff-id="{{ staff.id }}">
         <div class="staff-header">
-            <img src="/api/placeholder/50/50" alt="Lisa Jerado" class="avatar avatar-md">
-            <div>
-                <h3>Lisa Jerado</h3>
-                <small>816023111</small>
-            </div>
+            <img src="{{ staff.image }}" alt="{{ staff.name }}" class="avatar avatar-md">
+            <h3>{{ staff.name }}</h3>
+            {% if staff.selected %}
+            <small>{{ staff.id }}</small>
+            {% endif %}
         </div>
         <div class="attendance-stats">
             <div class="stat">
-                <div class="stat-value">84%</div>
+                <div class="stat-value">{{ staff.semester_attendance }}</div>
                 <div class="stat-label">Semester</div>
             </div>
             <div class="stat">
-                <div class="stat-value">85%</div>
+                <div class="stat-value">{{ staff.week_attendance }}</div>
                 <div class="stat-label">Week</div>
             </div>
         </div>
         <button class="btn btn-secondary">Profile Details</button>
     </div>
+    {% endfor %}
 </div>
 
-<div class="attendance-table">
-    <div class="table-header">
+<div class="attendance-list-container">
+    <div class="attendance-list-header">
         <h3>Weekly Attendance List</h3>
         <button class="btn btn-primary">Generate Report</button>
     </div>
+    
     <table class="attendance-list">
         <thead>
             <tr>
@@ -55,21 +66,24 @@
                 <th>Logout Time</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="attendanceTableBody">
+            {% for record in attendance_records %}
             <tr>
-                <td>816023111</td>
+                <td>{{ record.staff_id }}</td>
                 <td>
                     <div class="staff-row">
-                        <img src="/api/placeholder/30/30" alt="Lisa Jerado" class="avatar avatar-sm">
-                        Lisa Jerado
+                        <img src="{{ record.image }}" alt="{{ record.staff_name }}" class="avatar avatar-sm">
+                        <span>{{ record.staff_name }}</span>
                     </div>
                 </td>
-                <td>11-23-24<br>Thursday</td>
-                <td>09:30AM</td>
-                <td>ON DUTY</td>
+                <td>{{ record.date }}<br>{{ record.day }}</td>
+                <td>{{ record.login_time }}</td>
+                <td>{{ record.logout_time }}</td>
             </tr>
+            {% endfor %}
         </tbody>
     </table>
+    
     <div class="pagination">
         <button class="page-btn">←</button>
         <button class="page-btn active">1</button>
@@ -78,4 +92,8 @@
         <button class="page-btn">→</button>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/admin-tracking.js') }}"></script>
 {% endblock %}

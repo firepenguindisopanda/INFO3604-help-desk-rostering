@@ -46,6 +46,16 @@ def login_action():
         flash('An error occurred during login. Please try again.', 'error')
         return redirect(url_for('auth_views.login_page'))
 
+@auth_views.route('/forgot-password', methods=['GET'])
+def forgot_password():
+    return render_template('auth/forgot_password.html')
+
+@auth_views.route('/reset-password-request', methods=['POST'])
+def reset_password_request():
+    username = request.form.get('username', '')
+    flash('If an account with this ID exists, password reset instructions have been sent.', 'success')
+    return redirect(url_for('auth_views.login_page'))
+
 @auth_views.route('/logout', methods=['GET'])
 def logout_action():
     response = redirect(url_for('auth_views.login_page'))

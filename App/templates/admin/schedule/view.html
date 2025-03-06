@@ -89,184 +89,21 @@
     </div>
 </div>
 
-<div class="staff-panel">
-    <h3>Staff Legend</h3>
-    <div class="staff-legend" id="staffLegend">
-        <!-- Staff legend will be loaded dynamically -->
+<!-- Staff search modal -->
+<div id="staffSearchModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h2>Add Staff</h2>
+        <div class="search-field">
+            <input type="text" id="staffSearchInput" placeholder="Search for staff...">
+        </div>
+        <div id="staffSearchResults" class="search-results">
+            <!-- Search results will appear here -->
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/admin-schedule.js') }}"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Generate Schedule button functionality
-        const generateBtn = document.getElementById('generateSchedule');
-        const loadingIndicator = document.getElementById('loadingIndicator');
-        
-        generateBtn.addEventListener('click', function() {
-            loadingIndicator.style.display = 'flex';
-            
-            fetch('/api/schedule/details')
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(errorData => {
-                            throw new Error(errorData.message || 'Failed to generate schedule.');
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    loadingIndicator.style.display = 'none';
-                    
-                    if (data.status === 'success') {
-                        renderSchedule(data.schedule, data.staff_index);
-                        renderStaffLegend(data.staff_index);
-                        
-                        // Show schedule stats
-                        const statsDiv = document.getElementById('scheduleStats');
-                        statsDiv.style.display = 'block';
-                        
-                        // Add stats
-                        const statsList = document.getElementById('statsList');
-                        statsList.innerHTML = `
-                            <div class="stat-item">
-                                <div class="stat-label">Total Staff:</div>
-                                <div class="stat-value">${Object.keys(data.staff_index).length}</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-label">Total Shifts:</div>
-                                <div class="stat-value">45</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-label">Schedule Type:</div>
-                                <div class="stat-value">Help Desk</div>
-                            </div>
-                        `;
-                    } else {
-                        alert(`Failed to generate schedule: ${data.message}`);
-                    }
-                })
-                .catch(error => {
-                    loadingIndicator.style.display = 'none';
-                    console.error('Error generating schedule:', error);
-                    alert(`An error occurred: ${error.message || 'Unknown error'}`);
-                });
-        });
-    });
-    
-    function renderSchedule(schedule, staffIndex) {
-        const scheduleBody = document.getElementById('scheduleBody');
-        scheduleBody.innerHTML = '';
-        
-        // For the help desk, we have hourly slots from 9am to 5pm
-        const timeSlots = ["9:00 am", "10:00 am", "11:00 am", "12:00 pm", 
-                          "1:00 pm", "2:00 pm", "3:00 pm", "4:00 pm", "5:00 pm"];
-        
-        // Create a row for each time slot
-        timeSlots.forEach((timeSlot, timeIndex) => {
-            const row = document.createElement('tr');
-            
-            // Add time cell
-            const timeCell = document.createElement('td');
-            timeCell.className = 'time-cell';
-            timeCell.textContent = timeSlot;
-            row.appendChild(timeCell);
-            
-            // Add cells for each day
-            schedule.forEach(day => {
-                const shift = day.shifts[timeIndex];
-                const cell = document.createElement('td');
-                cell.className = 'schedule-cell';
-                cell.setAttribute('data-time', timeSlot);
-                cell.setAttribute('data-day', day.day);
-                
-                if (shift && shift.staff.length > 0) {
-                    const staffContainer = document.createElement('div');
-                    staffContainer.className = 'staff-container';
-                    
-                    // Show the number of staff assigned
-                    const staffIndicator = document.createElement('div');
-                    staffIndicator.className = 'staff-slot-indicator';
-                    staffIndicator.textContent = `Staff: ${shift.staff.length}`;
-                    staffContainer.appendChild(staffIndicator);
-                    
-                    // Add each staff member
-                    shift.staff.forEach(staffId => {
-                        const staffName = document.createElement('div');
-                        staffName.className = 'staff-name';
-                        staffName.setAttribute('draggable', 'true');
-                        staffName.setAttribute('data-staff-id', staffId);
-                        staffName.textContent = staffIndex[staffId];
-                        
-                        // Add remove button
-                        const removeBtn = document.createElement('button');
-                        removeBtn.className = 'remove-staff';
-                        removeBtn.innerHTML = '&times;';
-                        removeBtn.onclick = function(e) {
-                            e.stopPropagation();
-                            staffName.remove();
-                            updateStaffCounter(cell);
-                        };
-                        staffName.appendChild(removeBtn);
-                        
-                        staffContainer.appendChild(staffName);
-                    });
-                    
-                    cell.appendChild(staffContainer);
-                } else {
-                    const staffContainer = document.createElement('div');
-                    staffContainer.className = 'staff-container';
-                    
-                    // Create empty staff indicator
-                    const emptyIndicator = document.createElement('div');
-                    emptyIndicator.className = 'staff-slot-indicator';
-                    emptyIndicator.textContent = 'Drop staff here (0/3)';
-                    staffContainer.appendChild(emptyIndicator);
-                    
-                    cell.appendChild(staffContainer);
-                }
-                
-                row.appendChild(cell);
-            });
-            
-            scheduleBody.appendChild(row);
-        });
-    }
-    
-    function renderStaffLegend(staffIndex) {
-        const staffLegend = document.getElementById('staffLegend');
-        staffLegend.innerHTML = '';
-        
-        Object.entries(staffIndex).forEach(([id, name]) => {
-            const staffItem = document.createElement('div');
-            staffItem.className = 'staff-item';
-            staffItem.draggable = true;
-            staffItem.setAttribute('data-staff-id', id);
-            
-            const colorIndicator = document.createElement('div');
-            colorIndicator.className = 'staff-color-indicator';
-            colorIndicator.style.backgroundColor = getStaffColor(id);
-            
-            const staffText = document.createElement('div');
-            staffText.className = 'staff-name-text';
-            staffText.textContent = name;
-            
-            staffItem.appendChild(colorIndicator);
-            staffItem.appendChild(staffText);
-            staffLegend.appendChild(staffItem);
-        });
-    }
-    
-    function getStaffColor(id) {
-        // Generate a consistent color based on staff ID
-        const colors = [
-            '#FF5733', '#33FF57', '#3357FF', '#F3FF33', '#FF33F3',
-            '#33FFF3', '#FF8033', '#8033FF', '#33FF80', '#FF3380'
-        ];
-        
-        return colors[id % colors.length];
-    }
-</script>
 {% endblock %}

@@ -18,17 +18,22 @@ def initialize():
     db.create_all()
     
     # Create default admin account
-    admin = create_user('admin', 'admin123', type='admin')
+
+    admin = create_user('a', '123', type='admin')
     
     # Create default volunteer/assistant account
-    student = create_user('816000000', 'student123', type='student')
+    student = create_user('8', 'a', type='student')
+
 
     # Create sample notifications for demo purposes
     create_sample_notifications(admin.username, student.username)
     
     print('Database initialized with default accounts:')
-    print(admin.get_json(), "Password: admin123")
-    print(student.get_json(), "Password: student123")
+
+
+    print(admin.get_json(), "Password: 123")
+    print(student.get_json(), "Password: a")
+
 
 def create_sample_notifications(admin_username, student_username):
     """Create sample notifications for the demo"""
