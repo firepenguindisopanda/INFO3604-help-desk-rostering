@@ -33,7 +33,7 @@ class User(db.Model):
         return check_password_hash(self.password, password)
 
     def is_admin(self):
-        return self.role == 'admin'
+        return self.type == 'admin'
 
     def is_student(self):
         return self.type == 'student'
