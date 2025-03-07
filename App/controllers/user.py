@@ -3,6 +3,8 @@ from App.database import db
 
 def create_user(username, password, type='student'):
     newuser = User(username=username, password=password, type=type)
+    # Set the default avatar for the user
+    newuser.avatar = '/static/images/DefaultAvatar.jpg'
     db.session.add(newuser)
     db.session.commit()
     return newuser
@@ -24,6 +26,14 @@ def update_user(username, new_username):
     user = get_user(username)
     if user:
         user.username = new_username
+        db.session.add(user)
+        return db.session.commit()
+    return None
+
+def update_user_avatar(username, avatar_path):
+    user = get_user(username)
+    if user:
+        user.avatar = avatar_path
         db.session.add(user)
         return db.session.commit()
     return None
