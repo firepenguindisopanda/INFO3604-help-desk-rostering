@@ -12,7 +12,11 @@
 <div class="profile-card">
     <h2>Your Profile</h2>
     <div class="profile-info">
-        <img src="/api/placeholder/80/80" alt="Sharlene Mohan" class="avatar avatar-lg">
+        {% if current_user %}
+            <img src="{{ current_user.avatar }}" alt="{{ current_user.username }}" class="avatar avatar-lg">
+        {% else %}
+            <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="Sharlene Mohan" class="avatar avatar-lg">
+        {% endif %}
         <div class="profile-details">
             <h3 class="profile-name">Sharlene Mohan</h3>
             <p class="profile-id">916938547</p>
@@ -26,7 +30,7 @@
     <h2>Staff Profiles</h2>
     <div class="staff-grid">
         <div class="staff-item">
-            <img src="/api/placeholder/48/48" alt="Lisa Jerado" class="avatar avatar-sm">
+            <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="Lisa Jerado" class="avatar avatar-sm">
             <div class="staff-info">
                 <h4 class="staff-name">Lisa Jerado</h4>
                 <p class="staff-id">816019228</p>
@@ -35,7 +39,7 @@
         </div>
 
         <div class="staff-item">
-            <img src="/api/placeholder/48/48" alt="Liam Johnson" class="avatar avatar-sm">
+            <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="Liam Johnson" class="avatar avatar-sm">
             <div class="staff-info">
                 <h4 class="staff-name">Liam Johnson</h4>
                 <p class="staff-id">816017282</p>
@@ -44,7 +48,7 @@
         </div>
 
         <div class="staff-item">
-            <img src="/api/placeholder/48/48" alt="Taylor Swift" class="avatar avatar-sm">
+            <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="Taylor Swift" class="avatar avatar-sm">
             <div class="staff-info">
                 <h4 class="staff-name">Taylor Swift</h4>
                 <p class="staff-id">816019284</p>

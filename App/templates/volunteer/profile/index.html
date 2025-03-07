@@ -11,7 +11,11 @@
     <!-- Profile Information Section -->
     <div class="profile-info-section">
         <div class="profile-image">
-            <img src="{{ url_for('static', filename='placeholder-profile.jpg') }}" alt="Profile Image">
+            {% if current_user %}
+                <img src="{{ current_user.avatar }}" alt="{{ current_user.username }}">
+            {% else %}
+                <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="Profile Image">
+            {% endif %}
         </div>
         
         <div class="profile-details">
