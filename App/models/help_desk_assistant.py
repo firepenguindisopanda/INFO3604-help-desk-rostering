@@ -10,6 +10,9 @@ class HelpDeskAssistant(db.Model):
     hours_worked = db.Column(db.Integer, nullable=False)
     hours_minimum = db.Column(db.Integer, nullable=False)
     
+    # Course competency
+    course_capabilities = db.relationship('CourseCapability', backref='assistant', lazy=True, cascade="all, delete-orphan")
+    
     def __init__(self, username):
         self.username = username
         student = Student.query.get(username)
@@ -21,11 +24,11 @@ class HelpDeskAssistant(db.Model):
     def get_json(self):
         return {
             'Student ID': self.username,
-            'Degree Level': self.degree,
             'Rate': f'${self.rate}',
             'Account State': 'Active' if self.active == True else 'Inactive',
             'Hours Worked': self.hours_worked,
-            'Minimum Hours': self.hours_minimum
+            'Minimum Hours': self.hours_minimum,
+            'Course Capabilities': [cap.course_code for cap in self.course_capabilities]
         }
     
     def activate(self):
@@ -40,3 +43,7 @@ class HelpDeskAssistant(db.Model):
     def update_hours_worked(self, hours):
         self.hours_worked += hours
     
+    def add_course_capability(self, course_code):
+        capability = CourseCapability(self.username, course_code)
+        self.course_capabilities.append(capability)
+        return capability
