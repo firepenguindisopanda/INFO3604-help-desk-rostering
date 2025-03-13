@@ -11,4 +11,5 @@ from .student import *
 from .course import *
 from .course_capability import *
 from .shift_course_demand import *
-from .time_entry import *  
+from .time_entry import *
+from .request import *

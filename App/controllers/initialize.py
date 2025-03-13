@@ -10,7 +10,7 @@ from .notification import (
     notify_missed_shift,
     notify_availability_updated
 )
-from App.models import Notification, Student, HelpDeskAssistant, User, Shift, TimeEntry
+from App.models import Notification, Student, HelpDeskAssistant, User, Shift, TimeEntry, Request
 from App.database import db
 from datetime import datetime, timedelta
 from sqlalchemy import text
@@ -39,9 +39,65 @@ def initialize():
     # Create time entries directly
     create_direct_time_entries()
     
+    # Create sample requests
+    create_sample_requests(student.username)
+    
     print('Database initialized with default accounts:')
     print(admin.get_json(), "Password: 123")
     print(student.get_json(), "Password: a")
+
+def create_sample_requests(username):
+    """Create sample requests for the default student"""
+    try:
+        # Get some shifts to create requests for
+        shifts = Shift.query.order_by(Shift.date.desc()).limit(5).all()
+        
+        if not shifts:
+            print("No shifts found to create requests for")
+            return
+        
+        # Create a pending request
+        pending_request = Request(
+            username=username,
+            shift_id=shifts[0].id if shifts else None,
+            date=shifts[0].date if shifts else None,
+            time_slot=f"{shifts[0].start_time.strftime('%I:%M %p')} to {shifts[0].end_time.strftime('%I:%M %p')}" if shifts else "10:00 AM - 11:00 AM",
+            reason="Need to attend a doctor's appointment",
+            status="PENDING"
+        )
+        db.session.add(pending_request)
+        
+        # Create an approved request
+        if len(shifts) > 1:
+            approved_request = Request(
+                username=username,
+                shift_id=shifts[1].id,
+                date=shifts[1].date,
+                time_slot=f"{shifts[1].start_time.strftime('%I:%M %p')} to {shifts[1].end_time.strftime('%I:%M %p')}",
+                reason="Family emergency",
+                status="APPROVED"
+            )
+            approved_request.approved_at = datetime.utcnow() - timedelta(days=1)
+            db.session.add(approved_request)
+        
+        # Create a rejected request
+        if len(shifts) > 2:
+            rejected_request = Request(
+                username=username,
+                shift_id=shifts[2].id,
+                date=shifts[2].date,
+                time_slot=f"{shifts[2].start_time.strftime('%I:%M %p')} to {shifts[2].end_time.strftime('%I:%M %p')}",
+                reason="Academic conference",
+                status="REJECTED"
+            )
+            rejected_request.rejected_at = datetime.utcnow() - timedelta(days=2)
+            db.session.add(rejected_request)
+        
+        db.session.commit()
+        print(f"Created sample requests for {username}")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating sample requests: {e}")
 
 def create_direct_time_entries():
     """Create time entries directly without relying on sample assistants"""
