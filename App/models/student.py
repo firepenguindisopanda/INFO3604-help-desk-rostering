@@ -6,16 +6,18 @@ class Student(User):
     
     username = db.Column(db.String(20), db.ForeignKey('user.username'), primary_key=True)
     degree = db.Column(db.String(3), nullable=False, default='BSc')
-    name = db.Column(db.String(100))  # Added name field
+    name = db.Column(db.String(100))  # Name field
+    profile_data = db.Column(db.Text)  # JSON storage for additional profile data
     
     __mapper_args__ = {
         'polymorphic_identity': 'student'
     }
     
-    def __init__(self, username, password, degree='BSc', name=None):
+    def __init__(self, username, password, degree='BSc', name=None, profile_data=None):
         super().__init__(username, password, type='student')
         self.degree = degree
         self.name = name
+        self.profile_data = profile_data
     
     def get_json(self):
         return {

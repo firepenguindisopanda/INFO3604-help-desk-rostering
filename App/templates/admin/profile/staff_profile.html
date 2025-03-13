@@ -51,6 +51,11 @@
         margin-right: 0.5rem;
     }
     
+    .profile-badge.inactive {
+        background-color: #ffebee;
+        color: #c62828;
+    }
+    
     .profile-section {
         margin-bottom: 2rem;
     }
@@ -75,6 +80,7 @@
     
     .detail-value {
         flex-grow: 1;
+        font-weight: 500;
     }
     
     .courses-list {
@@ -116,6 +122,79 @@
     .action-buttons .btn {
         padding: 0.75rem 1.5rem;
     }
+    
+    .edit-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1000;
+    }
+    
+    .edit-modal-content {
+        background-color: white;
+        margin: 10% auto;
+        padding: 2rem;
+        width: 80%;
+        max-width: 600px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        position: relative;
+    }
+    
+    .edit-form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .edit-form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+    
+    .edit-form-group input,
+    .edit-form-group select {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    
+    .edit-form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .close-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        cursor: pointer;
+        font-size: 1.5rem;
+        background: none;
+        border: none;
+    }
+    
+    .loading-spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #3498db;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        animation: spin 2s linear infinite;
+        margin-right: 10px;
+        display: none;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
 </style>
 {% endblock %}
 
@@ -123,7 +202,7 @@
 <div class="staff-profile-card">
     <div class="profile-header">
         <div class="profile-avatar">
-            <img src="/static/images/DefaultAvatar.jpg" alt="{{ profile.name }}" width="120" height="120">
+            <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="{{ profile.name }}" width="120" height="120">
         </div>
         <div class="profile-info">
             <h1 class="profile-name">{{ profile.name }}</h1>
@@ -131,9 +210,12 @@
             
             <div class="profile-badges">
                 <span class="profile-badge">{{ profile.degree }}</span>
-                <span class="profile-badge">{{ 'Active' if profile.active else 'Inactive' }}</span>
+                <span class="profile-badge {% if not profile.active %}inactive{% endif %}">
+                    {{ 'Active' if profile.active else 'Inactive' }}
+                </span>
             </div>
         </div>
+        <button class="btn btn-primary" id="editProfileBtn">Edit Profile</button>
     </div>
     
     <div class="profile-section">
@@ -193,6 +275,57 @@
         <button class="btn btn-primary" id="generateReportBtn">Generate Attendance Report</button>
     </div>
 </div>
+
+<!-- Edit Profile Modal -->
+<div id="editModal" class="edit-modal">
+    <div class="edit-modal-content">
+        <button class="close-btn">&times;</button>
+        <h2>Edit Student Profile</h2>
+        <form id="editForm">
+            <input type="hidden" id="studentUsername" name="username" value="{{ profile.username }}">
+            
+            <div class="edit-form-group">
+                <label for="studentName">Name</label>
+                <input type="text" id="studentName" name="name" value="{{ profile.name }}">
+            </div>
+            
+            <div class="edit-form-group">
+                <label for="studentDegree">Degree</label>
+                <select id="studentDegree" name="degree">
+                    <option value="BSc" {% if profile.degree == 'BSc' %}selected{% endif %}>BSc</option>
+                    <option value="MSc" {% if profile.degree == 'MSc' %}selected{% endif %}>MSc</option>
+                    <option value="PhD" {% if profile.degree == 'PhD' %}selected{% endif %}>PhD</option>
+                </select>
+            </div>
+            
+            <div class="edit-form-group">
+                <label for="studentRate">Hourly Rate ($)</label>
+                <input type="number" id="studentRate" name="rate" min="0" step="0.01" value="{{ profile.rate }}">
+            </div>
+            
+            <div class="edit-form-group">
+                <label for="studentMinHours">Minimum Hours</label>
+                <input type="number" id="studentMinHours" name="hours_minimum" min="0" value="{{ profile.hours_minimum }}">
+            </div>
+            
+            <div class="edit-form-group">
+                <label>Status</label>
+                <div>
+                    <input type="radio" id="activeStatus" name="active" value="true" {% if profile.active %}checked{% endif %}>
+                    <label for="activeStatus">Active</label>
+                    <input type="radio" id="inactiveStatus" name="active" value="false" {% if not profile.active %}checked{% endif %}>
+                    <label for="inactiveStatus">Inactive</label>
+                </div>
+            </div>
+            
+            <div class="edit-form-actions">
+                <span class="loading-spinner" id="formSpinner"></span>
+                <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -205,6 +338,76 @@
                 generateAttendanceReport('{{ profile.username }}', '{{ profile.name }}');
             });
         }
+        
+        // Edit profile handlers
+        const editProfileBtn = document.getElementById('editProfileBtn');
+        const editModal = document.getElementById('editModal');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const closeBtn = document.querySelector('.close-btn');
+        const editForm = document.getElementById('editForm');
+        const formSpinner = document.getElementById('formSpinner');
+        
+        // Open modal when edit button is clicked
+        editProfileBtn.addEventListener('click', function() {
+            editModal.style.display = 'block';
+        });
+        
+        // Close modal when cancel is clicked
+        cancelBtn.addEventListener('click', function() {
+            editModal.style.display = 'none';
+        });
+        
+        // Close modal when X is clicked
+        closeBtn.addEventListener('click', function() {
+            editModal.style.display = 'none';
+        });
+        
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            if (event.target === editModal) {
+                editModal.style.display = 'none';
+            }
+        });
+        
+        // Form submission
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            formSpinner.style.display = 'inline-block';
+            
+            const formData = {
+                username: document.getElementById('studentUsername').value,
+                name: document.getElementById('studentName').value,
+                degree: document.getElementById('studentDegree').value,
+                rate: parseFloat(document.getElementById('studentRate').value),
+                hours_minimum: parseInt(document.getElementById('studentMinHours').value),
+                active: document.querySelector('input[name="active"]:checked').value === 'true'
+            };
+            
+            fetch('/api/student/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                formSpinner.style.display = 'none';
+                
+                if (data.success) {
+                    alert('Profile updated successfully!');
+                    editModal.style.display = 'none';
+                    // Reload page to show updated info
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                formSpinner.style.display = 'none';
+                console.error('Error:', error);
+                alert('An error occurred while updating the profile');
+            });
+        });
     });
     
     function generateAttendanceReport(staffId, staffName) {

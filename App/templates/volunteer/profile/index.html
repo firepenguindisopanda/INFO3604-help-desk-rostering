@@ -4,6 +4,265 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteer/profile.css') }}">
+<style>
+    /* Additional styles for profile page */
+    .profile-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .hidden {
+        display: none;
+    }
+    
+    .time-slot.available {
+        background-color: #ecfdf5;
+        color: #10b981;
+        cursor: default;
+    }
+    
+    .course-tag {
+        display: inline-block;
+        margin-bottom: 0.5rem;
+    }
+    
+    .update-courses-btn {
+        background-color: transparent;
+        color: #2563eb;
+        border: 1px solid #2563eb;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+        margin-top: 1rem;
+        transition: background-color 0.2s;
+    }
+    
+    .update-courses-btn:hover {
+        background-color: #f0f7ff;
+    }
+    
+    /* Edit profile modal */
+    .edit-profile-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+    }
+    
+    .modal-content {
+        position: relative;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    .edit-form {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .edit-form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .edit-form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+    
+    .edit-form-group input, 
+    .edit-form-group textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .edit-form-group.full-width {
+        grid-column: span 2;
+    }
+    
+    .preview-image {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 50%;
+        margin-top: 0.5rem;
+    }
+    
+    .upload-btn {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        background-color: #f0f7ff;
+        color: #2563eb;
+        border: 1px solid #2563eb;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-top: 0.5rem;
+    }
+    
+    /* Courses modal styles */
+    .course-selection {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+    
+    .course-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 0.5rem;
+        display: none;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .stats-card .stat-value {
+        font-size: 24px;
+        font-weight: 700;
+    }
+    
+    .day-column .time-slot:empty {
+        visibility: hidden;
+    }
+    
+    .availability-table.display-mode {
+        display: grid;
+        grid-template-columns: auto repeat(5, 1fr);
+        gap: 0.5rem;
+    }
+    
+    .availability-table.display-mode .time-column {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .availability-table.display-mode .time-label {
+        padding: 0.5rem;
+        text-align: right;
+        font-size: 13px;
+        color: #666;
+    }
+    
+    .availability-table.display-mode .day-column {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .availability-table.display-mode .day-header {
+        background-color: #f5f5f5;
+        padding: 0.5rem;
+        text-align: center;
+        font-weight: 500;
+        font-size: 14px;
+        border-radius: 4px;
+    }
+    
+    .availability-table.display-mode .time-slot {
+        padding: 0.5rem;
+        text-align: center;
+        font-size: 13px;
+        color: #666;
+        border-radius: 4px;
+        min-height: 30px;
+
+    
+    }
+
+    .availability-table.display-mode {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0.5rem;
+    }
+    
+    .availability-table.display-mode .day-header {
+        background-color: #f5f5f5;
+        padding: 0.5rem;
+        text-align: center;
+        font-weight: 500;
+        font-size: 14px;
+        border-radius: 4px;
+    }
+    
+    .availability-table.display-mode .time-slot {
+        padding: 0.5rem;
+        text-align: center;
+        font-size: 13px;
+        color: #666;
+        border-radius: 4px;
+        min-height: 30px;
+    }
+    
+    .availability-table.display-mode .time-slot.available {
+        background-color: #ecfdf5;
+        color: #10b981;
+    }
+    
+    /* Hide time labels column on main display */
+    .availability-table.display-mode .time-column {
+        display: none;
+    }
+    
+    /* Special styles for the availability modal */
+    .availability-grid {
+        display: grid;
+        grid-template-columns: auto repeat(5, 1fr);
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .availability-grid .header-column {
+        text-align: right;
+    }
+    
+    .availability-grid .time-slot {
+        padding: 0.5rem;
+        text-align: center;
+        font-size: 13px;
+        color: #666;
+        border-radius: 4px;
+    }
+    
+    .availability-grid .selectable {
+        cursor: pointer;
+        background-color: #f5f5f5;
+        transition: all 0.2s;
+    }
+    
+    .availability-grid .selectable:hover {
+        background-color: #e5e7eb;
+    }
+    
+    .availability-grid .selectable.selected {
+        background-color: #ecfdf5;
+        color: #10b981;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -11,31 +270,31 @@
     <!-- Profile Information Section -->
     <div class="profile-info-section">
         <div class="profile-image">
-            <img src="{{ url_for('static', filename='placeholder-profile.jpg') }}" alt="Profile Image">
+            <img src="{{ user.image_url|default(url_for('static', filename='images/DefaultAvatar.jpg')) }}" alt="Profile Image" id="profileDisplayImage">
         </div>
         
         <div class="profile-details">
             <div class="info-block role-block">
                 <div class="label">STUDENT ASSISTANT</div>
-                <div class="value">Liam Johnson</div>
+                <div class="value">{{ user.name }}</div>
             </div>
             
             <div class="info-block id-block">
                 <div class="label">ID</div>
-                <div class="value">816031872</div>
+                <div class="value">{{ user.id }}</div>
             </div>
             
             <div class="info-block contact-block">
                 <div class="label">CONTACT</div>
-                <div class="value">398-3921</div>
-                <div class="email">liam.johnson@my.uwi.edu</div>
+                <div class="value">{{ user.phone|default('398-3921') }}</div>
+                <div class="email">{{ user.email|default(user.id ~ '@my.uwi.edu') }}</div>
             </div>
             
             <div class="info-block address-block">
                 <div class="label">ADDRESS</div>
-                <div class="value">45 Coconut Drive</div>
-                <div class="city">San Fernando</div>
-                <div class="country">Trinidad and Tobago</div>
+                <div class="value">{{ user.address.street|default('45 Coconut Drive') }}</div>
+                <div class="city">{{ user.address.city|default('San Fernando') }}</div>
+                <div class="country">{{ user.address.country|default('Trinidad and Tobago') }}</div>
             </div>
         </div>
         
@@ -49,63 +308,35 @@
     <div class="enrolled-courses-section">
         <h3 class="section-title">ENROLLED COURSES</h3>
         <div class="course-tags">
-            <span class="course-tag">COMP 3602</span>
-            <span class="course-tag">COMP 3603</span>
-            <span class="course-tag">COMP 3605</span>
-            <span class="course-tag">COMP 3607</span>
-            <span class="course-tag">COMP 3613</span>
+            {% if user.enrolled_courses %}
+                {% for course in user.enrolled_courses %}
+                <span class="course-tag">{{ course }}</span>
+                {% endfor %}
+            {% else %}
+                <p>No courses selected yet.</p>
+            {% endif %}
         </div>
+        <button class="update-courses-btn">Update Courses</button>
     </div>
     
     <!-- Availability Section -->
+    <!-- Availability Section in main profile page -->
     <div class="availability-section">
         <h3 class="section-title">AVAILABILITY</h3>
-        <div class="availability-table">
-            <div class="day-column header-column">
-                <div class="header"></div>
-                <div class="time-slot">10am - 11am</div>
-                <div class="time-slot">1pm - 2pm</div>
-                <div class="time-slot">2pm - 3pm</div>
-                <div class="time-slot">3pm - 4pm</div>
-            </div>
-            
+        
+        <div class="availability-table display-mode">
+            {% for day in ['MON', 'TUE', 'WED', 'THUR', 'FRI'] %}
             <div class="day-column">
-                <div class="header">MON</div>
-                <div class="time-slot available">10am - 11am</div>
-                <div class="time-slot available">1pm - 2pm</div>
-                <div class="time-slot available">2pm - 3pm</div>
-                <div class="time-slot available">3pm - 4pm</div>
+                <div class="day-header">{{ day }}</div>
+                {% for time_slot in ['9am - 10am', '10am - 11am', '11am - 12pm', '12pm - 1pm', '1pm - 2pm', '2pm - 3pm', '3pm - 4pm'] %}
+                    {% if time_slot in user.availability[day] %}
+                    <div class="time-slot available">{{ time_slot }}</div>
+                    {% else %}
+                    <div class="time-slot"></div>
+                    {% endif %}
+                {% endfor %}
             </div>
-            
-            <div class="day-column">
-                <div class="header">TUE</div>
-                <div class="time-slot available">10am - 11am</div>
-                <div class="time-slot available">11am - 12pm</div>
-                <div class="time-slot available">1pm - 2pm</div>
-                <div class="time-slot available">2pm - 3pm</div>
-            </div>
-            
-            <div class="day-column">
-                <div class="header">WED</div>
-                <div class="time-slot available">10am - 11am</div>
-                <div class="time-slot available">1pm - 2pm</div>
-            </div>
-            
-            <div class="day-column">
-                <div class="header">THUR</div>
-                <div class="time-slot available">9am - 10am</div>
-                <div class="time-slot available">10am - 11am</div>
-                <div class="time-slot available">11am - 12pm</div>
-                <div class="time-slot available">12pm - 1pm</div>
-            </div>
-            
-            <div class="day-column">
-                <div class="header">FRI</div>
-                <div class="time-slot available">10am - 11am</div>
-                <div class="time-slot available">11am - 12pm</div>
-                <div class="time-slot available">2pm - 3pm</div>
-                <div class="time-slot available">3pm - 4pm</div>
-            </div>
+            {% endfor %}
         </div>
     </div>
     
@@ -113,31 +344,114 @@
     <div class="hours-stats-section">
         <div class="stats-card weekly">
             <div class="stat-title">WEEKLY TOTAL</div>
-            <div class="stat-info">Week 5, Sept 30 - Oct 4</div>
-            <div class="stat-value">00 hours</div>
+            <div class="stat-info">{{ user.stats.weekly.date_range }}</div>
+            <div class="stat-value">{{ user.stats.weekly.hours }} hours</div>
         </div>
         
         <div class="stats-card monthly">
             <div class="stat-title">MONTHLY TOTAL</div>
-            <div class="stat-info">September, 2024</div>
-            <div class="stat-value">59 hours</div>
+            <div class="stat-info">{{ user.stats.monthly.date_range }}</div>
+            <div class="stat-value">{{ user.stats.monthly.hours }} hours</div>
         </div>
         
         <div class="stats-card semester">
             <div class="stat-title">SEMESTER TOTAL</div>
-            <div class="stat-info">Sept. 24 - Nov. 24</div>
-            <div class="stat-value">59 hours</div>
+            <div class="stat-info">{{ user.stats.semester.date_range }}</div>
+            <div class="stat-value">{{ user.stats.semester.hours }} hours</div>
         </div>
         
         <div class="stats-card absences">
             <div class="stat-title">TOTAL ABSENCES</div>
-            <div class="stat-value">3 Shifts</div>
+            <div class="stat-value">{{ user.stats.absences }} Shifts</div>
         </div>
     </div>
 </div>
 
-<!-- Availability Update Modal (hidden by default) -->
-<div id="availabilityModal" class="modal" style="display: none;">
+<!-- Edit Profile Modal -->
+<div id="editProfileModal" class="edit-profile-modal" style="display: none;">
+    <div class="modal-content">
+        <h2 class="modal-title">Edit Your Profile</h2>
+        <p class="modal-subtitle">Update your personal information</p>
+        
+        <form id="editProfileForm" class="edit-form" enctype="multipart/form-data">
+            <div class="edit-form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" value="{{ user.name }}" required>
+            </div>
+            
+            <div class="edit-form-group">
+                <label for="phone">Phone Number</label>
+                <input type="text" id="phone" name="phone" value="{{ user.phone|default('398-3921') }}">
+            </div>
+            
+            <div class="edit-form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" value="{{ user.email|default(user.id ~ '@my.uwi.edu') }}">
+            </div>
+            
+            <div class="edit-form-group">
+                <label for="profileImage">Profile Picture</label>
+                <input type="file" id="profileImage" name="profile_image" class="hidden" accept="image/*">
+                <img src="{{ user.image_url|default(url_for('static', filename='images/DefaultAvatar.jpg')) }}" alt="Profile Preview" class="preview-image" id="imagePreview">
+                <label for="profileImage" class="upload-btn">Choose Image</label>
+            </div>
+            
+            <div class="edit-form-group">
+                <label for="street">Street Address</label>
+                <input type="text" id="street" name="street" value="{{ user.address.street|default('45 Coconut Drive') }}">
+            </div>
+            
+            <div class="edit-form-group">
+                <label for="city">City</label>
+                <input type="text" id="city" name="city" value="{{ user.address.city|default('San Fernando') }}">
+            </div>
+            
+            <div class="edit-form-group">
+                <label for="country">Country</label>
+                <input type="text" id="country" name="country" value="{{ user.address.country|default('Trinidad and Tobago') }}">
+            </div>
+            
+            <div class="edit-form-group">
+                <label for="degree">Degree</label>
+                <select id="degree" name="degree">
+                    <option value="BSc" {% if user.degree == 'BSc' %}selected{% endif %}>BSc</option>
+                    <option value="MSc" {% if user.degree == 'MSc' %}selected{% endif %}>MSc</option>
+                    <option value="PhD" {% if user.degree == 'PhD' %}selected{% endif %}>PhD</option>
+                </select>
+            </div>
+            
+            <div class="edit-form-actions">
+                <span class="loading-spinner" id="profileSpinner"></span>
+                <button type="button" class="btn btn-secondary" id="cancelProfileEdit">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Update Courses Modal -->
+<div id="coursesModal" class="edit-profile-modal" style="display: none;">
+    <div class="modal-content">
+        <h2 class="modal-title">Update Course Capabilities</h2>
+        <p class="modal-subtitle">Select the courses you can assist with</p>
+        
+        <form id="updateCoursesForm">
+            <div class="course-selection" id="coursesList">
+                <!-- Course options will be populated here -->
+                <div class="loading-spinner" id="coursesSpinner" style="display: block; margin: 2rem auto;"></div>
+            </div>
+            
+            <div class="edit-form-actions">
+                <span class="loading-spinner" id="courseUpdateSpinner"></span>
+                <button type="button" class="btn btn-secondary" id="cancelCoursesEdit">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Courses</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Availability Update Modal -->
+<div id="availabilityModal" class="edit-profile-modal" style="display: none;">
     <div class="modal-content">
         <h2 class="modal-title">Update Availability</h2>
         <p class="modal-subtitle">Select your availability by clicking the time slots</p>
@@ -154,65 +468,24 @@
                 <div class="time-slot">3pm - 4pm</div>
             </div>
             
+            {% for day_name in ['MON', 'TUE', 'WED', 'THUR', 'FRI'] %}
             <div class="day-column">
-                <div class="header">MON</div>
-                <div class="time-slot selectable">9am - 10am</div>
-                <div class="time-slot selectable selected">10am - 11am</div>
-                <div class="time-slot selectable">11am - 12pm</div>
-                <div class="time-slot selectable">12pm - 1pm</div>
-                <div class="time-slot selectable selected">1pm - 2pm</div>
-                <div class="time-slot selectable selected">2pm - 3pm</div>
-                <div class="time-slot selectable selected">3pm - 4pm</div>
+                <div class="header">{{ day_name }}</div>
+                {% for time_slot in ['9am - 10am', '10am - 11am', '11am - 12pm', '12pm - 1pm', '1pm - 2pm', '2pm - 3pm', '3pm - 4pm'] %}
+                    {% if time_slot in user.availability[day_name] %}
+                    <div class="time-slot selectable selected">{{ time_slot }}</div>
+                    {% else %}
+                    <div class="time-slot selectable">{{ time_slot }}</div>
+                    {% endif %}
+                {% endfor %}
             </div>
-            
-            <div class="day-column">
-                <div class="header">TUE</div>
-                <div class="time-slot selectable">9am - 10am</div>
-                <div class="time-slot selectable selected">10am - 11am</div>
-                <div class="time-slot selectable selected">11am - 12pm</div>
-                <div class="time-slot selectable">12pm - 1pm</div>
-                <div class="time-slot selectable selected">1pm - 2pm</div>
-                <div class="time-slot selectable selected">2pm - 3pm</div>
-                <div class="time-slot selectable selected">3pm - 4pm</div>
-            </div>
-            
-            <div class="day-column">
-                <div class="header">WED</div>
-                <div class="time-slot selectable">9am - 10am</div>
-                <div class="time-slot selectable selected">10am - 11am</div>
-                <div class="time-slot selectable">11am - 12pm</div>
-                <div class="time-slot selectable">12pm - 1pm</div>
-                <div class="time-slot selectable selected">1pm - 2pm</div>
-                <div class="time-slot selectable selected">2pm - 3pm</div>
-                <div class="time-slot selectable selected">3pm - 4pm</div>
-            </div>
-            
-            <div class="day-column">
-                <div class="header">THUR</div>
-                <div class="time-slot selectable selected">9am - 10am</div>
-                <div class="time-slot selectable selected">10am - 11am</div>
-                <div class="time-slot selectable selected">11am - 12pm</div>
-                <div class="time-slot selectable selected">12pm - 1pm</div>
-                <div class="time-slot selectable">1pm - 2pm</div>
-                <div class="time-slot selectable">2pm - 3pm</div>
-                <div class="time-slot selectable">3pm - 4pm</div>
-            </div>
-            
-            <div class="day-column">
-                <div class="header">FRI</div>
-                <div class="time-slot selectable">9am - 10am</div>
-                <div class="time-slot selectable selected">10am - 11am</div>
-                <div class="time-slot selectable selected">11am - 12pm</div>
-                <div class="time-slot selectable">12pm - 1pm</div>
-                <div class="time-slot selectable selected">1pm - 2pm</div>
-                <div class="time-slot selectable selected">2pm - 3pm</div>
-                <div class="time-slot selectable selected">3pm - 4pm</div>
-            </div>
+            {% endfor %}
         </div>
         
         <div class="modal-actions">
-            <button class="submit-btn">Submit</button>
-            <button class="cancel-btn" id="closeModal">Cancel</button>
+            <span class="loading-spinner" id="availabilitySpinner"></span>
+            <button type="button" class="btn btn-secondary" id="closeModal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="submitAvailability">Submit</button>
         </div>
     </div>
 </div>
@@ -221,42 +494,445 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Element references
+        const editProfileBtn = document.querySelector('.edit-profile-btn');
         const updateAvailabilityBtn = document.querySelector('.update-availability-btn');
+        const updateCoursesBtn = document.querySelector('.update-courses-btn');
+        
+        // Profile edit modal elements
+        const editProfileModal = document.getElementById('editProfileModal');
+        const editProfileForm = document.getElementById('editProfileForm');
+        const profileCancelBtn = document.getElementById('cancelProfileEdit');
+        const profileImageInput = document.getElementById('profileImage');
+        const profileImagePreview = document.getElementById('imagePreview');
+        
+        // Availability modal elements
         const availabilityModal = document.getElementById('availabilityModal');
-        const closeModalBtn = document.getElementById('closeModal');
-        const submitBtn = document.querySelector('.modal-actions .submit-btn');
+        const availabilityCloseBtn = document.getElementById('closeModal');
+        const submitAvailabilityBtn = document.getElementById('submitAvailability');
         const selectableSlots = document.querySelectorAll('.selectable');
         
-        // Open modal
-        updateAvailabilityBtn.addEventListener('click', function() {
-            availabilityModal.style.display = 'block';
-        });
+        // Courses modal elements
+        const coursesModal = document.getElementById('coursesModal');
+        const coursesCancelBtn = document.getElementById('cancelCoursesEdit');
+        const updateCoursesForm = document.getElementById('updateCoursesForm');
         
-        // Close modal
-        closeModalBtn.addEventListener('click', function() {
-            availabilityModal.style.display = 'none';
-        });
+        // --- Profile Image Preview ---
+        if (profileImageInput) {
+            profileImageInput.addEventListener('change', function(e) {
+                if (e.target.files && e.target.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        profileImagePreview.src = e.target.result;
+                    }
+                    reader.readAsDataURL(e.target.files[0]);
+                }
+            });
+        }
         
-        // Click outside to close
+        // --- Profile Edit Modal ---
+        if (editProfileBtn) {
+            editProfileBtn.addEventListener('click', function() {
+                console.log('Edit profile button clicked');
+                if (editProfileModal) {
+                    editProfileModal.style.display = 'block';
+                } else {
+                    console.error('Edit profile modal not found');
+                }
+            });
+        }
+        
+        if (profileCancelBtn) {
+            profileCancelBtn.addEventListener('click', function() {
+                editProfileModal.style.display = 'none';
+            });
+        }
+        
+        // Close on outside click
         window.addEventListener('click', function(event) {
+            if (event.target === editProfileModal) {
+                editProfileModal.style.display = 'none';
+            }
             if (event.target === availabilityModal) {
                 availabilityModal.style.display = 'none';
             }
+            if (event.target === coursesModal) {
+                coursesModal.style.display = 'none';
+            }
         });
+        
+        // Handle profile form submit
+        if (editProfileForm) {
+            editProfileForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                console.log('Submitting profile form');
+                const profileSpinner = document.getElementById('profileSpinner');
+                if (profileSpinner) profileSpinner.style.display = 'inline-block';
+                
+                // Create FormData for file upload
+                const formData = new FormData(this);
+                
+                // AJAX request to update profile
+                fetch('/volunteer/update_profile', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (profileSpinner) profileSpinner.style.display = 'none';
+                    
+                    if (data.success) {
+                        alert('Profile updated successfully!');
+                        editProfileModal.style.display = 'none';
+                        
+                        // Update profile image if it was changed
+                        if (data.image_url) {
+                            const profileDisplayImage = document.getElementById('profileDisplayImage');
+                            if (profileDisplayImage) {
+                                profileDisplayImage.src = data.image_url + '?t=' + new Date().getTime(); // Add timestamp to bypass cache
+                            }
+                        }
+                        
+                        // Update other fields without reload
+                        updateProfileDisplay(formData);
+                    } else {
+                        alert('Error updating profile: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    if (profileSpinner) profileSpinner.style.display = 'none';
+                    console.error('Error:', error);
+                    alert('An error occurred while updating your profile.');
+                });
+            });
+        }
+        
+        // --- Availability Modal ---
+        if (updateAvailabilityBtn) {
+            updateAvailabilityBtn.addEventListener('click', function() {
+                console.log('Update availability button clicked');
+                if (availabilityModal) {
+                    availabilityModal.style.display = 'block';
+                } else {
+                    console.error('Availability modal not found');
+                }
+            });
+        }
+        
+        if (availabilityCloseBtn) {
+            availabilityCloseBtn.addEventListener('click', function() {
+                availabilityModal.style.display = 'none';
+            });
+        }
         
         // Toggle time slots
-        selectableSlots.forEach(slot => {
-            slot.addEventListener('click', function() {
-                this.classList.toggle('selected');
+        if (selectableSlots) {
+            selectableSlots.forEach(slot => {
+                slot.addEventListener('click', function() {
+                    this.classList.toggle('selected');
+                });
             });
-        });
+        }
         
         // Submit availability
-        submitBtn.addEventListener('click', function() {
-            // Here you would collect all selected slots and send to server
-            alert('Availability updated successfully!');
-            availabilityModal.style.display = 'none';
-        });
+        if (submitAvailabilityBtn) {
+            submitAvailabilityBtn.addEventListener('click', function() {
+                console.log('Submit availability button clicked');
+                const availabilitySpinner = document.getElementById('availabilitySpinner');
+                if (availabilitySpinner) availabilitySpinner.style.display = 'inline-block';
+                
+                // Collect all selected slots
+                const selectedSlots = [];
+                const dayColumns = document.querySelectorAll('.availability-grid .day-column');
+                
+                dayColumns.forEach((column, columnIndex) => {
+                    if (column.classList.contains('header-column')) return;
+                    
+                    const dayHeader = column.querySelector('.header');
+                    const dayName = dayHeader ? dayHeader.textContent.trim() : '';
+                    
+                    const slots = column.querySelectorAll('.time-slot.selectable.selected');
+                    
+                    slots.forEach(slot => {
+                        const timeText = slot.textContent.trim();
+                        const [startStr, endStr] = timeText.split(' - ');
+                        
+                        // Convert time strings to 24-hour format
+                        const formatTime = (timeStr) => {
+                            if (!timeStr) return "00:00:00";
+                            
+                            let hour, minute, period;
+                            
+                            if (timeStr.includes('am')) {
+                                period = 'am';
+                                timeStr = timeStr.replace('am', '');
+                            } else if (timeStr.includes('pm')) {
+                                period = 'pm';
+                                timeStr = timeStr.replace('pm', '');
+                            }
+                            
+                            if (timeStr.includes(':')) {
+                                [hour, minute] = timeStr.split(':').map(part => parseInt(part, 10));
+                            } else {
+                                hour = parseInt(timeStr, 10);
+                                minute = 0;
+                            }
+                            
+                            if (period === 'pm' && hour < 12) hour += 12;
+                            if (period === 'am' && hour === 12) hour = 0;
+                            
+                            return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
+                        };
+                        
+                        selectedSlots.push({
+                            day: columnIndex - 1, // Adjust index for header column
+                            start_time: formatTime(startStr),
+                            end_time: formatTime(endStr)
+                        });
+                    });
+                });
+                
+                console.log("Selected slots:", selectedSlots);
+                
+                // Send update to server
+                fetch('/volunteer/update_availability', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ availabilities: selectedSlots })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (availabilitySpinner) availabilitySpinner.style.display = 'none';
+                    
+                    if (data.success) {
+                        alert('Availability updated successfully!');
+                        availabilityModal.style.display = 'none';
+                        
+                        // Update the availability display without reloading
+                        updateAvailabilityDisplay(selectedSlots);
+                    } else {
+                        alert('Error updating availability: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    if (availabilitySpinner) availabilitySpinner.style.display = 'none';
+                    console.error('Error:', error);
+                    alert('An error occurred while updating availability.');
+                });
+            });
+        }
+        
+        // --- Courses Modal ---
+        if (updateCoursesBtn) {
+            updateCoursesBtn.addEventListener('click', function() {
+                console.log('Update courses button clicked');
+                if (coursesModal) {
+                    coursesModal.style.display = 'block';
+                    loadAvailableCourses();
+                } else {
+                    console.error('Courses modal not found');
+                }
+            });
+        }
+        
+        if (coursesCancelBtn) {
+            coursesCancelBtn.addEventListener('click', function() {
+                coursesModal.style.display = 'none';
+            });
+        }
+        
+        // Handle courses form submit
+        if (updateCoursesForm) {
+            updateCoursesForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                console.log('Submitting courses form');
+                const courseUpdateSpinner = document.getElementById('courseUpdateSpinner');
+                if (courseUpdateSpinner) courseUpdateSpinner.style.display = 'inline-block';
+                
+                // Get selected courses
+                const selectedCourses = Array.from(
+                    document.querySelectorAll('input[name="courses[]"]:checked')
+                ).map(checkbox => checkbox.value);
+                
+                // AJAX request to update courses
+                fetch('/volunteer/update_courses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ courses: selectedCourses })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (courseUpdateSpinner) courseUpdateSpinner.style.display = 'none';
+                    
+                    if (data.success) {
+                        alert('Courses updated successfully!');
+                        coursesModal.style.display = 'none';
+                        
+                        // Update the course tags without page reload
+                        updateCourseDisplay(selectedCourses);
+                    } else {
+                        alert('Error updating courses: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    if (courseUpdateSpinner) courseUpdateSpinner.style.display = 'none';
+                    console.error('Error:', error);
+                    alert('An error occurred while updating your courses.');
+                });
+            });
+        }
+        
+        // --- Helper Functions ---
+        
+        // Function to load available courses
+        function loadAvailableCourses() {
+            const coursesList = document.getElementById('coursesList');
+            const coursesSpinner = document.getElementById('coursesSpinner');
+            
+            if (!coursesList || !coursesSpinner) return;
+            
+            coursesSpinner.style.display = 'block';
+            coursesList.innerHTML = '';
+            
+            fetch('/api/courses')
+            .then(response => response.json())
+            .then(data => {
+                coursesSpinner.style.display = 'none';
+                
+                if (data.courses && data.courses.length > 0) {
+                    // Get current user courses from the data attribute
+                    const courseTags = document.querySelector('.course-tags');
+                    const userCoursesElements = courseTags.querySelectorAll('.course-tag');
+                    const userCourses = Array.from(userCoursesElements).map(el => el.textContent.trim());
+                    
+                    // Create course checkboxes
+                    data.courses.forEach(course => {
+                        const courseItem = document.createElement('div');
+                        courseItem.className = 'course-item';
+                        
+                        const isChecked = userCourses.includes(course.code);
+                        
+                        courseItem.innerHTML = `
+                            <input type="checkbox" id="course-${course.code}" name="courses[]" value="${course.code}" ${isChecked ? 'checked' : ''}>
+                            <label for="course-${course.code}">${course.code}</label>
+                        `;
+                        
+                        coursesList.appendChild(courseItem);
+                    });
+                } else {
+                    coursesList.innerHTML = '<p>No courses available.</p>';
+                }
+            })
+            .catch(error => {
+                coursesSpinner.style.display = 'none';
+                console.error('Error loading courses:', error);
+                coursesList.innerHTML = '<p>Error loading courses. Please try again.</p>';
+            });
+        }
+        
+        // Function to update profile display without reloading
+        function updateProfileDisplay(formData) {
+            const nameValue = document.querySelector('.profile-info-section .role-block .value');
+            const phoneValue = document.querySelector('.profile-info-section .contact-block .value');
+            const emailValue = document.querySelector('.profile-info-section .contact-block .email');
+            const streetValue = document.querySelector('.profile-info-section .address-block .value');
+            const cityValue = document.querySelector('.profile-info-section .address-block .city');
+            const countryValue = document.querySelector('.profile-info-section .address-block .country');
+            
+            if (nameValue) nameValue.textContent = formData.get('name');
+            if (phoneValue) phoneValue.textContent = formData.get('phone');
+            if (emailValue) emailValue.textContent = formData.get('email');
+            if (streetValue) streetValue.textContent = formData.get('street');
+            if (cityValue) cityValue.textContent = formData.get('city');
+            if (countryValue) countryValue.textContent = formData.get('country');
+        }
+        
+        // Function to update course display without reloading
+        function updateCourseDisplay(selectedCourses) {
+            const courseTags = document.querySelector('.course-tags');
+            if (courseTags) {
+                courseTags.innerHTML = '';
+                
+                if (selectedCourses.length > 0) {
+                    selectedCourses.forEach(course => {
+                        const tag = document.createElement('span');
+                        tag.className = 'course-tag';
+                        tag.textContent = course;
+                        courseTags.appendChild(tag);
+                    });
+                } else {
+                    const noCoursesMsg = document.createElement('p');
+                    noCoursesMsg.textContent = 'No courses selected yet.';
+                    courseTags.appendChild(noCoursesMsg);
+                }
+            }
+        }
+
+
+        // Function to update availability display after submission
+        function updateAvailabilityDisplay(selectedSlots) {
+            const days = ['MON', 'TUE', 'WED', 'THUR', 'FRI'];
+            const timeSlots = [
+                '9am - 10am', '10am - 11am', '11am - 12pm', '12pm - 1pm',
+                '1pm - 2pm', '2pm - 3pm', '3pm - 4pm'
+            ];
+            
+            // Create a map of day/time slots for easier lookup
+            const availabilityMap = {};
+            days.forEach(day => {
+                availabilityMap[day] = new Set();
+            });
+            
+            // Fill in the map with selected slots
+            selectedSlots.forEach(slot => {
+                const day = days[slot.day];
+                
+                // Convert times to display format
+                const formatDisplayTime = (timeStr) => {
+                    // Convert 24h format like "09:00:00" to "9am"
+                    if (timeStr && timeStr.includes(':')) {
+                        const hour = parseInt(timeStr.split(':')[0], 10);
+                        const ampm = hour >= 12 ? 'pm' : 'am';
+                        const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+                        return `${displayHour}${ampm}`;
+                    }
+                    return timeStr;
+                };
+                
+                const startTime = formatDisplayTime(slot.start_time);
+                const endTime = formatDisplayTime(slot.end_time);
+                const displaySlot = `${startTime} - ${endTime}`;
+                
+                if (day) {
+                    availabilityMap[day].add(displaySlot);
+                }
+            });
+            
+            // Update the UI
+            days.forEach(day => {
+                const dayColumn = document.querySelector(`.availability-table.display-mode .day-column:nth-child(${days.indexOf(day) + 1})`);
+                if (!dayColumn) return;
+                
+                const timeSlotElements = dayColumn.querySelectorAll('.time-slot');
+                
+                timeSlots.forEach((timeSlot, slotIndex) => {
+                    if (slotIndex >= timeSlotElements.length) return;
+                    
+                    const slotElement = timeSlotElements[slotIndex];
+                    
+                    // Check if this time slot is in the set for this day
+                    const isAvailable = availabilityMap[day] && availabilityMap[day].has(timeSlot);
+                    
+                    if (isAvailable) {
+                        slotElement.className = 'time-slot available';
+                        slotElement.textContent = timeSlot;
+                    } else {
+                        slotElement.className = 'time-slot';
+                        slotElement.textContent = '';
+                    }
+                });
+            });
+        }
     });
 </script>
 {% endblock %}
