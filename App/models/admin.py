@@ -17,5 +17,3 @@ class Admin(User):
         return {
             'Admin ID': self.username
         }
-    
-    

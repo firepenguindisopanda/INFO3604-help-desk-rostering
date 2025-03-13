@@ -67,20 +67,26 @@
             </tr>
         </thead>
         <tbody id="attendanceTableBody">
-            {% for record in attendance_records %}
-            <tr>
-                <td>{{ record.staff_id }}</td>
-                <td>
-                    <div class="staff-row">
-                        <img src="{{ record.image }}" alt="{{ record.staff_name }}" class="avatar avatar-sm">
-                        <span>{{ record.staff_name }}</span>
-                    </div>
-                </td>
-                <td>{{ record.date }}<br>{{ record.day }}</td>
-                <td>{{ record.login_time }}</td>
-                <td>{{ record.logout_time }}</td>
-            </tr>
-            {% endfor %}
+            {% if attendance_records %}
+                {% for record in attendance_records %}
+                <tr>
+                    <td>{{ record.staff_id }}</td>
+                    <td>
+                        <div class="staff-row">
+                            <img src="{{ record.image }}" alt="{{ record.staff_name }}" class="avatar avatar-sm">
+                            <span>{{ record.staff_name }}</span>
+                        </div>
+                    </td>
+                    <td>{{ record.date }}<br>{{ record.day }}</td>
+                    <td>{{ record.login_time }}</td>
+                    <td>{{ record.logout_time }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="5">No attendance records found for this period.</td>
+                </tr>
+            {% endif %}
         </tbody>
     </table>
     

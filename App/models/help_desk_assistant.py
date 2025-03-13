@@ -16,10 +16,19 @@ class HelpDeskAssistant(db.Model):
     def __init__(self, username):
         self.username = username
         student = Student.query.get(username)
-        self.rate = 20.00 if student.degree == 'BSc' else 35.00 if student.degree == 'MSc' else 0.00
+        
+        # Default values if student is not found
+        self.rate = 20.00  # Default rate
         self.active = True
         self.hours_worked = 0
         self.hours_minimum = 4
+        
+        # Update rate if student exists and has a degree
+        if student and hasattr(student, 'degree'):
+            if student.degree == 'MSc':
+                self.rate = 35.00
+            elif student.degree == 'BSc':
+                self.rate = 20.00
     
     def get_json(self):
         return {
@@ -28,7 +37,7 @@ class HelpDeskAssistant(db.Model):
             'Account State': 'Active' if self.active == True else 'Inactive',
             'Hours Worked': self.hours_worked,
             'Minimum Hours': self.hours_minimum,
-            'Course Capabilities': [cap.course_code for cap in self.course_capabilities]
+            'Course Capabilities': [cap.course_code for cap in self.course_capabilities] if hasattr(self, 'course_capabilities') else []
         }
     
     def activate(self):
@@ -44,6 +53,7 @@ class HelpDeskAssistant(db.Model):
         self.hours_worked += hours
     
     def add_course_capability(self, course_code):
+        from .course_capability import CourseCapability
         capability = CourseCapability(self.username, course_code)
         self.course_capabilities.append(capability)
         return capability

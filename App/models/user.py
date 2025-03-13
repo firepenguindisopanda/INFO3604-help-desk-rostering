@@ -8,8 +8,8 @@ class User(db.Model):
     password = db.Column(db.String(120), nullable=False)
     type = db.Column(db.String(50), nullable=False) # 'admin' or 'student'
     
+    # Remove polymorphic identity configuration to fix warnings
     __mapper_args__ = {
-        'polymorphic_identity': 'user',
         'polymorphic_on': type
     }
 
