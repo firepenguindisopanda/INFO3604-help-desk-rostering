@@ -321,6 +321,7 @@
     
     <!-- Availability Section -->
     <!-- Availability Section in main profile page -->
+    <!-- Availability Section in main profile page -->
     <div class="availability-section">
         <h3 class="section-title">AVAILABILITY</h3>
         
@@ -329,7 +330,7 @@
             <div class="day-column">
                 <div class="day-header">{{ day }}</div>
                 {% for time_slot in ['9am - 10am', '10am - 11am', '11am - 12pm', '12pm - 1pm', '1pm - 2pm', '2pm - 3pm', '3pm - 4pm'] %}
-                    {% if time_slot in user.availability[day] %}
+                    {% if user.availability and day in user.availability and time_slot in user.availability[day] %}
                     <div class="time-slot available">{{ time_slot }}</div>
                     {% else %}
                     <div class="time-slot"></div>
@@ -517,6 +518,12 @@
         const coursesCancelBtn = document.getElementById('cancelCoursesEdit');
         const updateCoursesForm = document.getElementById('updateCoursesForm');
         
+        // Time slots in the display
+        const timeSlots = [
+            '9am - 10am', '10am - 11am', '11am - 12pm', '12pm - 1pm',
+            '1pm - 2pm', '2pm - 3pm', '3pm - 4pm'
+        ];
+    
         // --- Profile Image Preview ---
         if (profileImageInput) {
             profileImageInput.addEventListener('change', function(e) {
@@ -607,10 +614,60 @@
             });
         }
         
+        // Initialize the modal's selectable time slots based on the current availability
+        function initializeAvailabilityModal() {
+            // Get all day columns in the main display
+            const displayColumns = document.querySelectorAll('.availability-table.display-mode .day-column');
+            
+            // Loop through each day
+            displayColumns.forEach((dayColumn, dayIndex) => {
+                const dayName = dayColumn.querySelector('.day-header').textContent.trim();
+                
+                // Find corresponding column in the modal
+                const modalDayColumns = document.querySelectorAll('.availability-grid .day-column');
+                let modalDayColumn = null;
+                
+                for (let i = 0; i < modalDayColumns.length; i++) {
+                    const header = modalDayColumns[i].querySelector('.header');
+                    if (header && header.textContent.trim() === dayName) {
+                        modalDayColumn = modalDayColumns[i];
+                        break;
+                    }
+                }
+                
+                if (!modalDayColumn) return;
+                
+                // Get available slots from the display
+                const availableSlots = dayColumn.querySelectorAll('.time-slot.available');
+                
+                // Create a set of available time slots
+                const availableTimeSlots = new Set();
+                availableSlots.forEach(slot => {
+                    if (slot.textContent) {
+                        availableTimeSlots.add(slot.textContent.trim());
+                    }
+                });
+                
+                // Mark corresponding slots in the modal as selected
+                const modalSlots = modalDayColumn.querySelectorAll('.time-slot.selectable');
+                modalSlots.forEach((slot, slotIndex) => {
+                    if (slotIndex < timeSlots.length) {
+                        const timeSlot = timeSlots[slotIndex];
+                        if (availableTimeSlots.has(timeSlot)) {
+                            slot.classList.add('selected');
+                        } else {
+                            slot.classList.remove('selected');
+                        }
+                    }
+                });
+            });
+        }
+        
         // --- Availability Modal ---
         if (updateAvailabilityBtn) {
             updateAvailabilityBtn.addEventListener('click', function() {
                 console.log('Update availability button clicked');
+                initializeAvailabilityModal();
                 if (availabilityModal) {
                     availabilityModal.style.display = 'block';
                 } else {
@@ -657,7 +714,7 @@
                         const timeText = slot.textContent.trim();
                         const [startStr, endStr] = timeText.split(' - ');
                         
-                        // Convert time strings to 24-hour format
+                        // Convert time strings to 24-hour format for database storage
                         const formatTime = (timeStr) => {
                             if (!timeStr) return "00:00:00";
                             
@@ -665,10 +722,10 @@
                             
                             if (timeStr.includes('am')) {
                                 period = 'am';
-                                timeStr = timeStr.replace('am', '');
+                                timeStr = timeStr.replace('am', '').trim();
                             } else if (timeStr.includes('pm')) {
                                 period = 'pm';
-                                timeStr = timeStr.replace('pm', '');
+                                timeStr = timeStr.replace('pm', '').trim();
                             }
                             
                             if (timeStr.includes(':')) {
@@ -684,8 +741,13 @@
                             return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
                         };
                         
+                        // Map day column index to actual day value (0-4)
+                        // Columns are: header-column, MON, TUE, WED, THUR, FRI
+                        // But we need day as 0-based index, so subtract 1 from columnIndex
+                        const dayIndex = columnIndex - 1;
+                        
                         selectedSlots.push({
-                            day: columnIndex - 1, // Adjust index for header column
+                            day: dayIndex,
                             start_time: formatTime(startStr),
                             end_time: formatTime(endStr)
                         });
@@ -867,15 +929,10 @@
                 }
             }
         }
-
-
+    
         // Function to update availability display after submission
         function updateAvailabilityDisplay(selectedSlots) {
             const days = ['MON', 'TUE', 'WED', 'THUR', 'FRI'];
-            const timeSlots = [
-                '9am - 10am', '10am - 11am', '11am - 12pm', '12pm - 1pm',
-                '1pm - 2pm', '2pm - 3pm', '3pm - 4pm'
-            ];
             
             // Create a map of day/time slots for easier lookup
             const availabilityMap = {};
@@ -891,7 +948,8 @@
                 const formatDisplayTime = (timeStr) => {
                     // Convert 24h format like "09:00:00" to "9am"
                     if (timeStr && timeStr.includes(':')) {
-                        const hour = parseInt(timeStr.split(':')[0], 10);
+                        const [hourStr, minuteStr] = timeStr.split(':');
+                        const hour = parseInt(hourStr, 10);
                         const ampm = hour >= 12 ? 'pm' : 'am';
                         const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
                         return `${displayHour}${ampm}`;
@@ -908,29 +966,42 @@
                 }
             });
             
+            // Log what we're updating for debugging
+            console.log("Updating UI with availability map:", availabilityMap);
+            
             // Update the UI
-            days.forEach(day => {
-                const dayColumn = document.querySelector(`.availability-table.display-mode .day-column:nth-child(${days.indexOf(day) + 1})`);
-                if (!dayColumn) return;
+            days.forEach((day, dayIndex) => {
+                // Find the day column in the display table
+                const dayColumn = document.querySelector(`.availability-table.display-mode .day-column:nth-child(${dayIndex + 1})`);
+                if (!dayColumn) {
+                    console.warn(`Day column not found for ${day} at index ${dayIndex + 1}`);
+                    return;
+                }
                 
                 const timeSlotElements = dayColumn.querySelectorAll('.time-slot');
                 
-                timeSlots.forEach((timeSlot, slotIndex) => {
-                    if (slotIndex >= timeSlotElements.length) return;
-                    
-                    const slotElement = timeSlotElements[slotIndex];
-                    
-                    // Check if this time slot is in the set for this day
-                    const isAvailable = availabilityMap[day] && availabilityMap[day].has(timeSlot);
-                    
-                    if (isAvailable) {
-                        slotElement.className = 'time-slot available';
-                        slotElement.textContent = timeSlot;
-                    } else {
-                        slotElement.className = 'time-slot';
-                        slotElement.textContent = '';
-                    }
+                // Clear all slots first
+                timeSlotElements.forEach(element => {
+                    element.className = 'time-slot';
+                    element.textContent = '';
                 });
+                
+                // Fill in the available slots
+                if (availabilityMap[day]) {
+                    console.log(`Filling slots for ${day}: ${Array.from(availabilityMap[day])}`);
+                    
+                    timeSlots.forEach((timeSlot, slotIndex) => {
+                        if (slotIndex >= timeSlotElements.length) return;
+                        
+                        const slotElement = timeSlotElements[slotIndex];
+                        
+                        // Check if this time slot is in the set for this day
+                        if (availabilityMap[day].has(timeSlot)) {
+                            slotElement.className = 'time-slot available';
+                            slotElement.textContent = timeSlot;
+                        }
+                    });
+                }
             });
         }
     });

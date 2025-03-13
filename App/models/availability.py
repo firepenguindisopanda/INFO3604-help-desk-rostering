@@ -29,10 +29,18 @@ class Availability(db.Model):
     
     def is_available_for_shift(self, shift):
         """Check if this availability window covers the given shift"""
+        # Get the day of the week from the shift date (0=Monday, 1=Tuesday, etc.)
         shift_day = shift.date.weekday()
-        shift_start = shift.start_time.time()
-        shift_end = shift.end_time.time()
         
+        # Extract just the time portion from the datetime objects
+        shift_start = shift.start_time.time() if hasattr(shift.start_time, 'time') else shift.start_time
+        shift_end = shift.end_time.time() if hasattr(shift.end_time, 'time') else shift.end_time
+        
+        # Debug output
+        print(f"Checking availability: DB day={self.day_of_week}, shift day={shift_day}")
+        print(f"Checking time: DB time={self.start_time}-{self.end_time}, shift time={shift_start}-{shift_end}")
+        
+        # Check if the availability window covers the shift
         return (self.day_of_week == shift_day and 
                 self.start_time <= shift_start and 
                 self.end_time >= shift_end)
