@@ -1,0 +1,353 @@
+{% extends "shared/base.html" %}
+{% set hide_nav = true %}
+
+{% block title %}Register - Help Desk System{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/auth/auth.css') }}">
+<style>
+    .registration-form {
+        width: 100%;
+        max-width: 600px;
+    }
+
+    .registration-form h2 {
+        font-size: 2.5rem;
+        margin-bottom: 1.5rem;
+        color: #0066cc;
+    }
+
+    .form-row {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .form-row .form-group {
+        flex: 1;
+    }
+
+    .form-group {
+        margin-bottom: 1.2rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #333;
+        font-weight: 500;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+
+    .form-group textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    .course-selection {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 1rem;
+        max-height: 200px;
+        overflow-y: auto;
+        margin-bottom: 1rem;
+    }
+
+    .course-checkbox {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .course-checkbox input {
+        margin-right: 0.5rem;
+        width: auto;
+    }
+
+    .error-message {
+        color: #dc3545;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+        display: none;
+    }
+
+    .custom-file-upload {
+        border: 1px solid #ddd;
+        display: inline-block;
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        border-radius: 4px;
+        background-color: #f8f9fa;
+        transition: background-color 0.2s;
+    }
+
+    .custom-file-upload:hover {
+        background-color: #e9ecef;
+    }
+
+    input[type="file"] {
+        display: none;
+    }
+
+    .file-name {
+        margin-top: 0.5rem;
+        font-size: 0.875rem;
+        color: #666;
+    }
+
+    .terms-checkbox {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+    }
+
+    .terms-checkbox input {
+        margin-right: 0.75rem;
+        margin-top: 0.3rem;
+    }
+
+    .terms-checkbox label {
+        flex: 1;
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="left-side">
+        <h1>Help Desk Rostering and Claiming System</h1>
+        <img src="{{ url_for('static', filename='images/UwiFrontPage.jpg') }}" alt="UWI Front Page" class="front-page-image">
+    </div>
+    <div class="right-side">
+        <div class="login-form-container">
+            <form class="registration-form" method="POST" action="{{ url_for('auth_views.register_action') }}" id="registrationForm" enctype="multipart/form-data">
+                <h2>Register</h2>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}" style="color: {% if category == 'error' %}#dc3545{% else %}#28a745{% endif %}; margin-bottom: 1rem; padding: 0.75rem; background-color: {% if category == 'error' %}#f8d7da{% else %}#d4edda{% endif %}; border-radius: 4px;">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="id">Student ID</label>
+                        <input type="text" id="id" name="username" placeholder="Enter your ID" required>
+                        <div class="error-message" id="idError">Please enter a valid ID</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                        <div class="error-message" id="passwordError">Password is required</div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" name="name" placeholder="Enter your full name" required>
+                    <div class="error-message" id="nameError">Name is required</div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                        <div class="error-message" id="emailError">Please enter a valid email</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Phone Number</label>
+                        <input type="text" id="phone" name="phone" placeholder="Enter your phone number">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="degree">Degree Program</label>
+                    <select id="degree" name="degree" required>
+                        <option value="" disabled selected>Select your degree program</option>
+                        <option value="BSc">BSc</option>
+                        <option value="MSc">MSc</option>
+                        <option value="PhD">PhD</option>
+                    </select>
+                    <div class="error-message" id="degreeError">Please select a degree program</div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Courses Completed (Select all that apply)</label>
+                    <div class="course-selection">
+                        {% for course in courses %}
+                        <div class="course-checkbox">
+                            <input type="checkbox" id="course-{{ course.code }}" name="courses[]" value="{{ course.code }}">
+                            <label for="course-{{ course.code }}">{{ course.code }} - {{ course.name }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="error-message" id="coursesError">Please select at least one course</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="transcript">Upload Transcript (PDF)</label>
+                    <label for="transcript" class="custom-file-upload">
+                        <i class="material-icons">file_upload</i> Choose File
+                    </label>
+                    <input type="file" id="transcript" name="transcript" accept=".pdf,.doc,.docx">
+                    <div class="file-name" id="file-name">No file chosen</div>
+                    <div class="error-message" id="transcriptError">Please upload your transcript</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="reason">Why would you like to join the Help Desk?</label>
+                    <textarea id="reason" name="reason" placeholder="Tell us why you're interested in becoming a Help Desk Assistant..."></textarea>
+                </div>
+                
+                <div class="terms-checkbox">
+                    <input type="checkbox" id="terms" name="terms" required>
+                    <label for="terms">I confirm that I have completed the courses I've selected, and that all information provided is accurate. I understand that my application will be reviewed by an administrator.</label>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Submit Application</button>
+                
+                <div style="margin-top: 1rem; text-align: center;">
+                    <a href="{{ url_for('auth_views.login_page') }}">Already have an account? Login</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const registrationForm = document.getElementById('registrationForm');
+        const idInput = document.getElementById('id');
+        const passwordInput = document.getElementById('password');
+        const nameInput = document.getElementById('name');
+        const emailInput = document.getElementById('email');
+        const degreeSelect = document.getElementById('degree');
+        const transcriptInput = document.getElementById('transcript');
+        const fileNameDisplay = document.getElementById('file-name');
+        
+        // Update file name display when a file is selected
+        transcriptInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                fileNameDisplay.textContent = this.files[0].name;
+            } else {
+                fileNameDisplay.textContent = 'No file chosen';
+            }
+        });
+        
+        // Form validation
+        registrationForm.addEventListener('submit', function(e) {
+            let isValid = true;
+            
+            // Validate ID
+            if (!idInput.value) {
+                document.getElementById('idError').style.display = 'block';
+                idInput.style.borderColor = '#dc3545';
+                isValid = false;
+            } else {
+                document.getElementById('idError').style.display = 'none';
+                idInput.style.borderColor = '#ddd';
+            }
+            
+            // Validate password
+            if (!passwordInput.value) {
+                document.getElementById('passwordError').style.display = 'block';
+                passwordInput.style.borderColor = '#dc3545';
+                isValid = false;
+            } else {
+                document.getElementById('passwordError').style.display = 'none';
+                passwordInput.style.borderColor = '#ddd';
+            }
+            
+            // Validate name
+            if (!nameInput.value) {
+                document.getElementById('nameError').style.display = 'block';
+                nameInput.style.borderColor = '#dc3545';
+                isValid = false;
+            } else {
+                document.getElementById('nameError').style.display = 'none';
+                nameInput.style.borderColor = '#ddd';
+            }
+            
+            // Validate email
+            const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailInput.value || !emailPattern.test(emailInput.value)) {
+                document.getElementById('emailError').style.display = 'block';
+                emailInput.style.borderColor = '#dc3545';
+                isValid = false;
+            } else {
+                document.getElementById('emailError').style.display = 'none';
+                emailInput.style.borderColor = '#ddd';
+            }
+            
+            // Validate degree
+            if (!degreeSelect.value) {
+                document.getElementById('degreeError').style.display = 'block';
+                degreeSelect.style.borderColor = '#dc3545';
+                isValid = false;
+            } else {
+                document.getElementById('degreeError').style.display = 'none';
+                degreeSelect.style.borderColor = '#ddd';
+            }
+            
+            // Check if any courses are selected
+            const courseCheckboxes = document.querySelectorAll('input[name="courses[]"]:checked');
+            if (courseCheckboxes.length === 0) {
+                document.getElementById('coursesError').style.display = 'block';
+                document.querySelector('.course-selection').style.borderColor = '#dc3545';
+                isValid = false;
+            } else {
+                document.getElementById('coursesError').style.display = 'none';
+                document.querySelector('.course-selection').style.borderColor = '#ddd';
+            }
+            
+            if (!isValid) {
+                e.preventDefault();
+            }
+        });
+        
+        // Clear errors on input
+        const inputs = [idInput, passwordInput, nameInput, emailInput];
+        inputs.forEach(input => {
+            input.addEventListener('input', function() {
+                this.style.borderColor = '#ddd';
+                const errorElement = document.getElementById(`${this.id}Error`);
+                if (errorElement) {
+                    errorElement.style.display = 'none';
+                }
+            });
+        });
+        
+        degreeSelect.addEventListener('change', function() {
+            this.style.borderColor = '#ddd';
+            document.getElementById('degreeError').style.display = 'none';
+        });
+        
+        // Add event listeners to course checkboxes
+        document.querySelectorAll('input[name="courses[]"]').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                if (document.querySelectorAll('input[name="courses[]"]:checked').length > 0) {
+                    document.getElementById('coursesError').style.display = 'none';
+                    document.querySelector('.course-selection').style.borderColor = '#ddd';
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

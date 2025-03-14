@@ -7,3 +7,4 @@ from .notification import *
 from .tracking import *
 from .request import *
 from .dashboard import *
+from .registration import *

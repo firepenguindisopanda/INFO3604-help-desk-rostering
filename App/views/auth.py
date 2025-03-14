@@ -2,8 +2,10 @@ from flask import Blueprint, render_template, jsonify, request, flash, redirect,
 from flask_jwt_extended import jwt_required, current_user, unset_jwt_cookies, set_access_cookies
 
 from App.controllers import (
-    login
+    login,
+    create_registration_request
 )
+from App.models import Course
 
 auth_views = Blueprint('auth_views', __name__, template_folder='../templates')
 

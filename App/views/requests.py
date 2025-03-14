@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for
+from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for, send_from_directory
 from flask_jwt_extended import jwt_required, current_user
 from App.middleware import admin_required, volunteer_required
 from App.controllers.request import (
@@ -11,6 +11,12 @@ from App.controllers.request import (
     get_available_shifts_for_student,
     get_available_replacements
 )
+from App.controllers.registration import (
+    get_all_registration_requests,
+    approve_registration,
+    reject_registration
+)
+import os
 
 requests_views = Blueprint('requests_views', __name__, template_folder='../templates')
 
@@ -19,10 +25,30 @@ requests_views = Blueprint('requests_views', __name__, template_folder='../templ
 @jwt_required()
 @admin_required
 def requests():
-    """Admin view for managing all requests"""
+    """Admin view for managing all shift requests"""
     # Get all requests from the database
     tutors = get_all_requests()
     return render_template('admin/requests/index.html', tutors=tutors)
+    
+@requests_views.route('/registrations')
+@jwt_required()
+@admin_required
+def registrations():
+    """Admin view for managing registration requests"""
+    # Get all registration requests
+    registration_data = get_all_registration_requests()
+    
+    # Format datetime for Jinja
+    @request.app.template_filter('datetime')
+    def format_datetime(value, format='%B %d, %Y, %I:%M %p'):
+        if value is None:
+            return ""
+        return value.strftime(format)
+    
+    return render_template('admin/requests/registrations.html', 
+                           pending_registrations=registration_data['pending'],
+                           approved_registrations=registration_data['approved'],
+                           rejected_registrations=registration_data['rejected'])
 
 @requests_views.route('/api/requests/<int:request_id>/approve', methods=['POST'])
 @jwt_required()
@@ -148,6 +174,62 @@ def get_requests_api():
         # Students get only their own requests
         requests_list = get_student_requests(current_user.username)
         return jsonify(requests_list)
+        
+@requests_views.route('/api/registrations/<int:registration_id>/approve', methods=['POST'])
+@jwt_required()
+@admin_required
+def approve_registration_endpoint(registration_id):
+    """API endpoint to approve a registration request"""
+    success, message = approve_registration(registration_id, current_user.username)
+    
+    if success:
+        flash(message, "success")
+    else:
+        flash(message, "error")
+        
+    return jsonify({
+        "success": success,
+        "message": message
+    })
+
+@requests_views.route('/api/registrations/<int:registration_id>/reject', methods=['POST'])
+@jwt_required()
+@admin_required
+def reject_registration_endpoint(registration_id):
+    """API endpoint to reject a registration request"""
+    success, message = reject_registration(registration_id, current_user.username)
+    
+    if success:
+        flash(message, "success")
+    else:
+        flash(message, "error")
+        
+    return jsonify({
+        "success": success,
+        "message": message
+    })
+    
+@requests_views.route('/registrations/download/<int:registration_id>', methods=['GET'])
+@jwt_required()
+@admin_required
+def download_transcript(registration_id):
+    """Download a transcript file for a registration request"""
+    from App.models import RegistrationRequest
+    
+    registration = RegistrationRequest.query.get(registration_id)
+    if not registration or not registration.transcript_path:
+        flash("Transcript not found", "error")
+        return redirect(url_for('requests_views.registrations'))
+    
+    # Extract filename from path
+    transcript_path = registration.transcript_path
+    filename = os.path.basename(transcript_path)
+    
+    # Get the directory from the transcript path
+    directory = os.path.join('App', 'uploads', os.path.dirname(transcript_path))
+    
+    # Return the file
+    return send_from_directory(directory, filename)
 
 @requests_views.route('/api/available-shifts', methods=['GET'])
 @jwt_required()
