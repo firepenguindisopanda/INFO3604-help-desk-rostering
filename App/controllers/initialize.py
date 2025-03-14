@@ -36,6 +36,9 @@ def initialize():
     # Create sample notifications for demo purposes
     create_sample_notifications(admin.username, student.username)
     
+    # Create sample shifts and allocations
+    create_sample_shifts_and_allocations()
+    
     # Create time entries directly
     create_direct_time_entries()
     
@@ -215,3 +218,98 @@ def create_sample_notifications(admin_username, student_username):
         db.session.add(notification)
     
     db.session.commit()
+    
+    
+    
+def create_sample_shifts_and_allocations():
+    """Create sample shifts and allocations for the next two weeks"""
+    try:
+        from App.models import Schedule, Shift, Allocation
+        from datetime import datetime, timedelta
+        
+        # Delete existing schedules
+        Schedule.query.delete()
+        
+        # Get the current time
+        now = datetime.utcnow()
+        
+        # Create a schedule for the current week
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        week_start = today - timedelta(days=today.weekday())  # Monday of current week
+        
+        # Create a new schedule
+        current_week = Schedule(
+            week_number=now.isocalendar()[1],  # ISO week number
+            start_date=week_start,
+            end_date=week_start + timedelta(days=6)
+        )
+        current_week.is_published = True
+        db.session.add(current_week)
+        db.session.flush()  # Get ID without committing
+        
+        # Create a schedule for next week
+        next_week_start = week_start + timedelta(days=7)
+        next_week = Schedule(
+            week_number=now.isocalendar()[1] + 1,
+            start_date=next_week_start,
+            end_date=next_week_start + timedelta(days=6)
+        )
+        next_week.is_published = True
+        db.session.add(next_week)
+        db.session.flush()
+        
+        # Create shifts for this week and next week (2 weeks total)
+        schedules = [current_week, next_week]
+        
+        # Get the default student
+        default_username = '8'
+        
+        for schedule in schedules:
+            week_start = schedule.start_date
+            
+            # Create shifts for each day (Monday-Friday)
+            for day in range(5):  # 0=Monday, 4=Friday
+                shift_date = week_start + timedelta(days=day)
+                
+                # Morning shift (9am-12pm)
+                morning_start = datetime.combine(shift_date.date(), datetime.min.time()) + timedelta(hours=9)
+                morning_end = datetime.combine(shift_date.date(), datetime.min.time()) + timedelta(hours=12)
+                
+                morning_shift = Shift(shift_date, morning_start, morning_end, schedule.id)
+                db.session.add(morning_shift)
+                db.session.flush()
+                
+                # Afternoon shift (1pm-4pm)
+                afternoon_start = datetime.combine(shift_date.date(), datetime.min.time()) + timedelta(hours=13)
+                afternoon_end = datetime.combine(shift_date.date(), datetime.min.time()) + timedelta(hours=16)
+                
+                afternoon_shift = Shift(shift_date, afternoon_start, afternoon_end, schedule.id)
+                db.session.add(afternoon_shift)
+                db.session.flush()
+                
+                # Hourly shifts for full schedule display
+                for hour in range(9, 17):  # 9am to 4pm
+                    hour_start = datetime.combine(shift_date.date(), datetime.min.time()) + timedelta(hours=hour)
+                    hour_end = hour_start + timedelta(hours=1)
+                    
+                    hourly_shift = Shift(shift_date, hour_start, hour_end, schedule.id)
+                    db.session.add(hourly_shift)
+                    db.session.flush()
+                    
+                    # Assign the default student to some shifts (but not all)
+                    if (day + hour) % 3 == 0:  # Simple pattern to assign to some shifts
+                        allocation = Allocation(default_username, hourly_shift.id, schedule.id)
+                        db.session.add(allocation)
+        
+        # Commit all the new objects
+        db.session.commit()
+        print("Created sample shifts and allocations for 2 weeks")
+        
+        return True
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating sample shifts and allocations: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+

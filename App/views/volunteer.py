@@ -34,14 +34,18 @@ def dashboard():
     my_shifts = dashboard_data['my_shifts']
     full_schedule = dashboard_data['full_schedule']
     
+    # Debug prints
+    print(f"Rendering dashboard with data:")
+    print(f"Next shift: {next_shift}")
+    print(f"My shifts count: {len(my_shifts)}")
+    print(f"Full schedule days: {full_schedule['days_of_week']}")
+    print(f"Full schedule time slots: {full_schedule['time_slots']}")
+    
     # Render the template with real data
     return render_template('volunteer/dashboard/dashboard.html', 
                           next_shift=next_shift,
                           my_shifts=my_shifts,
-                          days_of_week=full_schedule['days_of_week'],
-                          time_slots=full_schedule['time_slots'],
-                          staff_schedule=full_schedule['staff_schedule'],
-                          current_user=current_user)
+                          full_schedule=full_schedule)
 
 @volunteer_views.route('/volunteer/profile')
 @jwt_required()
