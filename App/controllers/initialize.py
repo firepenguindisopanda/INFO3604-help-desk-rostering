@@ -12,7 +12,7 @@ from .notification import (
 )
 from App.models import Notification, Student, HelpDeskAssistant, User, Shift, TimeEntry, Request
 from App.database import db
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from sqlalchemy import text
 
 def initialize():
@@ -38,6 +38,8 @@ def initialize():
     
     # Create sample shifts and allocations
     create_sample_shifts_and_allocations()
+    
+    create_direct_time_entries()
     
     # Create time entries directly
     create_direct_time_entries()
@@ -313,3 +315,146 @@ def create_sample_shifts_and_allocations():
         traceback.print_exc()
         return False
 
+
+def create_direct_time_entries():
+    """Create time entries directly without relying on sample assistants"""
+    try:
+        # Delete existing shifts and time entries
+        TimeEntry.query.delete()
+        db.session.commit()
+        
+        # Get current date and time
+        now = datetime.utcnow()
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Create entries for the past 14 days
+        for day_offset in range(14, -1, -1):  # From 14 days ago to today
+            entry_date = today - timedelta(days=day_offset)
+            
+            # Skip weekends
+            if entry_date.weekday() >= 5:  # Saturday or Sunday
+                continue
+                
+            # Morning shift (9am-12pm)
+            morning_start = entry_date.replace(hour=9, minute=0)
+            morning_end = entry_date.replace(hour=12, minute=0)
+            
+            # Check if shifts exist for this day
+            morning_shift = Shift.query.filter(
+                Shift.date == entry_date.date(),
+                Shift.start_time == morning_start
+            ).first()
+            
+            if not morning_shift:
+                # Create the shift if it doesn't exist
+                morning_shift = Shift(entry_date, morning_start, morning_end)
+                db.session.add(morning_shift)
+                db.session.flush()  # Get ID without committing
+            
+            # Afternoon shift (1pm-4pm)
+            afternoon_start = entry_date.replace(hour=13, minute=0)
+            afternoon_end = entry_date.replace(hour=16, minute=0)
+            
+            afternoon_shift = Shift.query.filter(
+                Shift.date == entry_date.date(),
+                Shift.start_time == afternoon_start
+            ).first()
+            
+            if not afternoon_shift:
+                # Create the shift if it doesn't exist
+                afternoon_shift = Shift(entry_date, afternoon_start, afternoon_end)
+                db.session.add(afternoon_shift)
+                db.session.flush()
+                
+            # Create time entries based on a pattern
+            if day_offset % 3 == 0:
+                # Morning shift only
+                morning_in = morning_start + timedelta(minutes=15)  # Clock in at 9:15
+                morning_out = morning_end - timedelta(minutes=10)   # Clock out at 11:50
+                
+                # For days in the past, create completed entries
+                if entry_date < today:
+                    entry = TimeEntry('8', morning_in, morning_shift.id, 'completed')
+                    entry.clock_out = morning_out
+                    db.session.add(entry)
+                # For today, potentially create an active entry
+                elif entry_date.date() == today.date() and now >= morning_start and now <= morning_end:
+                    entry = TimeEntry('8', morning_start + timedelta(minutes=15), morning_shift.id, 'active')
+                    db.session.add(entry)
+                
+            elif day_offset % 3 == 1:
+                # Afternoon shift only
+                afternoon_in = afternoon_start + timedelta(minutes=5)  # Clock in at 1:05
+                afternoon_out = afternoon_end - timedelta(minutes=5)   # Clock out at 3:55
+                
+                # For days in the past, create completed entries
+                if entry_date < today:
+                    entry = TimeEntry('8', afternoon_in, afternoon_shift.id, 'completed')
+                    entry.clock_out = afternoon_out
+                    db.session.add(entry)
+                # For today, potentially create an active entry
+                elif entry_date.date() == today.date() and now >= afternoon_start and now <= afternoon_end:
+                    entry = TimeEntry('8', afternoon_start + timedelta(minutes=5), afternoon_shift.id, 'active')
+                    db.session.add(entry)
+                
+            elif day_offset % 3 == 2:
+                # Both shifts (full day)
+                if entry_date < today:
+                    # Morning entry
+                    morning_in = morning_start + timedelta(minutes=10)
+                    morning_out = morning_end - timedelta(minutes=15)
+                    morning_entry = TimeEntry('8', morning_in, morning_shift.id, 'completed')
+                    morning_entry.clock_out = morning_out
+                    db.session.add(morning_entry)
+                    
+                    # Afternoon entry
+                    afternoon_in = afternoon_start + timedelta(minutes=10)
+                    afternoon_out = afternoon_end - timedelta(minutes=15)
+                    afternoon_entry = TimeEntry('8', afternoon_in, afternoon_shift.id, 'completed')
+                    afternoon_entry.clock_out = afternoon_out
+                    db.session.add(afternoon_entry)
+                # For today, potentially create active entries based on current time
+                elif entry_date.date() == today.date():
+                    if now >= morning_start and now <= morning_end:
+                        entry = TimeEntry('8', morning_start + timedelta(minutes=10), morning_shift.id, 'active')
+                        db.session.add(entry)
+                    elif now > morning_end and now < afternoon_start:
+                        # Morning completed, afternoon not started
+                        morning_in = morning_start + timedelta(minutes=10)
+                        morning_out = morning_end - timedelta(minutes=15)
+                        morning_entry = TimeEntry('8', morning_in, morning_shift.id, 'completed')
+                        morning_entry.clock_out = morning_out
+                        db.session.add(morning_entry)
+                    elif now >= afternoon_start and now <= afternoon_end:
+                        # Morning completed, afternoon active
+                        morning_in = morning_start + timedelta(minutes=10)
+                        morning_out = morning_end - timedelta(minutes=15)
+                        morning_entry = TimeEntry('8', morning_in, morning_shift.id, 'completed')
+                        morning_entry.clock_out = morning_out
+                        db.session.add(morning_entry)
+                        
+                        afternoon_entry = TimeEntry('8', afternoon_start + timedelta(minutes=10), afternoon_shift.id, 'active')
+                        db.session.add(afternoon_entry)
+                        
+        # Add one absent entry for demonstration
+        # Choose a day from last week
+        absent_date = today - timedelta(days=7)  # One week ago
+        absent_shift = Shift.query.filter(
+            Shift.date == absent_date.date(),
+            Shift.start_time == absent_date.replace(hour=9, minute=0)
+        ).first()
+        
+        if absent_shift:
+            absent_entry = TimeEntry('8', absent_shift.start_time, absent_shift.id, 'absent')
+            db.session.add(absent_entry)
+        
+        db.session.commit()
+        print(f"Created sample time entries for the past 14 days")
+        
+        return True
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating direct time entries: {e}")
+        import traceback
+        traceback.print_exc()
+        return False

@@ -1,7 +1,6 @@
-from App.models import TimeEntry, Student, HelpDeskAssistant, Shift, Allocation
+from App.models import TimeEntry, Student, HelpDeskAssistant, User, Shift, Allocation
 from App.database import db
-from datetime import datetime, timedelta, time, date
-from App.controllers.notification import notify_clock_in, notify_clock_out, notify_missed_shift
+from datetime import datetime, timedelta, time
 
 def get_student_stats(username):
     """Get attendance statistics for a student"""
@@ -18,17 +17,17 @@ def get_student_stats(username):
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     
     # Daily stats (today)
-    daily_entries = [e for e in time_entries if e.clock_in >= today]
+    daily_entries = [e for e in time_entries if e.clock_in and e.clock_in >= today]
     daily_hours = sum(e.get_hours_worked() for e in daily_entries)
     
     # Weekly stats (last 7 days)
-    week_start = today - timedelta(days=today.weekday())
-    weekly_entries = [e for e in time_entries if e.clock_in >= week_start]
+    week_start = today - timedelta(days=today.weekday())  # Monday of this week
+    weekly_entries = [e for e in time_entries if e.clock_in and e.clock_in >= week_start]
     weekly_hours = sum(e.get_hours_worked() for e in weekly_entries)
     
     # Monthly stats (current month)
     month_start = today.replace(day=1)
-    monthly_entries = [e for e in time_entries if e.clock_in >= month_start]
+    monthly_entries = [e for e in time_entries if e.clock_in and e.clock_in >= month_start]
     monthly_hours = sum(e.get_hours_worked() for e in monthly_entries)
     
     # Total/semester stats
@@ -56,6 +55,164 @@ def get_student_stats(username):
         },
         'absences': absences
     }
+
+def get_today_shift(username):
+    """Get the current or next shift for today for this user"""
+    now = datetime.utcnow()
+    today_start = datetime.combine(now.date(), datetime.min.time())
+    today_end = datetime.combine(now.date(), datetime.max.time())
+    
+    # First check for a currently active shift
+    active_shifts = db.session.query(Shift, Allocation)\
+        .join(Allocation, Allocation.shift_id == Shift.id)\
+        .filter(
+            Allocation.username == username,
+            Shift.date >= today_start,
+            Shift.date <= today_end,
+            Shift.start_time <= now,
+            Shift.end_time >= now
+        ).all()
+    
+    # If we have an active shift
+    if active_shifts:
+        shift, allocation = active_shifts[0]
+        
+        # Check if we have an active time entry
+        active_entry = TimeEntry.query.filter_by(
+            username=username,
+            shift_id=shift.id,
+            status='active'
+        ).first()
+        
+        # If we have an active entry, we're clocked in
+        if active_entry:
+            time_left = shift.end_time - now
+            hours = time_left.total_seconds() // 3600
+            minutes = (time_left.total_seconds() % 3600) // 60
+            
+            return {
+                "date": shift.date.strftime("%d %B, %Y"),
+                "start_time": shift.start_time.strftime("%I:%M %p"),
+                "end_time": shift.end_time.strftime("%I:%M %p"),
+                "status": "active",
+                "time_left": f"{int(hours)} hours {int(minutes)} minutes",
+                "shift_id": shift.id
+            }
+        else:
+            # Shift is happening now but we're not clocked in
+            return {
+                "date": shift.date.strftime("%d %B, %Y"),
+                "start_time": shift.start_time.strftime("%I:%M %p"),
+                "end_time": shift.end_time.strftime("%I:%M %p"),
+                "status": "now",
+                "shift_id": shift.id
+            }
+    
+    # If no active shift, check for an upcoming shift today
+    upcoming_shifts = db.session.query(Shift, Allocation)\
+        .join(Allocation, Allocation.shift_id == Shift.id)\
+        .filter(
+            Allocation.username == username,
+            Shift.date >= today_start,
+            Shift.date <= today_end,
+            Shift.start_time > now
+        ).order_by(Shift.start_time).all()
+    
+    if upcoming_shifts:
+        shift, allocation = upcoming_shifts[0]
+        
+        # Calculate time until shift starts
+        time_until = shift.start_time - now
+        hours = time_until.total_seconds() // 3600
+        minutes = (time_until.total_seconds() % 3600) // 60
+        
+        return {
+            "date": shift.date.strftime("%d %B, %Y"),
+            "start_time": shift.start_time.strftime("%I:%M %p"),
+            "end_time": shift.end_time.strftime("%I:%M %p"),
+            "status": "future",
+            "time_until": f"{int(hours)} hours {int(minutes)} minutes",
+            "shift_id": shift.id
+        }
+    
+    # No shifts today
+    return {
+        "date": now.strftime("%d %B, %Y"),
+        "start_time": "No shift scheduled",
+        "end_time": "N/A",
+        "status": "none"
+    }
+
+def get_shift_history(username, limit=5):
+    """Get recent shift history for a user"""
+    # Get completed time entries for this user
+    time_entries = TimeEntry.query.filter_by(
+        username=username,
+        status='completed'
+    ).order_by(TimeEntry.clock_in.desc()).limit(limit).all()
+    
+    shift_history = []
+    for entry in time_entries:
+        shift = Shift.query.get(entry.shift_id) if entry.shift_id else None
+        
+        if entry.clock_out:
+            hours_worked = (entry.clock_out - entry.clock_in).total_seconds() / 3600
+            hours_str = f"{hours_worked:.1f}"
+        else:
+            hours_str = "N/A"
+            
+        shift_history.append({
+            "date": entry.clock_in.strftime("%d %b") if entry.clock_in else "Unknown",
+            "time_range": f"{entry.clock_in.strftime('%I:%M %p')} to {entry.clock_out.strftime('%I:%M %p')}" if entry.clock_in and entry.clock_out else "N/A",
+            "hours": hours_str
+        })
+    
+    return shift_history
+
+def get_time_distribution(username):
+    """Calculate time distribution for the week"""
+    # Get the start of the current week (Monday)
+    now = datetime.utcnow()
+    week_start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now.weekday())
+    week_end = week_start + timedelta(days=7)
+    
+    # Get all completed time entries for this week
+    entries = TimeEntry.query.filter(
+        TimeEntry.username == username,
+        TimeEntry.status == 'completed',
+        TimeEntry.clock_in >= week_start,
+        TimeEntry.clock_in < week_end
+    ).all()
+    
+    # Initialize daily hours
+    daily_hours = [0, 0, 0, 0, 0]  # Mon-Fri
+    
+    # Calculate hours for each day
+    for entry in entries:
+        if entry.clock_in and entry.clock_out:
+            # Get day of week (0=Monday, 4=Friday)
+            day_idx = entry.clock_in.weekday()
+            if day_idx < 5:  # Only count weekdays
+                # Calculate hours
+                hours = (entry.clock_out - entry.clock_in).total_seconds() / 3600
+                daily_hours[day_idx] += hours
+    
+    # Find the maximum daily hours for scaling
+    max_hours = max(daily_hours) if max(daily_hours) > 0 else 1
+    
+    # Calculate percentages (scale to 0-100)
+    day_labels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri']
+    distribution = []
+    
+    for i, hours in enumerate(daily_hours):
+        percentage = (hours / max_hours) * 100
+        distribution.append({
+            "label": day_labels[i],
+            "percentage": percentage,
+            "hours": hours
+        })
+    
+    return distribution
 
 def get_all_assistant_stats():
     """Get attendance stats for all assistants"""

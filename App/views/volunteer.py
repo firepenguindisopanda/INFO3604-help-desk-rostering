@@ -10,6 +10,9 @@ import datetime
 import os
 import json
 
+from datetime import datetime, timedelta, time
+
+
 volunteer_views = Blueprint('volunteer_views', __name__, template_folder='../templates')
 
 @volunteer_views.route('/volunteer/dashboard')
@@ -53,7 +56,7 @@ def dashboard():
 def profile():
     # Get current user data from database
     username = current_user.username
-    
+   
     # Get the user details
     student = Student.query.get(username)
     if not student:
@@ -156,10 +159,11 @@ def profile():
         print(f"Day {day}: {slots}")
     
     # Get stats
+    from App.controllers.tracking import get_student_stats
     stats = get_student_stats(username) or {
-        'daily': {'hours': 0, 'date': datetime.datetime.now().strftime('%Y-%m-%d')},
-        'weekly': {'hours': 0, 'start_date': (datetime.datetime.now() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.datetime.now().strftime('%Y-%m-%d')},
-        'monthly': {'hours': 0, 'month': datetime.datetime.now().strftime('%B %Y')},
+        'daily': {'hours': 0, 'date': datetime.utcnow().strftime('%Y-%m-%d')},
+        'weekly': {'hours': 0, 'start_date': (datetime.utcnow() - timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.utcnow().strftime('%Y-%m-%d')},
+        'monthly': {'hours': 0, 'month': datetime.utcnow().strftime('%B %Y')},
         'semester': {'hours': 0},
         'absences': 0
     }
@@ -197,7 +201,7 @@ def profile():
         "availability": availability_by_day,
         "stats": {
             "weekly": {
-                "date_range": f"Week {datetime.datetime.now().isocalendar()[1]}, {datetime.datetime.strptime(stats['weekly']['start_date'], '%Y-%m-%d').strftime('%b %d')} - {datetime.datetime.strptime(stats['weekly']['end_date'], '%Y-%m-%d').strftime('%b %d')}",
+                "date_range": f"Week {datetime.utcnow().isocalendar()[1]}, {datetime.strptime(stats['weekly']['start_date'], '%Y-%m-%d').strftime('%b %d')} - {datetime.strptime(stats['weekly']['end_date'], '%Y-%m-%d').strftime('%b %d')}",
                 "hours": f"{stats['weekly']['hours']:.1f}"
             },
             "monthly": {
@@ -438,127 +442,42 @@ def get_courses():
 def time_tracking():
     username = current_user.username
     
+    # Import controller functions
+    from App.controllers.tracking import (
+        get_student_stats, 
+        get_today_shift,
+        get_shift_history,
+        get_time_distribution
+    )
+    
     # Get student stats
     stats = get_student_stats(username) or {
-        'daily': {'hours': 0, 'date': datetime.datetime.now().strftime('%Y-%m-%d')},
-        'weekly': {'hours': 0, 'start_date': (datetime.datetime.now() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.datetime.now().strftime('%Y-%m-%d')},
-        'monthly': {'hours': 0, 'month': datetime.datetime.now().strftime('%B %Y')},
+        'daily': {'hours': 0, 'date': datetime.now().strftime('%Y-%m-%d')},
+        'weekly': {'hours': 0, 'start_date': (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.now().strftime('%Y-%m-%d')},
+        'monthly': {'hours': 0, 'month': datetime.now().strftime('%B %Y')},
         'semester': {'hours': 0},
         'absences': 0
     }
     
-    # Get current date
-    now = datetime.datetime.now()
-    today = now.strftime("%d %B, %Y")
-    
-    # Find today's shift if any
-    today_start = datetime.datetime.combine(now.date(), datetime.time.min)
-    today_end = datetime.datetime.combine(now.date(), datetime.time.max)
-    
-    # Get all shifts for today
-    from App.models import Shift, Allocation
-    today_shifts = db.session.query(Shift).filter(
-        Shift.date >= today_start,
-        Shift.date <= today_end
-    ).all()
-    
-    # Check if the user is assigned to any of today's shifts
-    today_shift = None
-    for shift in today_shifts:
-        allocation = Allocation.query.filter_by(
-            username=username,
-            shift_id=shift.id
-        ).first()
-        
-        if allocation:
-            # Check if there's an active time entry
-            time_entry = TimeEntry.query.filter_by(
-                username=username,
-                shift_id=shift.id
-            ).order_by(TimeEntry.id.desc()).first()
-            
-            status = 'future'
-            if time_entry:
-                if time_entry.status == 'active':
-                    status = 'active'
-                elif time_entry.status == 'completed':
-                    status = 'completed'
-            elif now >= shift.start_time and now <= shift.end_time:
-                status = 'now'
-            
-            # Calculate time until/left
-            time_until = ''
-            time_left = ''
-            if status == 'future':
-                time_diff = shift.start_time - now
-                hours = time_diff.seconds // 3600
-                minutes = (time_diff.seconds % 3600) // 60
-                time_until = f"{hours} hours {minutes} minutes"
-            elif status == 'active':
-                time_diff = shift.end_time - now
-                hours = time_diff.seconds // 3600
-                minutes = (time_diff.seconds % 3600) // 60
-                time_left = f"{hours} hours {minutes} minutes"
-            
-            today_shift = {
-                "date": shift.date.strftime("%d %B, %Y"),
-                "start_time": shift.start_time.strftime("%I:%M %p"),
-                "end_time": shift.end_time.strftime("%I:%M %p"),
-                "status": status,
-                "time_until": time_until,
-                "time_left": time_left
-            }
-            break
-    
-    # If no shift found for today, create a placeholder
-    if not today_shift:
-        today_shift = {
-            "date": today,
-            "start_time": "No shift scheduled",
-            "end_time": "N/A",
-            "status": "none"
-        }
+    # Get today's shift information
+    today_shift = get_today_shift(username)
     
     # Get shift history
-    time_entries = TimeEntry.query.filter_by(
-        username=username,
-        status='completed'
-    ).order_by(TimeEntry.clock_in.desc()).limit(5).all()
+    shift_history = get_shift_history(username)
     
-    shift_history = []
-    for entry in time_entries:
-        shift = Shift.query.get(entry.shift_id) if entry.shift_id else None
-        
-        if entry.clock_out:
-            hours_worked = (entry.clock_out - entry.clock_in).total_seconds() / 3600
-            hours_str = f"{hours_worked:.1f} hrs"
-        else:
-            hours_str = "N/A"
-            
-        shift_history.append({
-            "date": entry.clock_in.strftime("%d %b") if entry.clock_in else "Unknown",
-            "time_range": f"{entry.clock_in.strftime('%I:%M %p')} to {entry.clock_out.strftime('%I:%M %p')}" if entry.clock_in and entry.clock_out else "N/A",
-            "hours": hours_str
-        })
-    
-    # Mock time distribution data for chart
-    # In a real app, calculate this from actual time records
-    time_distribution = [
-        {"label": "Mon", "percentage": 80},
-        {"label": "Tue", "percentage": 40},
-        {"label": "Wed", "percentage": 0},
-        {"label": "Thur", "percentage": 30},
-        {"label": "Fri", "percentage": 85}
-    ]
+    # Get time distribution data for chart
+    time_distribution = get_time_distribution(username)
     
     # Format stats for display
+    now = datetime.now()
+    
     daily = {
         "date_range": now.strftime("%d %b, %I:%M %p"),
         "hours": f"{stats['daily']['hours']:.1f}"
     }
     
-    week_start = datetime.datetime.strptime(stats['weekly']['start_date'], '%Y-%m-%d')
-    week_end = datetime.datetime.strptime(stats['weekly']['end_date'], '%Y-%m-%d')
+    week_start = datetime.strptime(stats['weekly']['start_date'], '%Y-%m-%d')
+    week_end = datetime.strptime(stats['weekly']['end_date'], '%Y-%m-%d')
     
     weekly = {
         "date_range": f"Week {now.isocalendar()[1]}, {week_start.strftime('%b %d')} - {week_end.strftime('%b %d')}",
@@ -587,50 +506,45 @@ def time_tracking():
 @volunteer_views.route('/volunteer/time_tracking/clock_in', methods=['POST'])
 @jwt_required()
 @volunteer_required
-def clock_in():
+def clock_in_endpoint():
     from App.controllers.tracking import clock_in as clock_in_controller
+    from App.controllers.tracking import get_today_shift
     
     username = current_user.username
     
-    # Get the current active shift for this user
-    now = datetime.datetime.now()
-    today_start = datetime.datetime.combine(now.date(), datetime.time.min)
-    today_end = datetime.datetime.combine(now.date(), datetime.time.max)
+    # Get today's shift to get the shift_id
+    today_shift = get_today_shift(username)
+    shift_id = today_shift.get('shift_id')
     
-    from App.models import Shift, Allocation
-    today_shifts = db.session.query(Shift).filter(
-        Shift.date >= today_start,
-        Shift.date <= today_end,
-        Shift.start_time <= now,
-        Shift.end_time >= now
-    ).all()
-    
-    # Find the first shift the user is assigned to
-    shift_id = None
-    for shift in today_shifts:
-        allocation = Allocation.query.filter_by(
-            username=username,
-            shift_id=shift.id
-        ).first()
-        
-        if allocation:
-            shift_id = shift.id
-            break
+    # If there's no active shift, return an error
+    if not shift_id:
+        return jsonify({
+            'success': False,
+            'message': 'No active shift found for clocking in'
+        })
     
     # Call the clock_in controller
     result = clock_in_controller(username, shift_id)
+    
+    # Log the result
+    print(f"Clock in result for {username}: {result}")
+    
     return jsonify(result)
 
 @volunteer_views.route('/volunteer/time_tracking/clock_out', methods=['POST'])
 @jwt_required()
 @volunteer_required
-def clock_out():
+def clock_out_endpoint():
     from App.controllers.tracking import clock_out as clock_out_controller
     
     username = current_user.username
     
     # Call the clock_out controller
     result = clock_out_controller(username)
+    
+    # Log the result
+    print(f"Clock out result for {username}: {result}")
+    
     return jsonify(result)
 
 @volunteer_views.route('/volunteer/requests')
