@@ -16,49 +16,31 @@ volunteer_views = Blueprint('volunteer_views', __name__, template_folder='../tem
 @jwt_required()
 @volunteer_required
 def dashboard():
-    # Get current date for next shift calculation
-    now = datetime.datetime.now()
-    current_date = now.strftime("%d %B, %Y")
+    # Get current user's username
+    username = current_user.username
     
-    # Mock data - in a real implementation, this would come from a database
-    my_shifts = [
-        {"date": "30 Sept", "time": "3:00 pm to 4:00 pm"},
-        {"date": "01 Oct", "time": "10:00 am to 12:00 pm"},
-        {"date": "02 Oct", "time": "1:00 pm to 2:00 pm"},
-        {"date": "03 Oct", "time": "11:00 am to 12:00 pm"},
-        {"date": "04 Oct", "time": "9:00 am to 11:00 am"}
-    ]
+    # Import the dashboard data controller functions
+    from App.controllers.dashboard import get_dashboard_data
     
-    # Get next shift (first one in our list for this example)
-    next_shift = {
-        "date": "30 September, 2024",
-        "time": "03:00 pm to 04:00 pm",
-        "starts_now": True  # This would be calculated based on current time
-    }
+    # Get all the data needed for the dashboard
+    dashboard_data = get_dashboard_data(username)
     
-    # In a real application, this data would be pulled from your database
-    # or calculated by your scheduling algorithm
-    days_of_week = ['MON', 'TUE', 'WED', 'THUR', 'FRI']
-    time_slots = ['9:00 am', '10:00 am', '11:00 am', '12:00 pm', '1:00 pm', '2:00 pm', '3:00 pm', '4:00 pm']
+    if not dashboard_data:
+        flash("Error retrieving dashboard data", "error")
+        return redirect(url_for('auth_views.login_page'))
     
-    # Sample staff assignments
-    staff_schedule = {
-        '9:00 am': {
-            'MON': ['Liam Johnson', 'Joshua Anderson', 'Daniel Martinez'],
-            'TUE': ['Liam Johnson', 'Joshua Anderson'],
-            'WED': ['Liam Johnson', 'Joshua Anderson'],
-            'THUR': ['Liam Johnson', 'Joshua Anderson', 'Daniel Martinez'],
-            'FRI': ['Liam Johnson', 'Joshua Anderson', 'Daniel Martinez']
-        },
-        # ... other time slots
-    }
+    # Extract data for the template
+    next_shift = dashboard_data['next_shift']
+    my_shifts = dashboard_data['my_shifts']
+    full_schedule = dashboard_data['full_schedule']
     
+    # Render the template with real data
     return render_template('volunteer/dashboard/dashboard.html', 
+                          next_shift=next_shift,
                           my_shifts=my_shifts,
-                          next_shift=next_shift, 
-                          days_of_week=days_of_week,
-                          time_slots=time_slots,
-                          staff_schedule=staff_schedule,
+                          days_of_week=full_schedule['days_of_week'],
+                          time_slots=full_schedule['time_slots'],
+                          staff_schedule=full_schedule['staff_schedule'],
                           current_user=current_user)
 
 @volunteer_views.route('/volunteer/profile')
