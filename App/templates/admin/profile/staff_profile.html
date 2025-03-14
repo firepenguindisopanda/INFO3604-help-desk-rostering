@@ -1,0 +1,478 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ profile.name }} - Staff Profile{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/profile.css') }}">
+<style>
+    .staff-profile-card {
+        background: linear-gradient(135deg, #e8f0fe 0%, #fff5f5 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .profile-header {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        overflow: hidden;
+    }
+    
+    .profile-info {
+        flex-grow: 1;
+    }
+    
+    .profile-name {
+        font-size: 1.8rem;
+        margin: 0 0 0.25rem;
+    }
+    
+    .profile-id {
+        color: #666;
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .profile-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        background-color: #e6f0ff;
+        color: #0066cc;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        margin-right: 0.5rem;
+    }
+    
+    .profile-badge.inactive {
+        background-color: #ffebee;
+        color: #c62828;
+    }
+    
+    .profile-section {
+        margin-bottom: 2rem;
+    }
+    
+    .section-title {
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .detail-row {
+        display: flex;
+        margin-bottom: 0.75rem;
+    }
+    
+    .detail-label {
+        width: 150px;
+        color: #666;
+        font-weight: 500;
+    }
+    
+    .detail-value {
+        flex-grow: 1;
+        font-weight: 500;
+    }
+    
+    .courses-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .course-tag {
+        padding: 0.5rem 1rem;
+        background-color: #f5f5f5;
+        border-radius: 4px;
+    }
+    
+    .availability-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+    
+    .availability-table th,
+    .availability-table td {
+        padding: 0.75rem;
+        border: 1px solid #eee;
+        text-align: left;
+    }
+    
+    .availability-table th {
+        background-color: #f8f9fa;
+        font-weight: 500;
+    }
+    
+    .action-buttons {
+        margin-top: 2rem;
+        display: flex;
+        gap: 1rem;
+    }
+    
+    .action-buttons .btn {
+        padding: 0.75rem 1.5rem;
+    }
+    
+    .edit-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1000;
+    }
+    
+    .edit-modal-content {
+        background-color: white;
+        margin: 10% auto;
+        padding: 2rem;
+        width: 80%;
+        max-width: 600px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        position: relative;
+    }
+    
+    .edit-form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .edit-form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+    
+    .edit-form-group input,
+    .edit-form-group select {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    
+    .edit-form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .close-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        cursor: pointer;
+        font-size: 1.5rem;
+        background: none;
+        border: none;
+    }
+    
+    .loading-spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #3498db;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        animation: spin 2s linear infinite;
+        margin-right: 10px;
+        display: none;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="staff-profile-card">
+    <div class="profile-header">
+        <div class="profile-avatar">
+            <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="{{ profile.name }}" width="120" height="120">
+        </div>
+        <div class="profile-info">
+            <h1 class="profile-name">{{ profile.name }}</h1>
+            <p class="profile-id">Student ID: {{ profile.username }}</p>
+            
+            <div class="profile-badges">
+                <span class="profile-badge">{{ profile.degree }}</span>
+                <span class="profile-badge {% if not profile.active %}inactive{% endif %}">
+                    {{ 'Active' if profile.active else 'Inactive' }}
+                </span>
+            </div>
+        </div>
+        <button class="btn btn-primary" id="editProfileBtn">Edit Profile</button>
+    </div>
+    
+    <div class="profile-section">
+        <h2 class="section-title">Assistant Information</h2>
+        
+        <div class="detail-row">
+            <div class="detail-label">Rate</div>
+            <div class="detail-value">${{ profile.rate }} per hour</div>
+        </div>
+        
+        <div class="detail-row">
+            <div class="detail-label">Hours Worked</div>
+            <div class="detail-value">{{ profile.hours_worked }} hours</div>
+        </div>
+        
+        <div class="detail-row">
+            <div class="detail-label">Minimum Hours</div>
+            <div class="detail-value">{{ profile.hours_minimum }} hours per week</div>
+        </div>
+    </div>
+    
+    <div class="profile-section">
+        <h2 class="section-title">Course Capabilities</h2>
+        
+        <div class="courses-list">
+            {% for course in profile.courses %}
+            <div class="course-tag">{{ course }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="profile-section">
+        <h2 class="section-title">Availability</h2>
+        
+        <table class="availability-table">
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for avail in profile.availabilities %}
+                <tr>
+                    <td>{{ avail.Day }}</td>
+                    <td>{{ avail['Start Time'] }}</td>
+                    <td>{{ avail['End Time'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="action-buttons">
+        <a href="{{ url_for('tracking_views.time_tracking') }}" class="btn btn-secondary">Back to Time Tracking</a>
+        <button class="btn btn-primary" id="generateReportBtn">Generate Attendance Report</button>
+    </div>
+</div>
+
+<!-- Edit Profile Modal -->
+<div id="editModal" class="edit-modal">
+    <div class="edit-modal-content">
+        <button class="close-btn">&times;</button>
+        <h2>Edit Student Profile</h2>
+        <form id="editForm">
+            <input type="hidden" id="studentUsername" name="username" value="{{ profile.username }}">
+            
+            <div class="edit-form-group">
+                <label for="studentName">Name</label>
+                <input type="text" id="studentName" name="name" value="{{ profile.name }}">
+            </div>
+            
+            <div class="edit-form-group">
+                <label for="studentDegree">Degree</label>
+                <select id="studentDegree" name="degree">
+                    <option value="BSc" {% if profile.degree == 'BSc' %}selected{% endif %}>BSc</option>
+                    <option value="MSc" {% if profile.degree == 'MSc' %}selected{% endif %}>MSc</option>
+                    <option value="PhD" {% if profile.degree == 'PhD' %}selected{% endif %}>PhD</option>
+                </select>
+            </div>
+            
+            <div class="edit-form-group">
+                <label for="studentRate">Hourly Rate ($)</label>
+                <input type="number" id="studentRate" name="rate" min="0" step="0.01" value="{{ profile.rate }}">
+            </div>
+            
+            <div class="edit-form-group">
+                <label for="studentMinHours">Minimum Hours</label>
+                <input type="number" id="studentMinHours" name="hours_minimum" min="0" value="{{ profile.hours_minimum }}">
+            </div>
+            
+            <div class="edit-form-group">
+                <label>Status</label>
+                <div>
+                    <input type="radio" id="activeStatus" name="active" value="true" {% if profile.active %}checked{% endif %}>
+                    <label for="activeStatus">Active</label>
+                    <input type="radio" id="inactiveStatus" name="active" value="false" {% if not profile.active %}checked{% endif %}>
+                    <label for="inactiveStatus">Inactive</label>
+                </div>
+            </div>
+            
+            <div class="edit-form-actions">
+                <span class="loading-spinner" id="formSpinner"></span>
+                <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Generate report button handler
+        const reportBtn = document.getElementById('generateReportBtn');
+        if (reportBtn) {
+            reportBtn.addEventListener('click', function() {
+                generateAttendanceReport('{{ profile.username }}', '{{ profile.name }}');
+            });
+        }
+        
+        // Edit profile handlers
+        const editProfileBtn = document.getElementById('editProfileBtn');
+        const editModal = document.getElementById('editModal');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const closeBtn = document.querySelector('.close-btn');
+        const editForm = document.getElementById('editForm');
+        const formSpinner = document.getElementById('formSpinner');
+        
+        // Open modal when edit button is clicked
+        editProfileBtn.addEventListener('click', function() {
+            editModal.style.display = 'block';
+        });
+        
+        // Close modal when cancel is clicked
+        cancelBtn.addEventListener('click', function() {
+            editModal.style.display = 'none';
+        });
+        
+        // Close modal when X is clicked
+        closeBtn.addEventListener('click', function() {
+            editModal.style.display = 'none';
+        });
+        
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            if (event.target === editModal) {
+                editModal.style.display = 'none';
+            }
+        });
+        
+        // Form submission
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            formSpinner.style.display = 'inline-block';
+            
+            const formData = {
+                username: document.getElementById('studentUsername').value,
+                name: document.getElementById('studentName').value,
+                degree: document.getElementById('studentDegree').value,
+                rate: parseFloat(document.getElementById('studentRate').value),
+                hours_minimum: parseInt(document.getElementById('studentMinHours').value),
+                active: document.querySelector('input[name="active"]:checked').value === 'true'
+            };
+            
+            fetch('/api/student/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                formSpinner.style.display = 'none';
+                
+                if (data.success) {
+                    alert('Profile updated successfully!');
+                    editModal.style.display = 'none';
+                    // Reload page to show updated info
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                formSpinner.style.display = 'none';
+                console.error('Error:', error);
+                alert('An error occurred while updating the profile');
+            });
+        });
+    });
+    
+    function generateAttendanceReport(staffId, staffName) {
+        // Show a loading indicator
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.className = 'loading-indicator';
+        loadingIndicator.style.position = 'fixed';
+        loadingIndicator.style.top = '50%';
+        loadingIndicator.style.left = '50%';
+        loadingIndicator.style.transform = 'translate(-50%, -50%)';
+        loadingIndicator.style.background = 'rgba(255, 255, 255, 0.9)';
+        loadingIndicator.style.padding = '2rem';
+        loadingIndicator.style.borderRadius = '8px';
+        loadingIndicator.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+        loadingIndicator.style.zIndex = '1000';
+        
+        loadingIndicator.innerHTML = `
+            <div class="spinner" style="border: 4px solid #f3f3f3; border-top: 4px solid #0066cc; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; margin: 0 auto 1rem;"></div>
+            <p style="text-align: center; margin: 0;">Generating report for ${staffName}...</p>
+            <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+        `;
+        
+        document.body.appendChild(loadingIndicator);
+        
+        // Make the API request
+        fetch('/api/staff/attendance/report', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                staff_id: staffId,
+                download: true
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to generate report');
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // Remove loading indicator
+            document.body.removeChild(loadingIndicator);
+            
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `attendance_report_${staffName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
+            
+            document.body.appendChild(a);
+            a.click();
+            
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            }, 100);
+        })
+        .catch(error => {
+            console.error('Error generating report:', error);
+            document.body.removeChild(loadingIndicator);
+            alert('An error occurred while generating the report. Please try again.');
+        });
+    }
+</script>
+{% endblock %}

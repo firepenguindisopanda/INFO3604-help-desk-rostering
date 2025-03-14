@@ -4,6 +4,7 @@ from flask_uploads import DOCUMENTS, IMAGES, TEXT, UploadSet, configure_uploads
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
+from datetime import datetime
 
 from App.database import init_db
 from App.config import load_config
@@ -24,6 +25,15 @@ def create_app(overrides={}):
     add_auth_context(app)
     photos = UploadSet('photos', TEXT + DOCUMENTS + IMAGES)
     configure_uploads(app, photos)
+    
+    # Add custom filters - this is the key fix
+    @app.template_filter('datetime')
+    def format_datetime(value, format='%B %d, %Y, %I:%M %p'):
+        """Format a datetime object to a readable string."""
+        if value is None:
+            return ""
+        return value.strftime(format)
+    
     add_views(app)
     init_db(app)
     jwt = setup_jwt(app)

@@ -4,3 +4,7 @@ from .initialize import *
 from .lab import *
 from .schedule import *
 from .notification import *
+from .tracking import *
+from .request import *
+from .dashboard import *
+from .registration import *

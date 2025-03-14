@@ -1,171 +1,231 @@
-from flask import Blueprint, render_template, jsonify, request
-from flask_jwt_extended import jwt_required
-import datetime
-from datetime import timedelta
+from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for, Response
+from flask_jwt_extended import jwt_required, current_user
+from datetime import datetime, timedelta
+from App.controllers.tracking import (
+    get_all_assistant_stats,
+    get_shift_attendance_records,
+    get_student_stats,
+    clock_in,
+    clock_out,
+    mark_missed_shift,
+    generate_attendance_report
+)
+from App.middleware import admin_required
+from App.models import TimeEntry, Student
+import json
 
 tracking_views = Blueprint('tracking_views', __name__, template_folder='../templates')
 
 @tracking_views.route('/timeTracking')
 @jwt_required()
+@admin_required
 def time_tracking():
-    # Mock staff data for the attendance cards
-    staff_data = [
-        {
-            "id": "816039080",
-            "name": "Taylor Swift",
-            "image": "/api/placeholder/60/60",
-            "semester_attendance": "90%",
-            "week_attendance": "92%"
-        },
-        {
-            "id": "816031872",
-            "name": "Liam Johnson",
-            "image": "/api/placeholder/60/60",
-            "semester_attendance": "85%",
-            "week_attendance": "87%"
-        },
-        {
-            "id": "816023111",
-            "name": "Lisa Jerado",
-            "image": "/api/placeholder/60/60",
-            "semester_attendance": "84%",
-            "week_attendance": "85%",
-            "selected": True
-        },
-        {
-            "id": "816042305",
-            "name": "Lewis Winter",
-            "image": "/api/placeholder/60/60",
-            "semester_attendance": "74%",
-            "week_attendance": "78%"
-        },
-        {
-            "id": "816057482",
-            "name": "Andy Callan",
-            "image": "/api/placeholder/60/60",
-            "semester_attendance": "80%",
-            "week_attendance": "85%"
-        },
-        {
-            "id": "816063921",
-            "name": "Quincie Woody",
-            "image": "/api/placeholder/60/60",
-            "semester_attendance": "80%",
-            "week_attendance": "82%"
-        }
-    ]
+    # Hard-coded staff data for the default student
+    staff_data = [{
+        'id': '8',
+        'name': 'Default Student',
+        'image': '/static/images/DefaultAvatar.jpg',
+        'semester_attendance': "10.5",
+        'week_attendance': "5.5",
+        'selected': True
+    }]
     
-    # Mock attendance records for the attendance list
-    # In a real application, you would fetch this data from a database
-    # based on the currently selected staff member, week, and month
-    attendance_records = [
-        {
-            "staff_id": "816023111",
-            "staff_name": "Lisa Jerado",
-            "image": "/api/placeholder/30/30",
-            "date": "11-23-24",
-            "day": "Thursday",
-            "login_time": "09:30AM",
-            "logout_time": "ON DUTY"
-        },
-        {
-            "staff_id": "816019333",
-            "staff_name": "Jon Kook",
-            "image": "/api/placeholder/30/30",
-            "date": "11-23-24",
-            "day": "Thursday",
-            "login_time": "09:00AM",
-            "logout_time": "10:30AM"
-        },
-        {
-            "staff_id": "816039080",
-            "staff_name": "Taylor Swift",
-            "image": "/api/placeholder/30/30",
-            "date": "11-23-24",
-            "day": "Thursday",
-            "login_time": "ABSENT",
-            "logout_time": "ABSENT"
-        }
-    ]
+    # Get current date for display
+    now = datetime.utcnow()
+    current_week = now.isocalendar()[1]
+    current_month = now.strftime('%b')
     
-    # Current month and week information
-    current_month = "Nov"
-    current_week = "5"
+    # Get all time entries directly
+    entries = TimeEntry.query.all()
+    print(f"Found {len(entries)} time entries")
+    
+    # Format as attendance records
+    attendance_records = []
+    for entry in entries:
+        try:
+            record = {
+                'staff_id': entry.username,
+                'staff_name': 'Default Student',  # Hard-coded for simplicity
+                'image': '/static/images/DefaultAvatar.jpg',
+                'date': entry.clock_in.strftime('%m-%d-%y') if entry.clock_in else 'Unknown',
+                'day': entry.clock_in.strftime('%A') if entry.clock_in else 'Unknown',
+                'login_time': entry.clock_in.strftime('%I:%M%p') if entry.clock_in else 'ABSENT',
+                'logout_time': entry.clock_out.strftime('%I:%M%p') if entry.clock_out else 
+                              ('ON DUTY' if entry.status == 'active' else 'ABSENT')
+            }
+            attendance_records.append(record)
+        except Exception as e:
+            print(f"Error formatting time entry {entry.id}: {e}")
+    
+    print(f"Prepared {len(attendance_records)} attendance records for display")
     
     return render_template('admin/tracking/index.html',
                           staff_data=staff_data,
                           attendance_records=attendance_records,
                           current_month=current_month,
-                          current_week=current_week)
+                          current_week=str(current_week))
 
 @tracking_views.route('/api/staff/<staff_id>/attendance', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_staff_attendance(staff_id):
-    """
-    API endpoint to get attendance records for a specific staff member
-    In a real application, this would query a database
-    """
-    # Mock data for demo purposes
-    # For a real application, fetch from database based on staff_id
-    
+    """API endpoint to get attendance records for a specific staff member"""
     # Get week and month from query parameters, or use defaults
-    week = request.args.get('week', '5')
-    month = request.args.get('month', 'Nov')
+    week = request.args.get('week', datetime.utcnow().isocalendar()[1])
+    month = request.args.get('month', datetime.utcnow().strftime('%b'))
     
-    # Generate some mock attendance records based on staff_id
-    attendance_records = []
+    # Calculate date range based on week number
+    now = datetime.utcnow()
+    start_of_year = datetime(now.year, 1, 1)
+    week_number = int(week)
     
-    # Today's date for reference
-    today = datetime.datetime.now()
+    # Adjust for week numbering starting at 1
+    week_start = start_of_year + timedelta(days=(week_number-1)*7)
     
-    # Generate some past dates for the records
-    for i in range(5):
-        record_date = today - timedelta(days=i)
-        
-        # Skip weekends
-        if record_date.weekday() >= 5:  # 5=Saturday, 6=Sunday
-            continue
-        
-        record = {
-            "staff_id": staff_id,
-            "staff_name": get_staff_name(staff_id),
-            "image": "/api/placeholder/30/30",
-            "date": record_date.strftime("%m-%d-%y"),
-            "day": record_date.strftime("%A"),
-        }
-        
-        # Randomize login/logout times for demo
-        # In reality, these would come from your database
-        if i == 0:
-            record["login_time"] = "09:30AM"
-            record["logout_time"] = "ON DUTY"
-        elif i == 4:
-            record["login_time"] = "ABSENT"
-            record["logout_time"] = "ABSENT"
-        else:
-            record["login_time"] = f"0{9 + (i % 2)}:00AM"
-            record["logout_time"] = f"{10 + (i % 3)}:{(30 * i) % 60:02d}AM"
-        
-        attendance_records.append(record)
+    # Adjust to Monday of that week
+    week_start = week_start - timedelta(days=week_start.weekday())
+    week_end = week_start + timedelta(days=6)
+    
+    # Get attendance records
+    attendance_records = get_shift_attendance_records(
+        date_range=(week_start, week_end)
+    )
+    
+    # Filter for just this staff member
+    staff_records = [r for r in attendance_records if r['staff_id'] == staff_id]
     
     return jsonify({
         "staff_id": staff_id,
-        "staff_name": get_staff_name(staff_id),
         "week": week,
         "month": month,
-        "attendance_records": attendance_records
+        "attendance_records": staff_records
     })
 
-def get_staff_name(staff_id):
-    """Helper function to get a staff name from ID"""
-    # In a real application, this would query your database
-    staff_map = {
-        "816039080": "Taylor Swift",
-        "816031872": "Liam Johnson",
-        "816023111": "Lisa Jerado",
-        "816042305": "Lewis Winter",
-        "816057482": "Andy Callan",
-        "816063921": "Quincie Woody",
-        "816019333": "Jon Kook"
-    }
-    return staff_map.get(staff_id, "Unknown Staff")
+@tracking_views.route('/api/staff/attendance/report', methods=['POST'])
+@jwt_required()
+@admin_required
+def generate_attendance_report_endpoint():
+    """Generate an attendance report for staff"""
+    try:
+        data = request.json
+        
+        # Get parameters
+        staff_id = data.get('staff_id')
+        
+        # Parse dates
+        start_date_str = data.get('start_date')
+        end_date_str = data.get('end_date')
+        
+        start_date = None
+        if start_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        
+        end_date = None
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+        
+        # Generate report
+        report = generate_attendance_report(staff_id, start_date, end_date)
+        
+        # Check if download requested
+        if data.get('download'):
+            # Return as downloadable JSON file
+            response = Response(
+                json.dumps(report, indent=2),
+                mimetype='application/json',
+                headers={
+                    'Content-Disposition': f'attachment;filename=attendance_report_{datetime.utcnow().strftime("%Y%m%d")}.json'
+                }
+            )
+            return response
+        else:
+            return jsonify(report)
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error generating report: {str(e)}'
+        }), 500
+
+@tracking_views.route('/api/staff/<staff_id>/mark_missed', methods=['POST'])
+@jwt_required()
+@admin_required
+def mark_staff_missed_endpoint(staff_id):
+    """Mark a shift as missed for a staff member"""
+    try:
+        data = request.json
+        shift_id = data.get('shift_id')
+        
+        if not shift_id:
+            return jsonify({
+                'success': False,
+                'message': 'Shift ID is required'
+            }), 400
+        
+        result = mark_missed_shift(staff_id, shift_id)
+        return jsonify(result)
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error marking missed shift: {str(e)}'
+        }), 500
+        
+@tracking_views.route('/raw_time_entries')
+@jwt_required()
+def raw_time_entries():
+    """Display raw time entries for debugging"""
+    entries = TimeEntry.query.all()
+    
+    # Format entries for display
+    formatted_entries = []
+    for entry in entries:
+        formatted_entries.append({
+            'id': entry.id,
+            'username': entry.username,
+            'shift_id': entry.shift_id,
+            'clock_in': entry.clock_in.strftime('%Y-%m-%d %H:%M:%S') if entry.clock_in else None,
+            'clock_out': entry.clock_out.strftime('%Y-%m-%d %H:%M:%S') if entry.clock_out else None,
+            'status': entry.status
+        })
+    
+    # Simple HTML to display entries
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Raw Time Entries</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            h1 { color: #333; }
+        </style>
+    </head>
+    <body>
+        <h1>Raw Time Entries</h1>
+        <p>Total entries: %d</p>
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Shift ID</th>
+                <th>Clock In</th>
+                <th>Clock Out</th>
+                <th>Status</th>
+            </tr>
+            %s
+        </table>
+    </body>
+    </html>
+    """ % (
+        len(formatted_entries),
+        "\n".join([
+            f"<tr><td>{e['id']}</td><td>{e['username']}</td><td>{e['shift_id']}</td><td>{e['clock_in']}</td><td>{e['clock_out']}</td><td>{e['status']}</td></tr>"
+            for e in formatted_entries
+        ])
+    )
+    
+    return html

@@ -3,47 +3,178 @@
 {% block title %}Assistant - Dashboard{% endblock %}
 {% block header_title %}Dashboard{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Additional dashboard styles */
+    .next-shift-card {
+        background-color: #f0f7ff;
+        border-radius: 8px;
+        padding: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 32px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .next-shift-card.active {
+        background-color: #ecfdf5;  /* Green background if shift is active */
+    }
+    
+    .next-shift-card.no-shifts {
+        background-color: #f5f5f5;  /* Gray background if no shifts */
+    }
+    
+    .shift-info p {
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+    
+    .shift-info .time-until {
+        color: #666;
+        font-size: 0.9rem;
+    }
+    
+    .shift-info .starting-now {
+        color: #10b981;
+        font-weight: bold;
+    }
+    
+    .schedule-row {
+        display: flex;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        margin-bottom: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .date-column {
+        width: 120px;
+        padding: 12px;
+        background-color: #e9ecef;
+        font-weight: 500;
+    }
+    
+    .time-column {
+        flex: 1;
+        padding: 12px;
+    }
+    
+    .full-schedule {
+        margin-top: 32px;
+        overflow-x: auto;
+    }
+    
+    .week-header {
+        display: grid;
+        grid-template-columns: 110px repeat(5, 1fr);
+        margin-bottom: 8px;
+    }
+    
+    .day-header {
+        text-align: center;
+        font-weight: 600;
+        padding: 8px;
+        background-color: #e9ecef;
+        border-radius: 4px 4px 0 0;
+        margin: 0 2px;
+    }
+    
+    .schedule-grid-row {
+        display: grid;
+        grid-template-columns: 110px repeat(5, 1fr);
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .time-label {
+        display: flex;
+        align-items: center;
+        padding: 12px;
+        font-size: 0.9rem;
+        color: #666;
+        font-weight: 500;
+    }
+    
+    .schedule-cell {
+        padding: 8px;
+        min-height: 60px;
+        border-left: 1px solid #e9ecef;
+    }
+    
+    .staff-name {
+        background-color: white;
+        padding: 4px 8px;
+        margin-bottom: 4px;
+        border-radius: 3px;
+        font-size: 13px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    
+    .empty-message {
+        text-align: center;
+        padding: 2rem;
+        color: #666;
+        background-color: #f9f9fa;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <h2 class="section-title">Next Shift</h2>
 
-<div class="next-shift-card">
+<div class="next-shift-card {% if next_shift.starts_now %}active{% elif next_shift.date == 'No upcoming shifts' %}no-shifts{% endif %}">
     <div class="shift-info">
         <p>Date: {{ next_shift.date }}</p>
-        <p>Time: {{ next_shift.time }}</p>
-        {% if next_shift.starts_now %}
-        <p>Starts now</p>
+        {% if next_shift.time %}
+            <p>Time: {{ next_shift.time }}</p>
+            {% if next_shift.starts_now %}
+                <p class="starting-now">Shift is currently active</p>
+            {% elif next_shift.time_until %}
+                <p class="time-until">Starts in {{ next_shift.time_until }}</p>
+            {% endif %}
         {% endif %}
     </div>
-    <div class="arrow-icon">→</div>
+    <div class="arrow-icon">
+        <span class="material-icons">event</span>
+    </div>
 </div>
 
 <h2 class="section-title">My Schedule</h2>
 
-{% for shift in my_shifts %}
-<div class="schedule-row">
-    <div class="date-column">{{ shift.date }}</div>
-    <div class="time-column">{{ shift.time }}</div>
-</div>
-{% endfor %}
+{% if my_shifts %}
+    {% for shift in my_shifts %}
+    <div class="schedule-row">
+        <div class="date-column">{{ shift.date }}</div>
+        <div class="time-column">{{ shift.time }}</div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="empty-message">
+        <p>You don't have any upcoming shifts scheduled.</p>
+    </div>
+{% endif %}
 
 <h2 class="section-title">Full Schedule</h2>
 
 <div class="full-schedule">
     <div class="week-header">
         <div></div>
-        {% for day in days_of_week %}
+        {% for day in full_schedule.days_of_week %}
         <div class="day-header">{{ day }}</div>
         {% endfor %}
     </div>
     
-    {% for time in time_slots %}
-    <div class="schedule-grid">
+    {% for time in full_schedule.time_slots %}
+    <div class="schedule-grid-row">
         <div class="time-label">{{ time }}</div>
         
-        {% for day in days_of_week %}
+        {% for day in full_schedule.days_of_week %}
         <div class="schedule-cell">
-            {% if time in staff_schedule and day in staff_schedule[time] %}
-                {% for staff in staff_schedule[time][day] %}
+            {% if time in full_schedule.staff_schedule and day in full_schedule.staff_schedule[time] %}
+                {% for staff in full_schedule.staff_schedule[time][day] %}
                 <div class="staff-name">{{ staff }}</div>
                 {% endfor %}
             {% endif %}

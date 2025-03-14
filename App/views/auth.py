@@ -2,8 +2,10 @@ from flask import Blueprint, render_template, jsonify, request, flash, redirect,
 from flask_jwt_extended import jwt_required, current_user, unset_jwt_cookies, set_access_cookies
 
 from App.controllers import (
-    login
+    login,
+    create_registration_request
 )
+from App.models import Course
 
 auth_views = Blueprint('auth_views', __name__, template_folder='../templates')
 
@@ -18,6 +20,51 @@ def assistant_login():
 @auth_views.route('/admin-login')
 def admin_login():
     return render_template('auth/login.html', login_type='admin')
+
+@auth_views.route('/register', methods=['GET'])
+def register():
+    # Get all courses to display in the form
+    courses = Course.query.all()
+    return render_template('auth/register.html', courses=courses)
+
+@auth_views.route('/register', methods=['POST'])
+def register_action():
+    try:
+        # Extract form data
+        username = request.form.get('username')
+        password = request.form.get('password')
+        name = request.form.get('name')
+        email = request.form.get('email')
+        phone = request.form.get('phone')
+        degree = request.form.get('degree')
+        reason = request.form.get('reason')
+        
+        # Get selected courses
+        selected_courses = request.form.getlist('courses[]')
+        
+        # Get transcript file if provided
+        transcript_file = request.files.get('transcript') if 'transcript' in request.files else None
+        
+        # Check terms acceptance
+        if 'terms' not in request.form:
+            flash('You must agree to the terms before registering.', 'error')
+            return redirect(url_for('auth_views.register'))
+        
+        # Create registration request
+        success, message = create_registration_request(
+            username, name, email, degree, reason, phone, transcript_file, selected_courses
+        )
+        
+        if success:
+            flash(message, 'success')
+            return redirect(url_for('auth_views.login_page'))
+        else:
+            flash(message, 'error')
+            return redirect(url_for('auth_views.register'))
+            
+    except Exception as e:
+        flash(f'An error occurred during registration: {str(e)}', 'error')
+        return redirect(url_for('auth_views.register_page'))
 
 @auth_views.route('/login', methods=['POST'])
 def login_action():

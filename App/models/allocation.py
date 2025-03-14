@@ -1,26 +1,30 @@
 from App.database import db
+from datetime import datetime
 
 class Allocation(db.Model):
     __tablename__ = 'allocation'
     
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(20), db.ForeignKey('student.username'), nullable=False)
-    schedule = db.Column(db.Integer, db.ForeignKey('schedule.id'), nullable=False)
-    shift = db.Column(db.Integer, db.ForeignKey('shift.id'), nullable=False)
+    shift_id = db.Column(db.Integer, db.ForeignKey('shift.id'), nullable=False)
+    schedule_id = db.Column(db.Integer, db.ForeignKey('schedule.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    students = db.relationship('Student', backref=db.backref('allocation', lazy=True))
-    schedules = db.relationship('Schedule', backref=db.backref('allocation', lazy=True))
-    shifts = db.relationship('Shift', backref=db.backref('allocation', lazy=True))
+    # Relationships
+    student = db.relationship('Student', backref=db.backref('allocations', lazy=True))
+    shift = db.relationship('Shift', backref=db.backref('allocations', lazy=True))
+    schedule = db.relationship('Schedule', backref=db.backref('allocations', lazy=True))
     
-    def __init__(self, username, shift):
+    def __init__(self, username, shift_id, schedule_id):
         self.username = username
-        self.shift = shift
+        self.shift_id = shift_id
+        self.schedule_id = schedule_id
     
     def get_json(self):
         return {
             'Allocation ID': self.id,
             'Student ID': self.username,
-            'Schedule ID': self.schedule,
-            'Shift ID': self.shift,
+            'Shift ID': self.shift_id,
+            'Schedule ID': self.schedule_id,
+            'Created At': self.created_at.strftime('%Y-%m-%d %H:%M:%S')
         }
-    

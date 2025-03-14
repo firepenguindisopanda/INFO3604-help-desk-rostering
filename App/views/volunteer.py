@@ -1,7 +1,17 @@
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for
 from flask_jwt_extended import jwt_required, current_user
+from werkzeug.utils import secure_filename
 from App.middleware import volunteer_required
+from App.models import Student, HelpDeskAssistant, CourseCapability, Availability, User, Course, TimeEntry
+from App.controllers.tracking import get_student_stats
+from App.database import db
+from App.controllers.notification import notify_availability_updated
 import datetime
+import os
+import json
+
+from datetime import datetime, timedelta, time
+
 
 volunteer_views = Blueprint('volunteer_views', __name__, template_folder='../templates')
 
@@ -9,155 +19,479 @@ volunteer_views = Blueprint('volunteer_views', __name__, template_folder='../tem
 @jwt_required()
 @volunteer_required
 def dashboard():
-    # Get current date for next shift calculation
-    now = datetime.datetime.now()
-    current_date = now.strftime("%d %B, %Y")
+    # Get current user's username
+    username = current_user.username
     
-    # Mock data - in a real implementation, this would come from a database
-    my_shifts = [
-        {"date": "30 Sept", "time": "3:00 pm to 4:00 pm"},
-        {"date": "01 Oct", "time": "10:00 am to 12:00 pm"},
-        {"date": "02 Oct", "time": "1:00 pm to 2:00 pm"},
-        {"date": "03 Oct", "time": "11:00 am to 12:00 pm"},
-        {"date": "04 Oct", "time": "9:00 am to 11:00 am"}
-    ]
+    # Import the dashboard data controller functions
+    from App.controllers.dashboard import get_dashboard_data
     
-    # Get next shift (first one in our list for this example)
-    next_shift = {
-        "date": "30 September, 2024",
-        "time": "03:00 pm to 04:00 pm",
-        "starts_now": True  # This would be calculated based on current time
+    # Get all the data needed for the dashboard
+    dashboard_data = get_dashboard_data(username)
+    
+    if not dashboard_data:
+        flash("Error retrieving dashboard data", "error")
+        return redirect(url_for('auth_views.login_page'))
+    
+    # Extract data for the template
+    next_shift = dashboard_data['next_shift']
+    my_shifts = dashboard_data['my_shifts']
+    full_schedule = dashboard_data['full_schedule']
+    
+    # Debug prints
+    print(f"Rendering dashboard with data:")
+    print(f"Next shift: {next_shift}")
+    print(f"My shifts count: {len(my_shifts)}")
+    print(f"Full schedule days: {full_schedule['days_of_week']}")
+    print(f"Full schedule time slots: {full_schedule['time_slots']}")
+    
+    # Render the template with real data
+    return render_template('volunteer/dashboard/dashboard.html', 
+                          next_shift=next_shift,
+                          my_shifts=my_shifts,
+                          full_schedule=full_schedule)
+
+@volunteer_views.route('/volunteer/profile')
+@jwt_required()
+@volunteer_required
+def profile():
+    # Get current user data from database
+    username = current_user.username
+   
+    # Get the user details
+    student = Student.query.get(username)
+    if not student:
+        flash("Student profile not found", "error")
+        return redirect(url_for('volunteer_views.dashboard'))
+    
+    # Get help desk assistant details
+    assistant = HelpDeskAssistant.query.get(username)
+    if not assistant:
+        flash("Assistant profile not found", "error")
+        return redirect(url_for('volunteer_views.dashboard'))
+    
+    # Get course capabilities
+    course_capabilities = CourseCapability.query.filter_by(assistant_username=username).all()
+    
+    # Get availabilities
+    availabilities = Availability.query.filter_by(username=username).all()
+    
+    print(f"Found {len(availabilities)} availability records for {username}")
+    
+    # Format availabilities by day - this is the key part that needs fixing
+    availability_by_day = {
+        'MON': [], 'TUE': [], 'WED': [], 'THUR': [], 'FRI': []
     }
     
-    # In a real application, this data would be pulled from your database
-    # or calculated by your scheduling algorithm
-    days_of_week = ['MON', 'TUE', 'WED', 'THUR', 'FRI']
-    time_slots = ['9:00 am', '10:00 am', '11:00 am', '12:00 pm', '1:00 pm', '2:00 pm', '3:00 pm', '4:00 pm']
+    days_mapping = {
+        0: 'MON', 1: 'TUE', 2: 'WED', 3: 'THUR', 4: 'FRI'
+    }
     
-    # Sample staff assignments - in reality this would come from your database
-    # Make sure all time slots in time_slots are defined here
-    staff_schedule = {
-        '9:00 am': {
-            'MON': ['Liam Johnson', 'Joshua Anderson', 'Daniel Martinez'],
-            'TUE': ['Liam Johnson', 'Joshua Anderson'],
-            'WED': ['Liam Johnson', 'Joshua Anderson'],
-            'THUR': ['Liam Johnson', 'Joshua Anderson', 'Daniel Martinez'],
-            'FRI': ['Liam Johnson', 'Joshua Anderson', 'Daniel Martinez']
+    for avail in availabilities:
+        try:
+            day_name = days_mapping.get(avail.day_of_week)
+            if not day_name:
+                print(f"Warning: Invalid day_of_week value: {avail.day_of_week}")
+                continue
+                
+            # Convert database time format (HH:MM:SS) to display format (Ham - Jam)
+            if avail.start_time and avail.end_time:
+                # Extract hours
+                start_hour = avail.start_time.hour
+                end_hour = avail.end_time.hour
+                
+                # Format to 12-hour with am/pm
+                start_ampm = 'am' if start_hour < 12 else 'pm'
+                end_ampm = 'am' if end_hour < 12 else 'pm'
+                
+                # Convert to 12-hour format
+                start_12h = start_hour if start_hour <= 12 else start_hour - 12
+                end_12h = end_hour if end_hour <= 12 else end_hour - 12
+                
+                # Handle 0 hour (midnight) as 12am
+                if start_hour == 0:
+                    start_12h = 12
+                if end_hour == 0:
+                    end_12h = 12
+                
+                # Format the time slot string exactly as expected in the template
+                time_slot = f"{start_12h}am - {end_12h}pm".replace('0am', 'am').replace('0pm', 'pm')
+                
+                # Special case for 12pm (noon)
+                if start_hour == 12:
+                    time_slot = time_slot.replace('12am', '12pm')
+                if end_hour == 12:
+                    time_slot = time_slot.replace('12pm - ', '12pm - ')
+                
+                # Fix the final format to match expected format in the template
+                if start_hour < 12 and end_hour < 12:
+                    time_slot = f"{start_12h}am - {end_12h}am"
+                elif start_hour >= 12 and end_hour >= 12:
+                    time_slot = f"{start_12h}pm - {end_12h}pm"
+                else:
+                    time_slot = f"{start_12h}am - {end_12h}pm"
+                
+                # Convert exact format for template comparison
+                # Map hours to specific slots
+                expected_slots = {
+                    9: '9am - 10am', 
+                    10: '10am - 11am', 
+                    11: '11am - 12pm',
+                    12: '12pm - 1pm',
+                    13: '1pm - 2pm',
+                    14: '2pm - 3pm',
+                    15: '3pm - 4pm'
+                }
+                
+                if start_hour in expected_slots:
+                    time_slot = expected_slots[start_hour]
+                    print(f"Mapped time slot {avail.start_time}-{avail.end_time} to {time_slot}")
+                    availability_by_day[day_name].append(time_slot)
+                else:
+                    print(f"Could not map time slot {avail.start_time}-{avail.end_time} to a standard slot")
+            else:
+                print(f"Warning: Missing start or end time for availability ID {avail.id}")
+                
+        except Exception as e:
+            print(f"Error processing availability {avail.id}: {e}")
+    
+    # Debug: Print the final availability map being sent to the template
+    for day, slots in availability_by_day.items():
+        print(f"Day {day}: {slots}")
+    
+    # Get stats
+    from App.controllers.tracking import get_student_stats
+    stats = get_student_stats(username) or {
+        'daily': {'hours': 0, 'date': datetime.utcnow().strftime('%Y-%m-%d')},
+        'weekly': {'hours': 0, 'start_date': (datetime.utcnow() - timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.utcnow().strftime('%Y-%m-%d')},
+        'monthly': {'hours': 0, 'month': datetime.utcnow().strftime('%B %Y')},
+        'semester': {'hours': 0},
+        'absences': 0
+    }
+    
+    # Build user data dictionary with metadata from the profile table if it exists
+    # In a real app, you might have a UserProfile table to store this data
+    profile_data = getattr(student, 'profile_data', None)
+    if profile_data and isinstance(profile_data, str):
+        try:
+            profile_data = json.loads(profile_data)
+        except:
+            profile_data = {}
+    else:
+        profile_data = {}
+    
+    # Determine image URL
+    image_url = None
+    if profile_data and 'image_filename' in profile_data:
+        image_url = url_for('static', filename=f'uploads/{profile_data["image_filename"]}')
+    
+    # Build user data dictionary
+    user_data = {
+        "name": student.name if student.name else username,
+        "id": username,
+        "phone": profile_data.get('phone', '398-3921'),
+        "email": profile_data.get('email', f"{username}@my.uwi.edu"),
+        "image_url": image_url,
+        "degree": student.degree,
+        "address": {
+            "street": profile_data.get('street', '45 Coconut Drive'),
+            "city": profile_data.get('city', 'San Fernando'),
+            "country": profile_data.get('country', 'Trinidad and Tobago')
         },
-        '10:00 am': {
-            'MON': ['Liam Johnson', 'Joshua Anderson'],
-            'TUE': ['Liam Johnson', 'Joshua Anderson', 'Daniel Martinez'],
-            'WED': ['Liam Johnson', 'Joshua Anderson', 'Daniel Martinez'],
-            'THUR': ['Liam Johnson', 'Joshua Anderson'],
-            'FRI': ['Liam Johnson', 'Joshua Anderson']
-        },
-        '11:00 am': {
-            'MON': ['Joshua Anderson', 'Liam Johnson', 'Ethan Roberts'],
-            'TUE': ['Joshua Anderson', 'Liam Johnson'],
-            'WED': ['Joshua Anderson', 'Liam Johnson'],
-            'THUR': ['Joshua Anderson', 'Liam Johnson', 'Ethan Roberts'],
-            'FRI': ['Joshua Anderson', 'Liam Johnson', 'Ethan Roberts']
-        },
-        '12:00 pm': {
-            'MON': ['Michelle Liu', 'Sarah Johnson'],
-            'TUE': ['Michelle Liu', 'Sarah Johnson'],
-            'WED': ['Michelle Liu', 'Sarah Johnson'],
-            'THUR': ['Michelle Liu', 'Sarah Johnson'],
-            'FRI': ['Michelle Liu', 'Sarah Johnson']
-        },
-        '1:00 pm': {
-            'MON': ['Emily Davis', 'Michael Brown'],
-            'TUE': ['Emily Davis', 'Michael Brown'],
-            'WED': ['Emily Davis', 'Michael Brown'],
-            'THUR': ['Emily Davis', 'Michael Brown'],
-            'FRI': ['Emily Davis', 'Michael Brown']
-        },
-        '2:00 pm': {
-            'MON': ['James Wilson', 'Robert Taylor'],
-            'TUE': ['James Wilson', 'Robert Taylor'],
-            'WED': ['James Wilson', 'Robert Taylor'],
-            'THUR': ['James Wilson', 'Robert Taylor'],
-            'FRI': ['James Wilson', 'Robert Taylor']
-        },
-        '3:00 pm': {
-            'MON': ['Jennifer Thomas', 'Lisa Anderson'],
-            'TUE': ['Jennifer Thomas', 'Lisa Anderson'],
-            'WED': ['Jennifer Thomas', 'Lisa Anderson'],
-            'THUR': ['Jennifer Thomas', 'Lisa Anderson'],
-            'FRI': ['Jennifer Thomas', 'Lisa Anderson']
-        },
-        '4:00 pm': {
-            'MON': ['David Clark', 'Andrew Parker'],
-            'TUE': ['David Clark', 'Andrew Parker'],
-            'WED': ['David Clark', 'Andrew Parker'],
-            'THUR': ['David Clark', 'Andrew Parker'],
-            'FRI': ['David Clark', 'Andrew Parker']
+        "enrolled_courses": [cap.course_code for cap in course_capabilities],
+        "availability": availability_by_day,
+        "stats": {
+            "weekly": {
+                "date_range": f"Week {datetime.utcnow().isocalendar()[1]}, {datetime.strptime(stats['weekly']['start_date'], '%Y-%m-%d').strftime('%b %d')} - {datetime.strptime(stats['weekly']['end_date'], '%Y-%m-%d').strftime('%b %d')}",
+                "hours": f"{stats['weekly']['hours']:.1f}"
+            },
+            "monthly": {
+                "date_range": stats['monthly']['month'],
+                "hours": f"{stats['monthly']['hours']:.1f}"
+            },
+            "semester": {
+                "date_range": "Current Semester",
+                "hours": f"{stats['semester']['hours']:.1f}"
+            },
+            "absences": str(stats['absences'])
         }
     }
     
-    return render_template('volunteer/dashboard/dashboard.html', 
-                          my_shifts=my_shifts,
-                          next_shift=next_shift, 
-                          days_of_week=days_of_week,
-                          time_slots=time_slots,
-                          staff_schedule=staff_schedule,
-                          current_user=current_user)
+    return render_template('volunteer/profile/index.html', user=user_data)
+
+@volunteer_views.route('/volunteer/update_profile', methods=['POST'])
+@jwt_required()
+@volunteer_required
+def update_profile():
+    try:
+        username = current_user.username
+        
+        # Get the student
+        student = Student.query.get(username)
+        if not student:
+            return jsonify({'success': False, 'message': 'Student profile not found'})
+        
+        # Update name and degree
+        student.name = request.form.get('name')
+        student.degree = request.form.get('degree')
+        
+        # Load existing profile data if available
+        profile_data = {}
+        if student.profile_data:
+            try:
+                profile_data = json.loads(student.profile_data)
+            except:
+                profile_data = {}
+        
+        # Update profile data
+        profile_data['phone'] = request.form.get('phone')
+        profile_data['email'] = request.form.get('email')
+        profile_data['street'] = request.form.get('street')
+        profile_data['city'] = request.form.get('city')
+        profile_data['country'] = request.form.get('country')
+        
+        # Track if we need to update the image URL
+        image_url = None
+        
+        # Handle profile image upload
+        if 'profile_image' in request.files:
+            file = request.files['profile_image']
+            if file and file.filename:
+                # Secure the filename
+                filename = secure_filename(file.filename)
+                # Add a timestamp to prevent filename collisions
+                timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+                filename = f"{username}_{timestamp}_{filename}"
+                
+                # Make sure the upload directory exists
+                upload_dir = os.path.join('App', 'static', 'uploads')
+                if not os.path.exists(upload_dir):
+                    os.makedirs(upload_dir)
+                
+                # Save the file
+                file_path = os.path.join(upload_dir, filename)
+                file.save(file_path)
+                
+                # Add the filename to profile data
+                profile_data['image_filename'] = f"uploads/{filename}"
+                
+                # Prepare the URL for the response
+                image_url = url_for('static', filename=f"uploads/{filename}")
+        
+        # Save profile data as JSON in the student model
+        student.profile_data = json.dumps(profile_data)
+        db.session.add(student)
+        db.session.commit()
+        
+        response_data = {'success': True, 'message': 'Profile updated successfully'}
+        
+        # Include the image URL if it was updated
+        if image_url:
+            response_data['image_url'] = image_url
+        
+        return jsonify(response_data)
+    
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating profile: {e}")
+        return jsonify({'success': False, 'message': str(e)})
+
+@volunteer_views.route('/volunteer/update_courses', methods=['POST'])
+@jwt_required()
+@volunteer_required
+def update_courses():
+    try:
+        username = current_user.username
+        
+        # Get the help desk assistant
+        assistant = HelpDeskAssistant.query.get(username)
+        if not assistant:
+            return jsonify({'success': False, 'message': 'Assistant profile not found'})
+        
+        # Get the list of selected courses
+        data = request.json
+        selected_courses = data.get('courses', [])
+        
+        # First, remove all existing course capabilities
+        CourseCapability.query.filter_by(assistant_username=username).delete()
+        db.session.commit()
+        
+        # Add new course capabilities
+        for course_code in selected_courses:
+            # Verify the course exists
+            course = Course.query.get(course_code)
+            if not course:
+                # Create the course if it doesn't exist
+                course = Course(course_code, f"Course {course_code}")
+                db.session.add(course)
+            
+            # Add the capability
+            capability = CourseCapability(username, course_code)
+            db.session.add(capability)
+        
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Courses updated successfully'})
+    
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating courses: {e}")
+        return jsonify({'success': False, 'message': str(e)})
+
+@volunteer_views.route('/volunteer/update_availability', methods=['POST'])
+@jwt_required()
+@volunteer_required
+def update_availability():
+    try:
+        data = request.json
+        username = current_user.username
+        
+        print(f"Received availability data: {data}")
+        
+        # First, clear existing availabilities
+        Availability.query.filter_by(username=username).delete()
+        db.session.commit()
+        
+        # Add new availabilities
+        if 'availabilities' in data and data['availabilities']:
+            for day_info in data['availabilities']:
+                try:
+                    day = day_info.get('day', 0)  # 0 for Monday, 1 for Tuesday, etc.
+                    
+                    # Parse times with proper error handling
+                    start_time_str = day_info.get('start_time', '00:00:00')
+                    end_time_str = day_info.get('end_time', '00:00:00')
+                    
+                    # Ensure we have valid time strings before parsing
+                    if not isinstance(start_time_str, str) or not isinstance(end_time_str, str):
+                        print(f"Invalid time format: start={start_time_str}, end={end_time_str}")
+                        continue
+                        
+                    try:
+                        start_time = datetime.time.fromisoformat(start_time_str)
+                    except ValueError:
+                        # Try alternative format
+                        try:
+                            start_time = datetime.datetime.strptime(start_time_str, '%H:%M:%S').time()
+                        except ValueError:
+                            print(f"Could not parse start time: {start_time_str}")
+                            continue
+                            
+                    try:
+                        end_time = datetime.time.fromisoformat(end_time_str)
+                    except ValueError:
+                        # Try alternative format
+                        try:
+                            end_time = datetime.datetime.strptime(end_time_str, '%H:%M:%S').time()
+                        except ValueError:
+                            print(f"Could not parse end time: {end_time_str}")
+                            continue
+                    
+                    # Ensure day is an integer in range 0-4 (Mon-Fri)
+                    day = int(day)
+                    if day < 0 or day > 4:
+                        print(f"Day out of range (0-4): {day}")
+                        continue
+                    
+                    availability = Availability(username, day, start_time, end_time)
+                    db.session.add(availability)
+                    print(f"Added availability: Day {day}, {start_time}-{end_time}")
+                except Exception as e:
+                    print(f"Error adding individual availability: {e}")
+                    # Continue with other availabilities even if this one failed
+        
+        db.session.commit()
+        
+        # Create notification
+        notify_availability_updated(username)
+        
+        # Get updated availabilities to return
+        updated_availabilities = Availability.query.filter_by(username=username).all()
+        
+        print(f"Successfully updated {len(updated_availabilities)} availability slots")
+        
+        return jsonify({
+            "success": True, 
+            "message": "Availability updated successfully",
+            "count": len(updated_availabilities)
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating availability: {e}")
+        return jsonify({
+            "success": False,
+            "message": f"Error updating availability: {str(e)}"
+        }), 500
+
+@volunteer_views.route('/api/courses')
+@jwt_required()
+def get_courses():
+    """Get all available courses"""
+    try:
+        courses = Course.query.all()
+        return jsonify({
+            'success': True,
+            'courses': [{'code': course.code, 'name': course.name} for course in courses]
+        })
+    except Exception as e:
+        print(f"Error getting courses: {e}")
+        return jsonify({'success': False, 'message': str(e)})
 
 @volunteer_views.route('/volunteer/time_tracking')
 @jwt_required()
 @volunteer_required
 def time_tracking():
-    # Get current date
-    now = datetime.datetime.now()
-    today = now.strftime("%d %B, %Y")
+    username = current_user.username
     
-    # Mock today's shift data
-    today_shift = {
-        "date": "30 September, 2024",
-        "start_time": "03:00 pm",
-        "end_time": "04:00 pm",
-        "status": "now",  # Can be 'future', 'active', 'now', or 'completed'
-        "time_until": "18 hours",
-        "time_left": "49 minutes"
+    # Import controller functions
+    from App.controllers.tracking import (
+        get_student_stats, 
+        get_today_shift,
+        get_shift_history,
+        get_time_distribution
+    )
+    
+    # Get student stats
+    stats = get_student_stats(username) or {
+        'daily': {'hours': 0, 'date': datetime.now().strftime('%Y-%m-%d')},
+        'weekly': {'hours': 0, 'start_date': (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.now().strftime('%Y-%m-%d')},
+        'monthly': {'hours': 0, 'month': datetime.now().strftime('%B %Y')},
+        'semester': {'hours': 0},
+        'absences': 0
     }
     
-    # Mock shift history data
-    shift_history = [
-        {"date": "27 Sept", "time_range": "09:00 am to 11:00 am", "hours": "2 hrs"},
-        {"date": "26 Sept", "time_range": "11:00 am to 12:00 pm", "hours": "1 hr"},
-        {"date": "25 Sept", "time_range": "01:00 pm to 02:00 pm", "hours": "ABS"},
-        {"date": "24 Sept", "time_range": "10:00 am to 12:00 pm", "hours": "2 hrs"},
-        {"date": "23 Sept", "time_range": "03:00 pm to 04:00 pm", "hours": "1 hrs"}
-    ]
+    # Get today's shift information
+    today_shift = get_today_shift(username)
     
-    # Mock time distribution data
-    time_distribution = [
-        {"label": "Mon", "percentage": 80},
-        {"label": "Tue", "percentage": 40},
-        {"label": "Wed", "percentage": 0},
-        {"label": "Thur", "percentage": 30},
-        {"label": "Fri", "percentage": 85}
-    ]
+    # Get shift history
+    shift_history = get_shift_history(username)
     
-    # Mock hours data
+    # Get time distribution data for chart
+    time_distribution = get_time_distribution(username)
+    
+    # Format stats for display
+    now = datetime.now()
+    
     daily = {
-        "date_range": "30 Sept, 3:00 PM - 4:00 PM",
-        "hours": "01"
+        "date_range": now.strftime("%d %b, %I:%M %p"),
+        "hours": f"{stats['daily']['hours']:.1f}"
     }
+    
+    week_start = datetime.strptime(stats['weekly']['start_date'], '%Y-%m-%d')
+    week_end = datetime.strptime(stats['weekly']['end_date'], '%Y-%m-%d')
     
     weekly = {
-        "date_range": "Week 5, Sept 30 - Oct 4",
-        "hours": "00"  # Before clocking in
+        "date_range": f"Week {now.isocalendar()[1]}, {week_start.strftime('%b %d')} - {week_end.strftime('%b %d')}",
+        "hours": f"{stats['weekly']['hours']:.1f}"
     }
     
     monthly = {
-        "date_range": "September, 2024",
-        "hours": "59"
+        "date_range": stats['monthly']['month'],
+        "hours": f"{stats['monthly']['hours']:.1f}"
     }
     
     semester = {
-        "date_range": "Sept. 24 - Nov. 24",
-        "hours": "59"
+        "date_range": "Current Semester",
+        "hours": f"{stats['semester']['hours']:.1f}"
     }
     
     return render_template('volunteer/time_tracking/index.html',
@@ -172,71 +506,73 @@ def time_tracking():
 @volunteer_views.route('/volunteer/time_tracking/clock_in', methods=['POST'])
 @jwt_required()
 @volunteer_required
-def clock_in():
-    # In a real application, you would:
-    # 1. Record the clock-in time in the database
-    # 2. Update the shift status
+def clock_in_endpoint():
+    from App.controllers.tracking import clock_in as clock_in_controller
+    from App.controllers.tracking import get_today_shift
     
-    # For this mock implementation, we'll just return success
-    return jsonify({"success": True})
+    username = current_user.username
+    
+    # Get today's shift to get the shift_id
+    today_shift = get_today_shift(username)
+    shift_id = today_shift.get('shift_id')
+    
+    # If there's no active shift, return an error
+    if not shift_id:
+        return jsonify({
+            'success': False,
+            'message': 'No active shift found for clocking in'
+        })
+    
+    # Call the clock_in controller
+    result = clock_in_controller(username, shift_id)
+    
+    # Log the result
+    print(f"Clock in result for {username}: {result}")
+    
+    return jsonify(result)
 
 @volunteer_views.route('/volunteer/time_tracking/clock_out', methods=['POST'])
 @jwt_required()
 @volunteer_required
-def clock_out():
-    # In a real application, you would:
-    # 1. Record the clock-out time in the database
-    # 2. Calculate hours worked
-    # 3. Update the shift status
+def clock_out_endpoint():
+    from App.controllers.tracking import clock_out as clock_out_controller
     
-    # For this mock implementation, we'll just return success
-    return jsonify({"success": True})
+    username = current_user.username
+    
+    # Call the clock_out controller
+    result = clock_out_controller(username)
+    
+    # Log the result
+    print(f"Clock out result for {username}: {result}")
+    
+    return jsonify(result)
 
 @volunteer_views.route('/volunteer/requests')
 @jwt_required()
 @volunteer_required
 def requests():
-    # Mock data for requests
-    pending_requests = [
-        {
-            "shift_date": "03 Oct",
-            "shift_time": "11:00 am to 12:00 pm",
-            "submission_date": "October 1st 2024, 3:33 pm",
-            "status": "PENDING"
-        }
-    ]
+    # Use the real controller to get the user's requests
+    from App.controllers.request import (
+        get_student_requests,
+        get_available_shifts_for_student,
+        get_available_replacements
+    )
     
-    approved_requests = [
-        {
-            "shift_date": "24 Sept",
-            "shift_time": "10:00 am to 12:00 pm",
-            "submission_date": "September 24th 2024, 08:00 am",
-            "status": "APPROVED"
-        }
-    ]
+    username = current_user.username
     
-    rejected_requests = [
-        {
-            "shift_date": "11 Sept",
-            "shift_time": "01:00 pm to 02:00 pm",
-            "submission_date": "September 10th 2024, 08:00 am",
-            "status": "REJECTED"
-        }
-    ]
+    # Get the student's requests
+    requests_list = get_student_requests(username)
     
-    # Mock data for available shifts
-    available_shifts = [
-        {"id": 1, "day": "Mon", "date": "30 Sept", "time": "10:00 am to 11:00 am"},
-        {"id": 2, "day": "Wed", "date": "02 Oct", "time": "01:00 pm to 02:00 pm"},
-        {"id": 3, "day": "Fri", "date": "04 Oct", "time": "11:00 am to 12:00 pm"}
-    ]
+    # Categorize by status
+    pending_requests = [r for r in requests_list if r['status'] == 'PENDING']
+    approved_requests = [r for r in requests_list if r['status'] == 'APPROVED']
+    rejected_requests = [r for r in requests_list if r['status'] == 'REJECTED']
     
-    # Mock data for available replacements
-    available_replacements = [
-        {"id": 1, "name": "Daniel Martinez"},
-        {"id": 2, "name": "Michelle Liu"},
-        {"id": 3, "name": "Joshua Anderson"}
-    ]
+    # Get available shifts for new requests
+    available_shifts = get_available_shifts_for_student(username)
+    
+    # Get available replacements
+    available_replacements = get_available_replacements(username)
     
     return render_template('volunteer/requests/index.html',
                           pending_requests=pending_requests,
@@ -245,136 +581,54 @@ def requests():
                           available_shifts=available_shifts,
                           available_replacements=available_replacements)
 
-@volunteer_views.route('/volunteer/profile')
-@jwt_required()
-@volunteer_required
-def profile():
-    # Mock user data
-    user_data = {
-        "name": "Liam Johnson",
-        "id": "816031872",
-        "phone": "398-3921",
-        "email": "liam.johnson@my.uwi.edu",
-        "address": {
-            "street": "45 Coconut Drive",
-            "city": "San Fernando",
-            "country": "Trinidad and Tobago"
-        },
-        "enrolled_courses": ["COMP 3602", "COMP 3603", "COMP 3605", "COMP 3607", "COMP 3613"],
-        "availability": {
-            "MON": ["10am - 11am", "1pm - 2pm", "2pm - 3pm", "3pm - 4pm"],
-            "TUE": ["10am - 11am", "11am - 12pm", "1pm - 2pm", "2pm - 3pm"],
-            "WED": ["10am - 11am", "1pm - 2pm"],
-            "THUR": ["9am - 10am", "10am - 11am", "11am - 12pm", "12pm - 1pm"],
-            "FRI": ["10am - 11am", "11am - 12pm", "2pm - 3pm", "3pm - 4pm"]
-        },
-        "stats": {
-            "weekly": {
-                "date_range": "Week 5, Sept 30 - Oct 4",
-                "hours": "00"
-            },
-            "monthly": {
-                "date_range": "September, 2024",
-                "hours": "59"
-            },
-            "semester": {
-                "date_range": "Sept. 24 - Nov. 24",
-                "hours": "59"
-            },
-            "absences": "3"
-        }
-    }
-    
-    return render_template('volunteer/profile/index.html', user=user_data)
-
-@volunteer_views.route('/volunteer/notifications')
-@jwt_required()
-@volunteer_required
-def notifications():
-    # Mock notifications data
-    notifications_data = [
-        {
-            "message": "Your shift change request was approved.",
-            "time": "Tuesday at 10:30 AM",
-            "type": "approval"
-        },
-        {
-            "message": "You clocked out for your 03:00 pm to 04:00 pm shift.",
-            "time": "Monday at 4:00 PM",
-            "type": "clock"
-        },
-        {
-            "message": "You clocked in for your 03:00 pm to 04:00 pm shift.",
-            "time": "Monday at 3:00 PM",
-            "type": "clock"
-        },
-        {
-            "message": "Week 5 Schedule has been published. Check out your shifts for the week.",
-            "time": "Saturday, Sept 28 2024 at 10:30 PM",
-            "type": "schedule"
-        },
-        {
-            "message": "Your 03:00 pm to 04:00 pm shift starts in 15 minutes.",
-            "time": "Monday at 2:45 PM",
-            "type": "reminder"
-        },
-        {
-            "message": "Your request was submitted and is pending approval.",
-            "time": "Saturday at 1:30 PM",
-            "type": "request"
-        },
-        {
-            "message": "You missed your 01:00 pm to 02:00 pm shift.",
-            "time": "Wednesday, Sept 25 at 2:05 PM",
-            "type": "missed"
-        },
-        {
-            "message": "Your 01:00 pm to 02:00 pm shift starts in 15 minutes.",
-            "time": "Wednesday, Sept 25 at 12:45 PM",
-            "type": "reminder"
-        },
-        {
-            "message": "Your availability was successfully updated.",
-            "time": "Friday, Sept 20 2024 at 10:30 AM",
-            "type": "update"
-        }
-    ]
-    
-    return render_template('volunteer/notifications/index.html', 
-                          notifications=notifications_data)
-
 @volunteer_views.route('/volunteer/submit_request', methods=['POST'])
 @jwt_required()
 @volunteer_required
 def submit_request():
-    # In a real application, you would:
-    # 1. Get the form data from request.form or request.json
-    # 2. Validate the data
-    # 3. Save the request to the database
+    """Submit a new shift change request"""
+    from App.controllers.request import create_student_request
     
-    # For this mock implementation, we'll just return success
-    return jsonify({"success": True, "message": "Request submitted successfully"})
+    data = request.form
+    
+    # Extract data from form
+    shift_id = data.get('shiftToChange')
+    reason = data.get('reasonForChange')
+    replacement = data.get('proposedReplacement')
+    
+    # Validate required fields
+    if not shift_id or not reason:
+        flash("Shift and reason are required fields", "error")
+        return redirect(url_for('requests_views.volunteer_requests'))
+    
+    # Create the request
+    success, message = create_student_request(
+        current_user.username,
+        shift_id,
+        reason,
+        replacement
+    )
+    
+    if success:
+        flash(message, "success")
+    else:
+        flash(message, "error")
+        
+    return redirect(url_for('volunteer_views.requests'))
 
-@volunteer_views.route('/volunteer/update_availability', methods=['POST'])
+
+@volunteer_views.route('/debug_availability')
 @jwt_required()
-@volunteer_required
-def update_availability():
-    # In a real application, you would:
-    # 1. Get the availability data from request.json
-    # 2. Update the user's availability in the database
+def debug_availability():
+    username = current_user.username
+    availabilities = Availability.query.filter_by(username=username).all()
     
-    # For this mock implementation, we'll just return success
-    return jsonify({"success": True, "message": "Availability updated successfully"})
-
-# This function allows us to use your friend's scheduler without modifying it
-def get_schedule_with_original_scheduler():
-    # Import the original scheduler function safely
-    from App.controllers.scheduler import help_desk_scheduler
+    result = []
+    for avail in availabilities:
+        result.append({
+            'id': avail.id,
+            'day_of_week': avail.day_of_week,
+            'start_time': avail.start_time.strftime('%H:%M:%S') if avail.start_time else None,
+            'end_time': avail.end_time.strftime('%H:%M:%S') if avail.end_time else None,
+        })
     
-    # Call the original scheduler with default parameters
-    I, J, K = 10, 45, 1
-    result = help_desk_scheduler(I, J, K)
-    
-    # Process the result if needed without modifying the original function
-    # Here we just return it directly
-    return result
+    return jsonify(result)

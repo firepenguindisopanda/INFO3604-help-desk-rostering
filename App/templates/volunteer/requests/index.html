@@ -4,106 +4,196 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteer/requests.css') }}">
+<style>
+    .no-requests {
+        padding: 2rem;
+        text-align: center;
+        background-color: #f9f9fa;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-error {
+        color: #ef4444;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+        display: none;
+    }
+    
+    .flash-message {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 100;
+        padding: 0.75rem 1.5rem;
+        border-radius: 4px;
+        color: white;
+        animation: fadeOut 5s forwards;
+    }
+    
+    .flash-message.success {
+        background-color: #10b981;
+    }
+    
+    .flash-message.error {
+        background-color: #ef4444;
+    }
+    
+    @keyframes fadeOut {
+        0% { opacity: 1; }
+        70% { opacity: 1; }
+        100% { opacity: 0; display: none; }
+    }
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="requests-page">
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <!-- Request Cards Section -->
     <div class="request-cards">
-        <div class="request-card">
-            <div class="requested-shift">
-                <div class="date-label">Requested Shift</div>
-                <div class="shift-date">03 Oct</div>
-                <div class="shift-time">11:00 am to 12:00 pm</div>
-            </div>
-            <div class="request-details">
-                <div class="submission-date">
-                    <div class="label">Submission Date</div>
-                    <div class="value">October 1st 2024, 3:33 pm</div>
+        {% if pending_requests %}
+            {% for req in pending_requests %}
+            <div class="request-card">
+                <div class="requested-shift">
+                    <div class="date-label">Requested Shift</div>
+                    <div class="shift-date">{{ req.shift_date }}</div>
+                    <div class="shift-time">{{ req.shift_time }}</div>
                 </div>
-                <div class="status pending">
-                    <div class="label">Status</div>
-                    <div class="value">PENDING</div>
+                <div class="request-details">
+                    <div class="submission-date">
+                        <div class="label">Submission Date</div>
+                        <div class="value">{{ req.submission_date }}</div>
+                    </div>
+                    <div class="status pending">
+                        <div class="label">Status</div>
+                        <div class="value">{{ req.status }}</div>
+                    </div>
+                    <div class="reason">
+                        <div class="label">Reason</div>
+                        <div class="value">{{ req.reason }}</div>
+                    </div>
                 </div>
+                <form action="{{ url_for('requests_views.cancel_request_endpoint', request_id=req.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to cancel this request?');">
+                    <button type="submit" class="cancel-btn">Cancel</button>
+                </form>
             </div>
-            <button class="cancel-btn">Cancel</button>
-        </div>
+            {% endfor %}
+        {% endif %}
 
-        <div class="request-card">
-            <div class="requested-shift">
-                <div class="date-label">Requested Shift</div>
-                <div class="shift-date">24 Sept</div>
-                <div class="shift-time">10:00 am to 12:00 pm</div>
-            </div>
-            <div class="request-details">
-                <div class="submission-date">
-                    <div class="label">Submission Date</div>
-                    <div class="value">September 24th 2024, 08:00 am</div>
+        {% if approved_requests %}
+            {% for req in approved_requests %}
+            <div class="request-card">
+                <div class="requested-shift">
+                    <div class="date-label">Requested Shift</div>
+                    <div class="shift-date">{{ req.shift_date }}</div>
+                    <div class="shift-time">{{ req.shift_time }}</div>
                 </div>
-                <div class="status approved">
-                    <div class="label">Status</div>
-                    <div class="value">APPROVED</div>
+                <div class="request-details">
+                    <div class="submission-date">
+                        <div class="label">Submission Date</div>
+                        <div class="value">{{ req.submission_date }}</div>
+                    </div>
+                    <div class="status approved">
+                        <div class="label">Status</div>
+                        <div class="value">{{ req.status }}</div>
+                    </div>
+                    <div class="reason">
+                        <div class="label">Reason</div>
+                        <div class="value">{{ req.reason }}</div>
+                    </div>
                 </div>
             </div>
-        </div>
+            {% endfor %}
+        {% endif %}
 
-        <div class="request-card">
-            <div class="requested-shift">
-                <div class="date-label">Requested Shift</div>
-                <div class="shift-date">11 Sept</div>
-                <div class="shift-time">01:00 pm to 02:00 pm</div>
-            </div>
-            <div class="request-details">
-                <div class="submission-date">
-                    <div class="label">Submission Date</div>
-                    <div class="value">September 10th 2024, 08:00 am</div>
+        {% if rejected_requests %}
+            {% for req in rejected_requests %}
+            <div class="request-card">
+                <div class="requested-shift">
+                    <div class="date-label">Requested Shift</div>
+                    <div class="shift-date">{{ req.shift_date }}</div>
+                    <div class="shift-time">{{ req.shift_time }}</div>
                 </div>
-                <div class="status rejected">
-                    <div class="label">Status</div>
-                    <div class="value">REJECTED</div>
+                <div class="request-details">
+                    <div class="submission-date">
+                        <div class="label">Submission Date</div>
+                        <div class="value">{{ req.submission_date }}</div>
+                    </div>
+                    <div class="status rejected">
+                        <div class="label">Status</div>
+                        <div class="value">{{ req.status }}</div>
+                    </div>
+                    <div class="reason">
+                        <div class="label">Reason</div>
+                        <div class="value">{{ req.reason }}</div>
+                    </div>
                 </div>
             </div>
-        </div>
+            {% endfor %}
+        {% endif %}
+
+        {% if not pending_requests and not approved_requests and not rejected_requests %}
+            <div class="no-requests">
+                <p>You don't have any requests yet. Use the form below to submit a new request.</p>
+            </div>
+        {% endif %}
     </div>
 
     <!-- New Request Form Section -->
     <div class="request-form-section">
         <h2 class="form-title">Submit A New Request</h2>
         
-        <form class="new-request-form">
-            <div class="form-group">
-                <label for="shiftToChange">Shift to Change</label>
-                <div class="custom-select">
-                    <select id="shiftToChange" name="shiftToChange" required>
-                        <option value="" selected disabled>Select shift...</option>
-                        <option value="1">Mon, 30 Sept - 10:00 am to 11:00 am</option>
-                        <option value="2">Wed, 02 Oct - 01:00 pm to 02:00 pm</option>
-                        <option value="3">Fri, 04 Oct - 11:00 am to 12:00 pm</option>
-                    </select>
-                    <div class="select-arrow">&#9662;</div>
+        {% if available_shifts %}
+            <form class="new-request-form" action="{{ url_for('requests_views.submit_request') }}" method="POST" id="requestForm">
+                <div class="form-group">
+                    <label for="shiftToChange">Shift to Change</label>
+                    <div class="custom-select">
+                        <select id="shiftToChange" name="shiftToChange" required>
+                            <option value="" selected disabled>Select shift...</option>
+                            {% for shift in available_shifts %}
+                            <option value="{{ shift.id }}">{{ shift.day }}, {{ shift.date }} - {{ shift.time }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="select-arrow">&#9662;</div>
+                    </div>
+                    <div class="form-error" id="shiftError">Please select a shift</div>
                 </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="reasonForChange">Reason for Change</label>
-                <textarea id="reasonForChange" name="reasonForChange" placeholder="Indicate reason for change..." required></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label for="proposedReplacement">Proposed Replacement <span class="optional">(Optional)</span></label>
-                <div class="custom-select">
-                    <select id="proposedReplacement" name="proposedReplacement">
-                        <option value="" selected disabled>Select replacement...</option>
-                        <option value="1">Daniel Martinez</option>
-                        <option value="2">Michelle Liu</option>
-                        <option value="3">Joshua Anderson</option>
-                    </select>
-                    <div class="select-arrow">&#9662;</div>
+                
+                <div class="form-group">
+                    <label for="reasonForChange">Reason for Change</label>
+                    <textarea id="reasonForChange" name="reasonForChange" placeholder="Indicate reason for change..." required></textarea>
+                    <div class="form-error" id="reasonError">Please provide a reason</div>
                 </div>
+                
+                <div class="form-group">
+                    <label for="proposedReplacement">Proposed Replacement <span class="optional">(Optional)</span></label>
+                    <div class="custom-select">
+                        <select id="proposedReplacement" name="proposedReplacement">
+                            <option value="" selected>Select replacement...</option>
+                            {% for replacement in available_replacements %}
+                            <option value="{{ replacement.id }}">{{ replacement.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="select-arrow">&#9662;</div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="submit-btn">Submit New Request</button>
+            </form>
+        {% else %}
+            <div class="no-requests">
+                <p>You don't have any upcoming shifts available to request changes for.</p>
             </div>
-            
-            <button type="submit" class="submit-btn">Submit New Request</button>
-        </form>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -111,36 +201,62 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Handle form submission
-        const requestForm = document.querySelector('.new-request-form');
+        // Handle form validation
+        const requestForm = document.getElementById('requestForm');
         
-        requestForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Get form data
-            const shiftId = document.getElementById('shiftToChange').value;
-            const reason = document.getElementById('reasonForChange').value;
-            const replacement = document.getElementById('proposedReplacement').value;
-            
-            // Here you would typically send an AJAX request to submit the form
-            // For now, we'll just show an alert
-            alert('Request submitted successfully!');
-            
-            // Reset form
-            requestForm.reset();
-        });
-        
-        // Handle cancel button clicks
-        const cancelButtons = document.querySelectorAll('.cancel-btn');
-        
-        cancelButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                if (confirm('Are you sure you want to cancel this request?')) {
-                    // Here you would typically send an AJAX request to cancel the request
-                    // For now, we'll just hide the card
-                    this.closest('.request-card').style.display = 'none';
+        if (requestForm) {
+            requestForm.addEventListener('submit', function(e) {
+                let isValid = true;
+                
+                // Validate shift selection
+                const shiftSelect = document.getElementById('shiftToChange');
+                const shiftError = document.getElementById('shiftError');
+                
+                if (shiftSelect.value === '') {
+                    shiftError.style.display = 'block';
+                    isValid = false;
+                } else {
+                    shiftError.style.display = 'none';
+                }
+                
+                // Validate reason
+                const reasonInput = document.getElementById('reasonForChange');
+                const reasonError = document.getElementById('reasonError');
+                
+                if (reasonInput.value.trim() === '') {
+                    reasonError.style.display = 'block';
+                    isValid = false;
+                } else {
+                    reasonError.style.display = 'none';
+                }
+                
+                if (!isValid) {
+                    e.preventDefault();
                 }
             });
+            
+            // Clear errors on input
+            const shiftSelect = document.getElementById('shiftToChange');
+            const reasonInput = document.getElementById('reasonForChange');
+            
+            shiftSelect.addEventListener('change', function() {
+                document.getElementById('shiftError').style.display = 'none';
+            });
+            
+            reasonInput.addEventListener('input', function() {
+                document.getElementById('reasonError').style.display = 'none';
+            });
+        }
+        
+        // Hide flash messages after 5 seconds
+        const flashMessages = document.querySelectorAll('.flash-message');
+        flashMessages.forEach(message => {
+            setTimeout(() => {
+                message.style.opacity = '0';
+                setTimeout(() => {
+                    message.style.display = 'none';
+                }, 500);
+            }, 5000);
         });
     });
 </script>

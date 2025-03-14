@@ -4,56 +4,377 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/request.css') }}">
+<style>
+    .flash-message {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 100;
+        padding: 0.75rem 1.5rem;
+        border-radius: 4px;
+        color: white;
+        animation: fadeOut 5s forwards;
+    }
+    
+    .flash-message.success {
+        background-color: #10b981;
+    }
+    
+    .flash-message.error {
+        background-color: #ef4444;
+    }
+    
+    @keyframes fadeOut {
+        0% { opacity: 1; }
+        70% { opacity: 1; }
+        100% { opacity: 0; display: none; }
+    }
+    
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+    
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #3498db;
+        border-radius: 50%;
+        animation: spin 2s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .empty-message {
+        text-align: center;
+        padding: 2rem;
+        background-color: white;
+        border-radius: 8px;
+        margin-top: 1rem;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-<h4>Request</h4>
+<h4>Request Management</h4>
+
+<div class="tabs">
+    <div class="tab active">Shift Requests</div>
+    <div class="tab" onclick="window.location.href='{{ url_for('requests_views.registrations') }}'">Registration Requests</div>
+</div>
+
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="flash-message {{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
 
 <div class="search-container">
     <i class="material-icons">search</i>
-    <input type="text" id="searchInput" placeholder="Search" class="search-input">
+    <input type="text" id="searchInput" placeholder="Search by name, ID, or role" class="search-input">
 </div>
 
 <div class="user-list">
-    {% for tutor in tutors %}
-    <div class="user-card" data-id="{{ tutor.id }}">
-        <img src="{{ tutor.image }}" alt="{{ tutor.name }}" class="avatar avatar-sm">
-        <div class="user-info">
-            <h5 class="user-name">{{ tutor.name }}</h5>
-            <span class="user-role">{{ tutor.role }}</span>
-            <div class="user-id">{{ tutor.id_number }}</div>
+    {% if tutors and tutors|length > 0 %}
+        {% for tutor in tutors %}
+        <div class="user-card" data-id="{{ tutor.id }}">
+            <img src="{{ tutor.image }}" alt="{{ tutor.name }}" class="avatar avatar-sm">
+            <div class="user-info">
+                <h5 class="user-name">{{ tutor.name }}</h5>
+                <span class="user-role">{{ tutor.role }}</span>
+                <div class="user-id">{{ tutor.id_number }}</div>
+            </div>
+            <i class="material-icons expand-icon">expand_more</i>
         </div>
-        <i class="material-icons expand-icon">expand_more</i>
-    </div>
-    <div class="request-details" id="details-{{ tutor.id }}" style="display: none;">
-        <div class="request-list">
-            <h6>Requests History</h6>
-            {% if tutor.requests %}
-                {% for req in tutor.requests %}
-                <div class="request-item {% if req.status == 'pending' %}pending{% elif req.status == 'approved' %}approved{% elif req.status == 'rejected' %}rejected{% endif %}">
-                    <div class="request-header">
-                        <span class="request-date">{{ req.date }}</span>
-                        <span class="request-status">{{ req.status|upper }}</span>
+        <div class="request-details" id="details-{{ tutor.id }}" style="display: none;">
+            <div class="request-list">
+                <h6>Requests History</h6>
+                {% if tutor.requests %}
+                    {% for req in tutor.requests %}
+                    <div class="request-item {% if req.status == 'PENDING' %}pending{% elif req.status == 'APPROVED' %}approved{% elif req.status == 'REJECTED' %}rejected{% endif %}">
+                        <div class="request-header">
+                            <span class="request-date">{{ req.date }}</span>
+                            <span class="request-status">{{ req.status }}</span>
+                        </div>
+                        <div class="request-time">{{ req.time_slot }}</div>
+                        <div class="request-reason">{{ req.reason }}</div>
+                        <div class="request-date">Submitted: {{ req.created_at }}</div>
+                        {% if req.status == 'PENDING' %}
+                        <div class="request-actions">
+                            <button class="btn btn-reject" onclick="rejectRequest({{ req.id }})">Reject</button>
+                            <button class="btn btn-approve" onclick="approveRequest({{ req.id }})">Approve</button>
+                        </div>
+                        {% endif %}
                     </div>
-                    <div class="request-time">{{ req.time_slot }}</div>
-                    <div class="request-reason">{{ req.reason }}</div>
-                    {% if req.status == 'pending' %}
-                    <div class="request-actions">
-                        <button class="btn btn-reject" onclick="rejectRequest({{ req.id }})">Reject</button>
-                        <button class="btn btn-approve" onclick="approveRequest({{ req.id }})">Approve</button>
-                    </div>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="no-requests">No requests found</div>
-            {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div class="no-requests">No requests found</div>
+                {% endif %}
+            </div>
         </div>
-    </div>
-    {% endfor %}
+        {% endfor %}
+    {% else %}
+        <div class="empty-message">
+            <p>No requests found in the system.</p>
+        </div>
+    {% endif %}
 </div>
+
+<!-- Loading overlay (hidden by default) -->
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/admin-requests.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize user cards and their expandable sections
+    initializeUserCards();
+    
+    // Initialize search functionality
+    initializeSearch();
+    
+    // Hide flash messages after 5 seconds
+    const flashMessages = document.querySelectorAll('.flash-message');
+    flashMessages.forEach(message => {
+        setTimeout(() => {
+            message.style.opacity = '0';
+            setTimeout(() => {
+                message.style.display = 'none';
+            }, 500);
+        }, 5000);
+    });
+});
+
+function initializeUserCards() {
+    const userCards = document.querySelectorAll('.user-card');
+    
+    userCards.forEach(card => {
+        card.addEventListener('click', function() {
+            const userId = this.getAttribute('data-id');
+            const detailsElement = document.getElementById(`details-${userId}`);
+            const expandIcon = this.querySelector('.expand-icon');
+            
+            // Check if this card is already expanded
+            const isExpanded = this.classList.contains('expanded');
+            
+            // First, collapse all cards
+            document.querySelectorAll('.user-card').forEach(c => {
+                c.classList.remove('expanded');
+                c.querySelector('.expand-icon').textContent = 'expand_more';
+            });
+            
+            document.querySelectorAll('.request-details').forEach(details => {
+                details.style.display = 'none';
+            });
+            
+            // Then, expand this card if it wasn't already expanded
+            if (!isExpanded) {
+                this.classList.add('expanded');
+                expandIcon.textContent = 'expand_less';
+                detailsElement.style.display = 'block';
+            }
+        });
+    });
+}
+
+function initializeSearch() {
+    const searchInput = document.getElementById('searchInput');
+    if (!searchInput) return;
+    
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        
+        document.querySelectorAll('.user-card').forEach(card => {
+            const name = card.querySelector('.user-name').textContent.toLowerCase();
+            const id = card.querySelector('.user-id').textContent.toLowerCase();
+            const role = card.querySelector('.user-role').textContent.toLowerCase();
+            
+            if (name.includes(searchTerm) || id.includes(searchTerm) || role.includes(searchTerm)) {
+                card.style.display = 'flex';
+            } else {
+                card.style.display = 'none';
+                
+                // Also hide the details section if card is hidden
+                const userId = card.getAttribute('data-id');
+                const detailsElement = document.getElementById(`details-${userId}`);
+                if (detailsElement) {
+                    detailsElement.style.display = 'none';
+                }
+            }
+        });
+    });
+}
+
+function approveRequest(requestId) {
+    // Show confirmation dialog
+    if (!confirm('Are you sure you want to approve this request?')) {
+        return;
+    }
+    
+    // Show loading overlay
+    showLoading();
+    
+    // Make API call to approve the request
+    fetch(`/api/requests/${requestId}/approve`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Hide loading overlay
+        hideLoading();
+        
+        if (data.success) {
+            // Update the UI
+            const requestElement = findRequestElement(requestId);
+            if (requestElement) {
+                requestElement.classList.remove('pending');
+                requestElement.classList.add('approved');
+                
+                const statusElement = requestElement.querySelector('.request-status');
+                if (statusElement) {
+                    statusElement.textContent = 'APPROVED';
+                }
+                
+                // Remove the action buttons
+                const actionsElement = requestElement.querySelector('.request-actions');
+                if (actionsElement) {
+                    actionsElement.remove();
+                }
+            }
+            
+            // Show success message
+            showNotification('Request approved successfully', 'success');
+        } else {
+            showNotification(`Error: ${data.message}`, 'error');
+        }
+    })
+    .catch(error => {
+        // Hide loading overlay
+        hideLoading();
+        
+        console.error('Error:', error);
+        showNotification('An error occurred while approving the request', 'error');
+    });
+}
+
+function rejectRequest(requestId) {
+    // Show confirmation dialog
+    if (!confirm('Are you sure you want to reject this request?')) {
+        return;
+    }
+    
+    // Show loading overlay
+    showLoading();
+    
+    // Make API call to reject the request
+    fetch(`/api/requests/${requestId}/reject`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Hide loading overlay
+        hideLoading();
+        
+        if (data.success) {
+            // Update the UI
+            const requestElement = findRequestElement(requestId);
+            if (requestElement) {
+                requestElement.classList.remove('pending');
+                requestElement.classList.add('rejected');
+                
+                const statusElement = requestElement.querySelector('.request-status');
+                if (statusElement) {
+                    statusElement.textContent = 'REJECTED';
+                }
+                
+                // Remove the action buttons
+                const actionsElement = requestElement.querySelector('.request-actions');
+                if (actionsElement) {
+                    actionsElement.remove();
+                }
+            }
+            
+            // Show success message
+            showNotification('Request rejected', 'success');
+        } else {
+            showNotification(`Error: ${data.message}`, 'error');
+        }
+    })
+    .catch(error => {
+        // Hide loading overlay
+        hideLoading();
+        
+        console.error('Error:', error);
+        showNotification('An error occurred while rejecting the request', 'error');
+    });
+}
+
+function findRequestElement(requestId) {
+    // Find the request element by its ID
+    const requestElements = document.querySelectorAll('.request-item');
+    for (const element of requestElements) {
+        // Check if this element has an approve/reject button with the right request ID
+        const approveButton = element.querySelector(`.btn-approve[onclick*="${requestId}"]`);
+        const rejectButton = element.querySelector(`.btn-reject[onclick*="${requestId}"]`);
+        
+        if (approveButton || rejectButton) {
+            return element;
+        }
+    }
+    
+    return null;
+}
+
+function showLoading() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+function showNotification(message, type = 'info') {
+    // Create a notification element
+    const notification = document.createElement('div');
+    notification.className = `flash-message ${type}`;
+    notification.textContent = message;
+    
+    // Add the notification to the page
+    document.body.appendChild(notification);
+    
+    // Remove the notification after a delay
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => {
+            if (document.body.contains(notification)) {
+                document.body.removeChild(notification);
+            }
+        }, 500);
+    }, 5000);
+}
+</script>
 {% endblock %}

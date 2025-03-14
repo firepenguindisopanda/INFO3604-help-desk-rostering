@@ -17,18 +17,19 @@
         border-color: #dc3545;
     }
     
-    .password-recovery {
-        text-align: right;
+    .account-actions {
+        display: flex;
+        justify-content: space-between;
         margin-bottom: 1rem;
         font-size: 0.85rem;
     }
     
-    .password-recovery a {
+    .account-actions a {
         color: #0066cc;
         text-decoration: none;
     }
     
-    .password-recovery a:hover {
+    .account-actions a:hover {
         text-decoration: underline;
     }
     
@@ -91,9 +92,11 @@
                     <input type="password" id="password" name="password" placeholder="Enter your password" required>
                     <div class="error-message" id="passwordError">Password is required</div>
                 </div>
-                <div class="password-recovery">
+                <div class="account-actions">
                     <a href="{{ url_for('auth_views.forgot_password') }}">Forgot password?</a>
+                    <a href="{{ url_for('auth_views.register') }}">Register as a volunteer</a>
                 </div>
+                
                 <button type="submit" class="btn btn-primary">Sign In</button>
                 
                 <div class="login-tips">

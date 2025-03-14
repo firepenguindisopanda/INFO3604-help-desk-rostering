@@ -58,39 +58,64 @@ def count_unread_notifications(username):
     """Count unread notifications for a user"""
     return Notification.query.filter_by(username=username, is_read=False).count()
 
-# Function to create common notification types
+# Functions to create common notification types
 def notify_shift_approval(username, shift_details):
+    """Notify a user that their shift change request was approved"""
     message = f"Your shift change request for {shift_details} was approved."
     return create_notification(username, message, Notification.TYPE_APPROVAL)
 
 def notify_shift_rejection(username, shift_details):
+    """Notify a user that their shift change request was rejected"""
     message = f"Your shift change request for {shift_details} was rejected."
     return create_notification(username, message, Notification.TYPE_APPROVAL)
 
 def notify_clock_in(username, shift_details):
+    """Notify a user that they clocked in for a shift"""
     message = f"You clocked in for your {shift_details} shift."
     return create_notification(username, message, Notification.TYPE_CLOCK_IN)
 
 def notify_clock_out(username, shift_details):
+    """Notify a user that they clocked out for a shift"""
     message = f"You clocked out for your {shift_details} shift."
     return create_notification(username, message, Notification.TYPE_CLOCK_OUT)
 
 def notify_schedule_published(username, week_number):
+    """Notify a user that a new schedule was published"""
     message = f"Week {week_number} Schedule has been published. Check out your shifts for the week."
     return create_notification(username, message, Notification.TYPE_SCHEDULE)
 
 def notify_shift_reminder(username, shift_details, minutes_before=15):
+    """Notify a user about an upcoming shift"""
     message = f"Your {shift_details} shift starts in {minutes_before} minutes."
     return create_notification(username, message, Notification.TYPE_REMINDER)
 
 def notify_request_submitted(username, shift_details):
+    """Notify a user that their shift change request was submitted"""
     message = f"Your request for {shift_details} was submitted and is pending approval."
     return create_notification(username, message, Notification.TYPE_REQUEST)
 
 def notify_missed_shift(username, shift_details):
+    """Notify a user that they missed a shift"""
     message = f"You missed your {shift_details} shift."
     return create_notification(username, message, Notification.TYPE_MISSED)
 
 def notify_availability_updated(username):
+    """Notify a user that their availability was updated"""
     message = "Your availability was successfully updated."
     return create_notification(username, message, Notification.TYPE_UPDATE)
+
+def notify_admin_new_request(admin_username, student_name, student_id, shift_details):
+    """Notify an admin about a new shift change request"""
+    message = f"New request from {student_name} ({student_id}) for {shift_details}."
+    return create_notification(admin_username, message, Notification.TYPE_REQUEST)
+
+def notify_all_admins(message, notification_type):
+    """Send a notification to all admin users"""
+    admins = User.query.filter_by(type='admin').all()
+    notifications = []
+    
+    for admin in admins:
+        notification = create_notification(admin.username, message, notification_type)
+        notifications.append(notification)
+    
+    return notifications
