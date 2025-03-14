@@ -17,8 +17,12 @@ from App.controllers.registration import (
     reject_registration
 )
 import os
+from datetime import datetime
 
 requests_views = Blueprint('requests_views', __name__, template_folder='../templates')
+
+# Remove the old datetime filter to avoid conflicts
+# The filter is now registered globally in main.py
 
 # ADMIN ROUTES
 @requests_views.route('/requests')
@@ -38,12 +42,8 @@ def registrations():
     # Get all registration requests
     registration_data = get_all_registration_requests()
     
-    # Format datetime for Jinja
-    @request.app.template_filter('datetime')
-    def format_datetime(value, format='%B %d, %Y, %I:%M %p'):
-        if value is None:
-            return ""
-        return value.strftime(format)
+    # No need to register the filter here anymore
+    # It's now registered globally in main.py
     
     return render_template('admin/requests/registrations.html', 
                            pending_registrations=registration_data['pending'],

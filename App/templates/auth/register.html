@@ -6,15 +6,60 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/auth/auth.css') }}">
 <style>
+    .registration-container {
+        display: flex;
+        min-height: 100vh;
+    }
+
+    .left-side {
+        width: 40%;
+        background-color: #0066cc;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 2rem;
+    }
+
+    .left-side h1 {
+        font-size: 2.5rem;
+        margin-bottom: 1.5rem;
+        line-height: 1.2;
+    }
+
+    .front-page-image {
+        max-width: 90%;
+        margin: 20px auto;
+        display: block;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .right-side {
+        width: 60%;
+        background-color: #f5f5f5;
+        padding: 2rem;
+        overflow-y: auto;
+    }
+
+    .registration-form-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 1.5rem;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
     .registration-form {
         width: 100%;
-        max-width: 600px;
     }
 
     .registration-form h2 {
-        font-size: 2.5rem;
+        font-size: 2rem;
         margin-bottom: 1.5rem;
         color: #0066cc;
+        text-align: center;
     }
 
     .form-row {
@@ -113,6 +158,7 @@
     .terms-checkbox input {
         margin-right: 0.75rem;
         margin-top: 0.3rem;
+        width: auto;
     }
 
     .terms-checkbox label {
@@ -120,19 +166,76 @@
         font-size: 0.9rem;
         line-height: 1.4;
     }
+
+    .submit-btn {
+        background-color: #0066cc;
+        color: white;
+        border: none;
+        width: 100%;
+        padding: 0.75rem;
+        font-size: 1rem;
+        font-weight: 500;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+    .submit-btn:hover {
+        background-color: #0052a3;
+    }
+
+    .login-link {
+        display: block;
+        text-align: center;
+        margin-top: 1rem;
+        color: #0066cc;
+        text-decoration: none;
+    }
+
+    .login-link:hover {
+        text-decoration: underline;
+    }
+
+    /* Make the page more responsive */
+    @media (max-width: 992px) {
+        .registration-container {
+            flex-direction: column;
+        }
+        
+        .left-side, .right-side {
+            width: 100%;
+        }
+        
+        .left-side {
+            padding: 1.5rem;
+            min-height: auto;
+        }
+        
+        .front-page-image {
+            max-width: 60%;
+            margin: 1rem auto;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .form-row {
+            flex-direction: column;
+            gap: 0;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="login-container">
+<div class="registration-container">
     <div class="left-side">
         <h1>Help Desk Rostering and Claiming System</h1>
         <img src="{{ url_for('static', filename='images/UwiFrontPage.jpg') }}" alt="UWI Front Page" class="front-page-image">
     </div>
     <div class="right-side">
-        <div class="login-form-container">
+        <div class="registration-form-container">
             <form class="registration-form" method="POST" action="{{ url_for('auth_views.register_action') }}" id="registrationForm" enctype="multipart/form-data">
-                <h2>Register</h2>
+                <h2>Registration</h2>
                 
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
@@ -219,11 +322,9 @@
                     <label for="terms">I confirm that I have completed the courses I've selected, and that all information provided is accurate. I understand that my application will be reviewed by an administrator.</label>
                 </div>
                 
-                <button type="submit" class="btn btn-primary">Submit Application</button>
+                <button type="submit" class="submit-btn">Submit Application</button>
                 
-                <div style="margin-top: 1rem; text-align: center;">
-                    <a href="{{ url_for('auth_views.login_page') }}">Already have an account? Login</a>
-                </div>
+                <a href="{{ url_for('auth_views.login_page') }}" class="login-link">Already have an account? Login</a>
             </form>
         </div>
     </div>
