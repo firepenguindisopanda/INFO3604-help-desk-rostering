@@ -3,7 +3,6 @@ from flask import Blueprint, render_template, jsonify, request, flash, redirect,
 from flask_jwt_extended import jwt_required, current_user
 from datetime import datetime, timedelta
 from App.controllers.schedule import (
-    help_desk_scheduler,  # Keep for testing
     generate_schedule,    # Updated generator that doesn't use weeks
     publish_schedule,
     get_current_schedule  # New function to get current schedule
@@ -51,7 +50,7 @@ def get_schedule_details():
     try:
         # Original demo implementation
         I, J, K = 10, 40, 1
-        result = help_desk_scheduler(I, J, K)
+        result = generate_schedule(I, J, K)
         
         if result['status'] != 'success':
             return jsonify(result), 400
