@@ -114,6 +114,27 @@ def generate_schedule(start_date=None, end_date=None):
         # Clear existing shifts for the date range
         clear_shifts_in_range(schedule.id, start_date, end_date)
         
+        # Get all courses BEFORE creating shifts - Fix the error here
+        all_courses = Course.query.all()
+        if not all_courses:
+            # Create some default courses if none exist
+            default_courses = [
+                ('COMP3602', 'Software Engineering I'),
+                ('COMP3603', 'Human-Computer Interaction'),
+                ('COMP3605', 'Introduction to Data Analytics'),
+                ('COMP3607', 'Object-Oriented Programming II'),
+                ('COMP3609', 'Game Programming'),
+                ('COMP3610', 'Big Data Analytics'),
+                ('COMP3611', 'Game Design'),
+                ('COMP3613', 'Software Engineering II')
+            ]
+            for code, name in default_courses:
+                course = Course(code, name)
+                db.session.add(course)
+            db.session.commit()
+            all_courses = Course.query.all()
+            logger.info(f"Created {len(all_courses)} default courses")
+        
         # Generate shifts for the schedule (only for the specified date range)
         shifts = []
         current_date = start_date
@@ -131,13 +152,13 @@ def generate_schedule(start_date=None, end_date=None):
                     db.session.flush()  # Get the shift ID
                     shifts.append(shift)
                     
-            # Default requirement is 2 tutors per course
-            for course in all_courses:
-                try:
-                    add_course_demand_to_shift(shift.id, course.code, 2, 2)
-                except Exception as e:
-                    logger.error(f"Error adding course demand for {course.code} to shift {shift.id}: {str(e)}")
-                    # Continue with other courses
+                    # Default requirement is 2 tutors per course
+                    for course in all_courses:
+                        try:
+                            add_course_demand_to_shift(shift.id, course.code, 2, 2)
+                        except Exception as e:
+                            logger.error(f"Error adding course demand for {course.code} to shift {shift.id}: {str(e)}")
+                            # Continue with other courses
             
             # Move to the next day
             current_date += timedelta(days=1)
@@ -163,9 +184,6 @@ def generate_schedule(start_date=None, end_date=None):
         # Map indexes for reference
         staff_by_index = {i: assistant for i, assistant in enumerate(assistants)}
         shift_by_index = {j: shift for j, shift in enumerate(shifts)}
-        
-        # Get all unique courses
-        all_courses = Course.query.all()
         course_by_index = {k: course for k, course in enumerate(all_courses)}
         
         I = len(assistants)  # Number of staff
@@ -215,6 +233,11 @@ def generate_schedule(start_date=None, end_date=None):
                 
                 a[i, j] = 1 if is_available else 0
         
+        # d_j,k = desired number of tutors with course k in shift j
+        # w_j,k = weight for course k in shift j
+        d = {}
+        w = {}
+        
         for j in range(J):
             shift = shift_by_index[j]
             # Get course demands for this shift
@@ -252,12 +275,17 @@ def generate_schedule(start_date=None, end_date=None):
         for j in range(J):
             for k in range(K):
                 # Calculate the shortfall in coverage for each course in each shift
-                assigned_tutors_for_course = sum(x[i, j] * t[i, k] for i in range(I))
-                shortfall = model.NewIntVar(0, d[j, k], f'shortfall_{j}_{k}')
-                model.Add(shortfall >= d[j, k] - assigned_tutors_for_course)
+                assigned_tutors_for_course = []
+                for i in range(I):
+                    if t[i, k] == 1:  # Only consider if this tutor can teach this course
+                        assigned_tutors_for_course.append(x[i, j])
                 
-                # Add weighted shortfall to the objective
-                objective_terms.append(shortfall * w[j, k])
+                if assigned_tutors_for_course:  # Only add shortfall if any tutor can teach this course
+                    shortfall = model.NewIntVar(0, d[j, k], f'shortfall_{j}_{k}')
+                    model.Add(shortfall >= d[j, k] - sum(assigned_tutors_for_course))
+                    
+                    # Add weighted shortfall to the objective
+                    objective_terms.append(shortfall * w[j, k])
         
         # Minimize the weighted shortfall across all shifts and courses
         model.Minimize(sum(objective_terms))
@@ -267,8 +295,13 @@ def generate_schedule(start_date=None, end_date=None):
         # This ensures we don't exceed the desired number of tutors per course per shift
         for j in range(J):
             for k in range(K):
-                constraint = sum(x[i, j] * t[i, k] for i in range(I))
-                model.Add(constraint <= d[j, k])
+                tutors_for_course_in_shift = []
+                for i in range(I):
+                    if t[i, k] == 1:  # Only if this tutor can teach this course
+                        tutors_for_course_in_shift.append(x[i, j])
+                
+                if tutors_for_course_in_shift:  # Only add constraint if any tutor can teach
+                    model.Add(sum(tutors_for_course_in_shift) <= d[j, k])
         
         # Constraint 2 from the model: Σ(j) xi,j ≥ 4 for all i
         # Each tutor should have at least 4 shifts (or their minimum hours)
