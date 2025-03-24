@@ -59,6 +59,25 @@
         position: relative;
         max-height: 90vh;
         overflow-y: auto;
+        background-color: white;
+        margin: 5% auto;
+        width: 90%;
+        max-width: 800px;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    .modal-close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    
+    .modal-close:hover {
+        color: #333;
     }
     
     .edit-form {
@@ -78,7 +97,8 @@
     }
     
     .edit-form-group input, 
-    .edit-form-group textarea {
+    .edit-form-group textarea,
+    .edit-form-group select {
         width: 100%;
         padding: 0.75rem;
         border: 1px solid #ddd;
@@ -151,53 +171,12 @@
     
     .availability-table.display-mode {
         display: grid;
-        grid-template-columns: auto repeat(5, 1fr);
+        grid-template-columns: repeat(5, 1fr);
         gap: 0.5rem;
     }
     
     .availability-table.display-mode .time-column {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    
-    .availability-table.display-mode .time-label {
-        padding: 0.5rem;
-        text-align: right;
-        font-size: 13px;
-        color: #666;
-    }
-    
-    .availability-table.display-mode .day-column {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    
-    .availability-table.display-mode .day-header {
-        background-color: #f5f5f5;
-        padding: 0.5rem;
-        text-align: center;
-        font-weight: 500;
-        font-size: 14px;
-        border-radius: 4px;
-    }
-    
-    .availability-table.display-mode .time-slot {
-        padding: 0.5rem;
-        text-align: center;
-        font-size: 13px;
-        color: #666;
-        border-radius: 4px;
-        min-height: 30px;
-
-    
-    }
-
-    .availability-table.display-mode {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 0.5rem;
+        display: none;
     }
     
     .availability-table.display-mode .day-header {
@@ -223,12 +202,7 @@
         color: #10b981;
     }
     
-    /* Hide time labels column on main display */
-    .availability-table.display-mode .time-column {
-        display: none;
-    }
-    
-    /* Special styles for the availability modal */
+    /* Availability Grid Styles */
     .availability-grid {
         display: grid;
         grid-template-columns: auto repeat(5, 1fr);
@@ -262,10 +236,67 @@
         background-color: #ecfdf5;
         color: #10b981;
     }
+    
+    /* Modal Styles */
+    .modal-title {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .modal-subtitle {
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .edit-form-actions {
+        grid-column: span 2;
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    /* Flash message styles */
+    .flash-message {
+        padding: 0.75rem 1rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+    }
+    
+    .flash-message.success {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+    
+    .flash-message.error {
+        background-color: #fee2e2;
+        color: #b91c1c;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
+<!-- Flash Messages -->
+<div id="flashMessages">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message {{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div>
+
 <div class="profile-container">
     <!-- Profile Information Section -->
     <div class="profile-info-section">
@@ -320,8 +351,6 @@
     </div>
     
     <!-- Availability Section -->
-    <!-- Availability Section in main profile page -->
-    <!-- Availability Section in main profile page -->
     <div class="availability-section">
         <h3 class="section-title">AVAILABILITY</h3>
         
@@ -369,8 +398,9 @@
 </div>
 
 <!-- Edit Profile Modal -->
-<div id="editProfileModal" class="edit-profile-modal" style="display: none;">
+<div id="editProfileModal" class="edit-profile-modal">
     <div class="modal-content">
+        <span class="modal-close" id="closeProfileModal">&times;</span>
         <h2 class="modal-title">Edit Your Profile</h2>
         <p class="modal-subtitle">Update your personal information</p>
         
@@ -431,8 +461,9 @@
 </div>
 
 <!-- Update Courses Modal -->
-<div id="coursesModal" class="edit-profile-modal" style="display: none;">
+<div id="coursesModal" class="edit-profile-modal">
     <div class="modal-content">
+        <span class="modal-close" id="closeCoursesModal">&times;</span>
         <h2 class="modal-title">Update Course Capabilities</h2>
         <p class="modal-subtitle">Select the courses you can assist with</p>
         
@@ -452,8 +483,9 @@
 </div>
 
 <!-- Availability Update Modal -->
-<div id="availabilityModal" class="edit-profile-modal" style="display: none;">
+<div id="availabilityModal" class="edit-profile-modal">
     <div class="modal-content">
+        <span class="modal-close" id="closeAvailabilityModal">&times;</span>
         <h2 class="modal-title">Update Availability</h2>
         <p class="modal-subtitle">Select your availability by clicking the time slots</p>
         
@@ -473,10 +505,10 @@
             <div class="day-column">
                 <div class="header">{{ day_name }}</div>
                 {% for time_slot in ['9am - 10am', '10am - 11am', '11am - 12pm', '12pm - 1pm', '1pm - 2pm', '2pm - 3pm', '3pm - 4pm'] %}
-                    {% if time_slot in user.availability[day_name] %}
-                    <div class="time-slot selectable selected">{{ time_slot }}</div>
+                    {% if user.availability and day_name in user.availability and time_slot in user.availability[day_name] %}
+                    <div class="time-slot selectable selected" data-time-slot="{{ time_slot }}">{{ time_slot }}</div>
                     {% else %}
-                    <div class="time-slot selectable">{{ time_slot }}</div>
+                    <div class="time-slot selectable" data-time-slot="{{ time_slot }}">{{ time_slot }}</div>
                     {% endif %}
                 {% endfor %}
             </div>
@@ -485,8 +517,8 @@
         
         <div class="modal-actions">
             <span class="loading-spinner" id="availabilitySpinner"></span>
-            <button type="button" class="btn btn-secondary" id="closeModal">Cancel</button>
-            <button type="button" class="btn btn-primary" id="submitAvailability">Submit</button>
+            <button type="button" class="btn btn-secondary" id="cancelAvailability">Cancel</button>
+            <button type="button" class="btn btn-primary" id="submitAvailability">Save Changes</button>
         </div>
     </div>
 </div>
@@ -495,6 +527,16 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Flash messages auto-hide
+        setTimeout(function() {
+            const messages = document.querySelectorAll('.flash-message');
+            messages.forEach(message => {
+                message.style.opacity = '0';
+                message.style.transition = 'opacity 0.5s';
+                setTimeout(() => message.remove(), 500);
+            });
+        }, 5000);
+        
         // Element references
         const editProfileBtn = document.querySelector('.edit-profile-btn');
         const updateAvailabilityBtn = document.querySelector('.update-availability-btn');
@@ -504,25 +546,37 @@
         const editProfileModal = document.getElementById('editProfileModal');
         const editProfileForm = document.getElementById('editProfileForm');
         const profileCancelBtn = document.getElementById('cancelProfileEdit');
+        const closeProfileModal = document.getElementById('closeProfileModal');
         const profileImageInput = document.getElementById('profileImage');
         const profileImagePreview = document.getElementById('imagePreview');
         
         // Availability modal elements
         const availabilityModal = document.getElementById('availabilityModal');
-        const availabilityCloseBtn = document.getElementById('closeModal');
+        const closeAvailabilityModal = document.getElementById('closeAvailabilityModal');
         const submitAvailabilityBtn = document.getElementById('submitAvailability');
+        const cancelAvailabilityBtn = document.getElementById('cancelAvailability');
         const selectableSlots = document.querySelectorAll('.selectable');
         
         // Courses modal elements
         const coursesModal = document.getElementById('coursesModal');
-        const coursesCancelBtn = document.getElementById('cancelCoursesEdit');
+        const closeCoursesModal = document.getElementById('closeCoursesModal');
         const updateCoursesForm = document.getElementById('updateCoursesForm');
+        const coursesCancelBtn = document.getElementById('cancelCoursesEdit');
         
         // Time slots in the display
         const timeSlots = [
             '9am - 10am', '10am - 11am', '11am - 12pm', '12pm - 1pm',
             '1pm - 2pm', '2pm - 3pm', '3pm - 4pm'
         ];
+        
+        // Day mapping for processing availability data
+        const dayMapping = {
+            'MON': 0,
+            'TUE': 1,
+            'WED': 2,
+            'THUR': 3,
+            'FRI': 4
+        };
     
         // --- Profile Image Preview ---
         if (profileImageInput) {
@@ -540,12 +594,7 @@
         // --- Profile Edit Modal ---
         if (editProfileBtn) {
             editProfileBtn.addEventListener('click', function() {
-                console.log('Edit profile button clicked');
-                if (editProfileModal) {
-                    editProfileModal.style.display = 'block';
-                } else {
-                    console.error('Edit profile modal not found');
-                }
+                editProfileModal.style.display = 'block';
             });
         }
         
@@ -555,7 +604,53 @@
             });
         }
         
-        // Close on outside click
+        if (closeProfileModal) {
+            closeProfileModal.addEventListener('click', function() {
+                editProfileModal.style.display = 'none';
+            });
+        }
+        
+        // --- Availability Modal ---
+        if (updateAvailabilityBtn) {
+            updateAvailabilityBtn.addEventListener('click', function() {
+                initializeAvailabilityModal();
+                availabilityModal.style.display = 'block';
+            });
+        }
+        
+        if (closeAvailabilityModal) {
+            closeAvailabilityModal.addEventListener('click', function() {
+                availabilityModal.style.display = 'none';
+            });
+        }
+        
+        if (cancelAvailabilityBtn) {
+            cancelAvailabilityBtn.addEventListener('click', function() {
+                availabilityModal.style.display = 'none';
+            });
+        }
+        
+        // --- Courses Modal ---
+        if (updateCoursesBtn) {
+            updateCoursesBtn.addEventListener('click', function() {
+                loadAvailableCourses();
+                coursesModal.style.display = 'block';
+            });
+        }
+        
+        if (closeCoursesModal) {
+            closeCoursesModal.addEventListener('click', function() {
+                coursesModal.style.display = 'none';
+            });
+        }
+        
+        if (coursesCancelBtn) {
+            coursesCancelBtn.addEventListener('click', function() {
+                coursesModal.style.display = 'none';
+            });
+        }
+        
+        // Close modals on outside click
         window.addEventListener('click', function(event) {
             if (event.target === editProfileModal) {
                 editProfileModal.style.display = 'none';
@@ -568,11 +663,20 @@
             }
         });
         
+        // Toggle time slots
+        if (selectableSlots) {
+            selectableSlots.forEach(slot => {
+                slot.addEventListener('click', function() {
+                    this.classList.toggle('selected');
+                });
+            });
+        }
+        
         // Handle profile form submit
         if (editProfileForm) {
             editProfileForm.addEventListener('submit', function(e) {
                 e.preventDefault();
-                console.log('Submitting profile form');
+                
                 const profileSpinner = document.getElementById('profileSpinner');
                 if (profileSpinner) profileSpinner.style.display = 'inline-block';
                 
@@ -589,7 +693,10 @@
                     if (profileSpinner) profileSpinner.style.display = 'none';
                     
                     if (data.success) {
-                        alert('Profile updated successfully!');
+                        // Show success message
+                        showFlashMessage('Profile updated successfully!', 'success');
+                        
+                        // Close modal
                         editProfileModal.style.display = 'none';
                         
                         // Update profile image if it was changed
@@ -603,98 +710,61 @@
                         // Update other fields without reload
                         updateProfileDisplay(formData);
                     } else {
-                        alert('Error updating profile: ' + data.message);
+                        showFlashMessage('Error updating profile: ' + data.message, 'error');
                     }
                 })
                 .catch(error => {
                     if (profileSpinner) profileSpinner.style.display = 'none';
                     console.error('Error:', error);
-                    alert('An error occurred while updating your profile.');
+                    showFlashMessage('An error occurred while updating your profile.', 'error');
                 });
             });
         }
         
-        // Initialize the modal's selectable time slots based on the current availability
-        function initializeAvailabilityModal() {
-            // Get all day columns in the main display
-            const displayColumns = document.querySelectorAll('.availability-table.display-mode .day-column');
-            
-            // Loop through each day
-            displayColumns.forEach((dayColumn, dayIndex) => {
-                const dayName = dayColumn.querySelector('.day-header').textContent.trim();
+        // Handle courses form submit
+        if (updateCoursesForm) {
+            updateCoursesForm.addEventListener('submit', function(e) {
+                e.preventDefault();
                 
-                // Find corresponding column in the modal
-                const modalDayColumns = document.querySelectorAll('.availability-grid .day-column');
-                let modalDayColumn = null;
+                const courseUpdateSpinner = document.getElementById('courseUpdateSpinner');
+                if (courseUpdateSpinner) courseUpdateSpinner.style.display = 'inline-block';
                 
-                for (let i = 0; i < modalDayColumns.length; i++) {
-                    const header = modalDayColumns[i].querySelector('.header');
-                    if (header && header.textContent.trim() === dayName) {
-                        modalDayColumn = modalDayColumns[i];
-                        break;
+                // Get selected courses
+                const selectedCourses = Array.from(
+                    document.querySelectorAll('input[name="courses[]"]:checked')
+                ).map(checkbox => checkbox.value);
+                
+                // AJAX request to update courses
+                fetch('/volunteer/update_courses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ courses: selectedCourses })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (courseUpdateSpinner) courseUpdateSpinner.style.display = 'none';
+                    
+                    if (data.success) {
+                        showFlashMessage('Courses updated successfully!', 'success');
+                        coursesModal.style.display = 'none';
+                        
+                        // Update the course tags without page reload
+                        updateCourseDisplay(selectedCourses);
+                    } else {
+                        showFlashMessage('Error updating courses: ' + data.message, 'error');
                     }
-                }
-                
-                if (!modalDayColumn) return;
-                
-                // Get available slots from the display
-                const availableSlots = dayColumn.querySelectorAll('.time-slot.available');
-                
-                // Create a set of available time slots
-                const availableTimeSlots = new Set();
-                availableSlots.forEach(slot => {
-                    if (slot.textContent) {
-                        availableTimeSlots.add(slot.textContent.trim());
-                    }
-                });
-                
-                // Mark corresponding slots in the modal as selected
-                const modalSlots = modalDayColumn.querySelectorAll('.time-slot.selectable');
-                modalSlots.forEach((slot, slotIndex) => {
-                    if (slotIndex < timeSlots.length) {
-                        const timeSlot = timeSlots[slotIndex];
-                        if (availableTimeSlots.has(timeSlot)) {
-                            slot.classList.add('selected');
-                        } else {
-                            slot.classList.remove('selected');
-                        }
-                    }
+                })
+                .catch(error => {
+                    if (courseUpdateSpinner) courseUpdateSpinner.style.display = 'none';
+                    console.error('Error:', error);
+                    showFlashMessage('An error occurred while updating your courses.', 'error');
                 });
             });
         }
         
-        // --- Availability Modal ---
-        if (updateAvailabilityBtn) {
-            updateAvailabilityBtn.addEventListener('click', function() {
-                console.log('Update availability button clicked');
-                initializeAvailabilityModal();
-                if (availabilityModal) {
-                    availabilityModal.style.display = 'block';
-                } else {
-                    console.error('Availability modal not found');
-                }
-            });
-        }
-        
-        if (availabilityCloseBtn) {
-            availabilityCloseBtn.addEventListener('click', function() {
-                availabilityModal.style.display = 'none';
-            });
-        }
-        
-        // Toggle time slots
-        if (selectableSlots) {
-            selectableSlots.forEach(slot => {
-                slot.addEventListener('click', function() {
-                    this.classList.toggle('selected');
-                });
-            });
-        }
-        
-        // Submit availability
+        // Handle availability form submit
         if (submitAvailabilityBtn) {
             submitAvailabilityBtn.addEventListener('click', function() {
-                console.log('Submit availability button clicked');
                 const availabilitySpinner = document.getElementById('availabilitySpinner');
                 if (availabilitySpinner) availabilitySpinner.style.display = 'inline-block';
                 
@@ -707,11 +777,12 @@
                     
                     const dayHeader = column.querySelector('.header');
                     const dayName = dayHeader ? dayHeader.textContent.trim() : '';
+                    const dayIndex = dayMapping[dayName] !== undefined ? dayMapping[dayName] : columnIndex - 1;
                     
                     const slots = column.querySelectorAll('.time-slot.selectable.selected');
                     
                     slots.forEach(slot => {
-                        const timeText = slot.textContent.trim();
+                        const timeText = slot.getAttribute('data-time-slot') || slot.textContent.trim();
                         const [startStr, endStr] = timeText.split(' - ');
                         
                         // Convert time strings to 24-hour format for database storage
@@ -741,11 +812,6 @@
                             return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
                         };
                         
-                        // Map day column index to actual day value (0-4)
-                        // Columns are: header-column, MON, TUE, WED, THUR, FRI
-                        // But we need day as 0-based index, so subtract 1 from columnIndex
-                        const dayIndex = columnIndex - 1;
-                        
                         selectedSlots.push({
                             day: dayIndex,
                             start_time: formatTime(startStr),
@@ -753,8 +819,6 @@
                         });
                     });
                 });
-                
-                console.log("Selected slots:", selectedSlots);
                 
                 // Send update to server
                 fetch('/volunteer/update_availability', {
@@ -767,84 +831,53 @@
                     if (availabilitySpinner) availabilitySpinner.style.display = 'none';
                     
                     if (data.success) {
-                        alert('Availability updated successfully!');
+                        showFlashMessage('Availability updated successfully!', 'success');
                         availabilityModal.style.display = 'none';
                         
                         // Update the availability display without reloading
                         updateAvailabilityDisplay(selectedSlots);
                     } else {
-                        alert('Error updating availability: ' + data.message);
+                        showFlashMessage('Error updating availability: ' + data.message, 'error');
                     }
                 })
                 .catch(error => {
                     if (availabilitySpinner) availabilitySpinner.style.display = 'none';
                     console.error('Error:', error);
-                    alert('An error occurred while updating availability.');
-                });
-            });
-        }
-        
-        // --- Courses Modal ---
-        if (updateCoursesBtn) {
-            updateCoursesBtn.addEventListener('click', function() {
-                console.log('Update courses button clicked');
-                if (coursesModal) {
-                    coursesModal.style.display = 'block';
-                    loadAvailableCourses();
-                } else {
-                    console.error('Courses modal not found');
-                }
-            });
-        }
-        
-        if (coursesCancelBtn) {
-            coursesCancelBtn.addEventListener('click', function() {
-                coursesModal.style.display = 'none';
-            });
-        }
-        
-        // Handle courses form submit
-        if (updateCoursesForm) {
-            updateCoursesForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                console.log('Submitting courses form');
-                const courseUpdateSpinner = document.getElementById('courseUpdateSpinner');
-                if (courseUpdateSpinner) courseUpdateSpinner.style.display = 'inline-block';
-                
-                // Get selected courses
-                const selectedCourses = Array.from(
-                    document.querySelectorAll('input[name="courses[]"]:checked')
-                ).map(checkbox => checkbox.value);
-                
-                // AJAX request to update courses
-                fetch('/volunteer/update_courses', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ courses: selectedCourses })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (courseUpdateSpinner) courseUpdateSpinner.style.display = 'none';
-                    
-                    if (data.success) {
-                        alert('Courses updated successfully!');
-                        coursesModal.style.display = 'none';
-                        
-                        // Update the course tags without page reload
-                        updateCourseDisplay(selectedCourses);
-                    } else {
-                        alert('Error updating courses: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    if (courseUpdateSpinner) courseUpdateSpinner.style.display = 'none';
-                    console.error('Error:', error);
-                    alert('An error occurred while updating your courses.');
+                    showFlashMessage('An error occurred while updating availability.', 'error');
                 });
             });
         }
         
         // --- Helper Functions ---
+        
+        // Initialize the modal's selectable time slots based on current availability
+        function initializeAvailabilityModal() {
+            // Reset all selections first
+            document.querySelectorAll('.availability-grid .selectable').forEach(slot => {
+                slot.classList.remove('selected');
+            });
+            
+            // Mark slots that are currently available
+            for (const day in dayMapping) {
+                const dayAvailability = {{ user.availability|tojson }}[day] || [];
+                const dayCol = Array.from(document.querySelectorAll('.availability-grid .day-column')).find(col => {
+                    const header = col.querySelector('.header');
+                    return header && header.textContent.trim() === day;
+                });
+                
+                if (dayCol) {
+                    dayAvailability.forEach(timeSlot => {
+                        const slot = Array.from(dayCol.querySelectorAll('.time-slot.selectable')).find(el => 
+                            el.getAttribute('data-time-slot') === timeSlot || el.textContent.trim() === timeSlot
+                        );
+                        
+                        if (slot) {
+                            slot.classList.add('selected');
+                        }
+                    });
+                }
+            }
+        }
         
         // Function to load available courses
         function loadAvailableCourses() {
@@ -966,17 +999,32 @@
                 }
             });
             
-            // Log what we're updating for debugging
-            console.log("Updating UI with availability map:", availabilityMap);
+            // Map hours to specific slots - this is needed because the format might differ slightly
+            const timeSlotMapping = {
+                '9am - 10am': '9am - 10am',
+                '10am - 11am': '10am - 11am', 
+                '11am - 12pm': '11am - 12pm',
+                '12pm - 1pm': '12pm - 1pm',
+                '1pm - 2pm': '1pm - 2pm',
+                '2pm - 3pm': '2pm - 3pm',
+                '3pm - 4pm': '3pm - 4pm'
+            };
             
             // Update the UI
             days.forEach((day, dayIndex) => {
                 // Find the day column in the display table
-                const dayColumn = document.querySelector(`.availability-table.display-mode .day-column:nth-child(${dayIndex + 1})`);
-                if (!dayColumn) {
-                    console.warn(`Day column not found for ${day} at index ${dayIndex + 1}`);
-                    return;
+                const dayColumns = document.querySelectorAll('.availability-table.display-mode .day-column');
+                let dayColumn = null;
+                
+                for (let i = 0; i < dayColumns.length; i++) {
+                    const header = dayColumns[i].querySelector('.day-header');
+                    if (header && header.textContent.trim() === day) {
+                        dayColumn = dayColumns[i];
+                        break;
+                    }
                 }
+                
+                if (!dayColumn) return;
                 
                 const timeSlotElements = dayColumn.querySelectorAll('.time-slot');
                 
@@ -988,21 +1036,46 @@
                 
                 // Fill in the available slots
                 if (availabilityMap[day]) {
-                    console.log(`Filling slots for ${day}: ${Array.from(availabilityMap[day])}`);
-                    
                     timeSlots.forEach((timeSlot, slotIndex) => {
                         if (slotIndex >= timeSlotElements.length) return;
                         
                         const slotElement = timeSlotElements[slotIndex];
+                        const mappedTimeSlot = timeSlotMapping[timeSlot] || timeSlot;
                         
                         // Check if this time slot is in the set for this day
-                        if (availabilityMap[day].has(timeSlot)) {
+                        let isAvailable = false;
+                        availabilityMap[day].forEach(slot => {
+                            // Need fuzzy matching since time formats might vary slightly
+                            if (slot.includes(timeSlot.split(' - ')[0]) || timeSlot.includes(slot.split(' - ')[0])) {
+                                isAvailable = true;
+                            }
+                        });
+                        
+                        if (isAvailable) {
                             slotElement.className = 'time-slot available';
                             slotElement.textContent = timeSlot;
                         }
                     });
                 }
             });
+        }
+        
+        // Display flash messages
+        function showFlashMessage(message, type = 'success') {
+            const flashContainer = document.getElementById('flashMessages');
+            
+            const flashMessage = document.createElement('div');
+            flashMessage.className = `flash-message ${type}`;
+            flashMessage.textContent = message;
+            
+            flashContainer.appendChild(flashMessage);
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                flashMessage.style.opacity = '0';
+                flashMessage.style.transition = 'opacity 0.5s';
+                setTimeout(() => flashMessage.remove(), 500);
+            }, 5000);
         }
     });
 </script>

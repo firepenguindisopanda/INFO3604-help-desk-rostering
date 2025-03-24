@@ -25,7 +25,7 @@ def dashboard():
     # Import the dashboard data controller functions
     from App.controllers.dashboard import get_dashboard_data
     
-    # Get all the data needed for the dashboard
+    # Get all the data needed for the dashboard (with the latest published schedule)
     dashboard_data = get_dashboard_data(username)
     
     if not dashboard_data:
@@ -77,7 +77,7 @@ def profile():
     
     print(f"Found {len(availabilities)} availability records for {username}")
     
-    # Format availabilities by day - this is the key part that needs fixing
+    # Format availabilities by day
     availability_by_day = {
         'MON': [], 'TUE': [], 'WED': [], 'THUR': [], 'FRI': []
     }
@@ -93,63 +93,30 @@ def profile():
                 print(f"Warning: Invalid day_of_week value: {avail.day_of_week}")
                 continue
                 
-            # Convert database time format (HH:MM:SS) to display format (Ham - Jam)
-            if avail.start_time and avail.end_time:
-                # Extract hours
+            # Format time slot based on the hour
+            if avail.start_time:
                 start_hour = avail.start_time.hour
-                end_hour = avail.end_time.hour
                 
-                # Format to 12-hour with am/pm
-                start_ampm = 'am' if start_hour < 12 else 'pm'
-                end_ampm = 'am' if end_hour < 12 else 'pm'
-                
-                # Convert to 12-hour format
-                start_12h = start_hour if start_hour <= 12 else start_hour - 12
-                end_12h = end_hour if end_hour <= 12 else end_hour - 12
-                
-                # Handle 0 hour (midnight) as 12am
-                if start_hour == 0:
-                    start_12h = 12
-                if end_hour == 0:
-                    end_12h = 12
-                
-                # Format the time slot string exactly as expected in the template
-                time_slot = f"{start_12h}am - {end_12h}pm".replace('0am', 'am').replace('0pm', 'pm')
-                
-                # Special case for 12pm (noon)
-                if start_hour == 12:
-                    time_slot = time_slot.replace('12am', '12pm')
-                if end_hour == 12:
-                    time_slot = time_slot.replace('12pm - ', '12pm - ')
-                
-                # Fix the final format to match expected format in the template
-                if start_hour < 12 and end_hour < 12:
-                    time_slot = f"{start_12h}am - {end_12h}am"
-                elif start_hour >= 12 and end_hour >= 12:
-                    time_slot = f"{start_12h}pm - {end_12h}pm"
-                else:
-                    time_slot = f"{start_12h}am - {end_12h}pm"
-                
-                # Convert exact format for template comparison
-                # Map hours to specific slots
-                expected_slots = {
+                # Map hours to specific slots for display
+                time_slot_mapping = {
                     9: '9am - 10am', 
                     10: '10am - 11am', 
                     11: '11am - 12pm',
                     12: '12pm - 1pm',
                     13: '1pm - 2pm',
                     14: '2pm - 3pm',
-                    15: '3pm - 4pm'
+                    15: '3pm - 4pm',
+                    16: '4pm - 5pm'
                 }
                 
-                if start_hour in expected_slots:
-                    time_slot = expected_slots[start_hour]
-                    print(f"Mapped time slot {avail.start_time}-{avail.end_time} to {time_slot}")
-                    availability_by_day[day_name].append(time_slot)
+                if start_hour in time_slot_mapping:
+                    time_slot = time_slot_mapping[start_hour]
+                    if time_slot not in availability_by_day[day_name]:
+                        availability_by_day[day_name].append(time_slot)
                 else:
-                    print(f"Could not map time slot {avail.start_time}-{avail.end_time} to a standard slot")
+                    print(f"Warning: Hour {start_hour} not in expected time slots")
             else:
-                print(f"Warning: Missing start or end time for availability ID {avail.id}")
+                print(f"Warning: Missing start time for availability ID {avail.id}")
                 
         except Exception as e:
             print(f"Error processing availability {avail.id}: {e}")
@@ -169,7 +136,6 @@ def profile():
     }
     
     # Build user data dictionary with metadata from the profile table if it exists
-    # In a real app, you might have a UserProfile table to store this data
     profile_data = getattr(student, 'profile_data', None)
     if profile_data and isinstance(profile_data, str):
         try:
@@ -259,7 +225,7 @@ def update_profile():
                 # Secure the filename
                 filename = secure_filename(file.filename)
                 # Add a timestamp to prevent filename collisions
-                timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+                timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
                 filename = f"{username}_{timestamp}_{filename}"
                 
                 # Make sure the upload directory exists
@@ -353,13 +319,13 @@ def update_availability():
         
         # Add new availabilities
         if 'availabilities' in data and data['availabilities']:
-            for day_info in data['availabilities']:
+            for slot in data['availabilities']:
                 try:
-                    day = day_info.get('day', 0)  # 0 for Monday, 1 for Tuesday, etc.
+                    day = slot.get('day', 0)  # 0 for Monday, 1 for Tuesday, etc.
                     
                     # Parse times with proper error handling
-                    start_time_str = day_info.get('start_time', '00:00:00')
-                    end_time_str = day_info.get('end_time', '00:00:00')
+                    start_time_str = slot.get('start_time', '00:00:00')
+                    end_time_str = slot.get('end_time', '00:00:00')
                     
                     # Ensure we have valid time strings before parsing
                     if not isinstance(start_time_str, str) or not isinstance(end_time_str, str):
@@ -367,21 +333,27 @@ def update_availability():
                         continue
                         
                     try:
-                        start_time = datetime.time.fromisoformat(start_time_str)
+                        # Try parsing as HH:MM:SS
+                        hour, minute, second = map(int, start_time_str.split(':'))
+                        start_time = time(hour=hour, minute=minute, second=second)
                     except ValueError:
-                        # Try alternative format
+                        # If that fails, just use the hour
                         try:
-                            start_time = datetime.datetime.strptime(start_time_str, '%H:%M:%S').time()
+                            hour = int(start_time_str.split(':')[0])
+                            start_time = time(hour=hour)
                         except ValueError:
                             print(f"Could not parse start time: {start_time_str}")
                             continue
                             
                     try:
-                        end_time = datetime.time.fromisoformat(end_time_str)
+                        # Try parsing as HH:MM:SS
+                        hour, minute, second = map(int, end_time_str.split(':'))
+                        end_time = time(hour=hour, minute=minute, second=second)
                     except ValueError:
-                        # Try alternative format
+                        # If that fails, just use the hour
                         try:
-                            end_time = datetime.datetime.strptime(end_time_str, '%H:%M:%S').time()
+                            hour = int(end_time_str.split(':')[0])
+                            end_time = time(hour=hour)
                         except ValueError:
                             print(f"Could not parse end time: {end_time_str}")
                             continue
@@ -614,7 +586,6 @@ def submit_request():
         flash(message, "error")
         
     return redirect(url_for('volunteer_views.requests'))
-
 
 @volunteer_views.route('/debug_availability')
 @jwt_required()
