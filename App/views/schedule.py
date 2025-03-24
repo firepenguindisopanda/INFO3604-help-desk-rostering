@@ -430,3 +430,226 @@ def get_current_schedule_endpoint():
         import traceback
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
+    
+from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required, current_user
+from App.models import Student, HelpDeskAssistant, Availability
+from App.database import db
+from App.middleware import admin_required
+from datetime import datetime, time
+
+# Create a new blueprint or add to the existing one
+# If you have an existing controller file for staff/users, you could add this there
+
+@schedule_views.route('/api/staff/available', methods=['GET'])
+@jwt_required()
+@admin_required
+def get_available_staff():
+    """
+    Get all staff members available for a specific day and time
+    Query parameters:
+    - day: The day of the week (e.g., "Monday", "MON")
+    - time: The time slot (e.g., "9:00 am")
+    """
+    try:
+        # Get query parameters
+        day = request.args.get('day')
+        time_slot = request.args.get('time')
+        
+        if not day or not time_slot:
+            return jsonify({
+                'status': 'error',
+                'message': 'Day and time parameters are required'
+            }), 400
+        
+        # Convert day to day_of_week index (0=Monday, 1=Tuesday, etc.)
+        day_map = {
+            'MON': 0, 'TUE': 1, 'WED': 2, 'THUR': 3, 'FRI': 4,
+            'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4
+        }
+        day_of_week = day_map.get(day)
+        
+        if day_of_week is None:
+            return jsonify({
+                'status': 'error',
+                'message': f'Invalid day: {day}'
+            }), 400
+        
+        # Convert time_slot to hour
+        hour = None
+        
+        # Parse formats like "9:00 am", "9:00 - 10:00"
+        if time_slot:
+            if '-' in time_slot:
+                # Format is "9:00 - 10:00"
+                start_time_str = time_slot.split('-')[0].strip()
+            else:
+                # Format is "9:00 am"
+                start_time_str = time_slot
+                
+            # Remove am/pm and get hour
+            if 'am' in start_time_str.lower():
+                start_time_str = start_time_str.lower().replace('am', '').strip()
+                hour = int(start_time_str.split(':')[0])
+            elif 'pm' in start_time_str.lower():
+                start_time_str = start_time_str.lower().replace('pm', '').strip()
+                hour = int(start_time_str.split(':')[0])
+                if hour < 12:
+                    hour += 12
+            else:
+                # No am/pm, assume 24-hour format
+                hour = int(start_time_str.split(':')[0])
+        
+        if hour is None:
+            return jsonify({
+                'status': 'error',
+                'message': f'Invalid time format: {time_slot}'
+            }), 400
+        
+        # Get all active help desk assistants
+        assistants = HelpDeskAssistant.query.filter_by(active=True).all()
+        
+        # Check availability for each assistant
+        available_staff = []
+        
+        for assistant in assistants:
+            # Get the student record for this assistant
+            student = Student.query.get(assistant.username)
+            
+            if not student:
+                continue
+                
+            # Check if the assistant is available at this time
+            availabilities = Availability.query.filter_by(
+                username=assistant.username,
+                day_of_week=day_of_week
+            ).all()
+            
+            is_available = False
+            
+            for avail in availabilities:
+                # Create a time object for the hour we want to check
+                check_time = time(hour=hour)
+                
+                # Check if this availability window includes our time
+                if avail.start_time <= check_time and avail.end_time >= time(hour=hour+1):
+                    is_available = True
+                    break
+            
+            if is_available:
+                available_staff.append({
+                    'id': assistant.username,
+                    'name': student.get_name(),
+                    'degree': student.degree
+                })
+        
+        # Return the available staff
+        return jsonify({
+            'status': 'success',
+            'staff': available_staff
+        })
+        
+    except Exception as e:
+        print(f"Error getting available staff: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@schedule_views.route('/api/staff/check-availability', methods=['GET'])
+@jwt_required()
+def check_staff_availability():
+    """
+    Check if a specific staff member is available at a given day and time
+    Query parameters:
+    - staff_id: The staff ID to check
+    - day: The day of the week (e.g., "Monday", "MON")
+    - time: The time slot (e.g., "9:00 am")
+    """
+    try:
+        # Get query parameters
+        staff_id = request.args.get('staff_id')
+        day = request.args.get('day')
+        time_slot = request.args.get('time')
+        
+        if not staff_id or not day or not time_slot:
+            return jsonify({
+                'status': 'error',
+                'message': 'Staff ID, day, and time parameters are required'
+            }), 400
+        
+        # Convert day to day_of_week index
+        day_map = {
+            'MON': 0, 'TUE': 1, 'WED': 2, 'THUR': 3, 'FRI': 4,
+            'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4
+        }
+        day_of_week = day_map.get(day)
+        
+        if day_of_week is None:
+            return jsonify({
+                'status': 'error',
+                'message': f'Invalid day: {day}'
+            }), 400
+        
+        # Convert time_slot to hour
+        hour = None
+        
+        # Parse formats like "9:00 am", "9:00 - 10:00"
+        if time_slot:
+            if '-' in time_slot:
+                # Format is "9:00 - 10:00"
+                start_time_str = time_slot.split('-')[0].strip()
+            else:
+                # Format is "9:00 am"
+                start_time_str = time_slot
+                
+            # Remove am/pm and get hour
+            if 'am' in start_time_str.lower():
+                start_time_str = start_time_str.lower().replace('am', '').strip()
+                hour = int(start_time_str.split(':')[0])
+            elif 'pm' in start_time_str.lower():
+                start_time_str = start_time_str.lower().replace('pm', '').strip()
+                hour = int(start_time_str.split(':')[0])
+                if hour < 12:
+                    hour += 12
+            else:
+                # No am/pm, assume 24-hour format
+                hour = int(start_time_str.split(':')[0])
+        
+        if hour is None:
+            return jsonify({
+                'status': 'error',
+                'message': f'Invalid time format: {time_slot}'
+            }), 400
+        
+        # Check availability
+        availabilities = Availability.query.filter_by(
+            username=staff_id,
+            day_of_week=day_of_week
+        ).all()
+        
+        is_available = False
+        
+        for avail in availabilities:
+            # Create time objects for the hour we want to check
+            check_time = time(hour=hour)
+            
+            # Check if this availability window includes our time
+            if avail.start_time <= check_time and avail.end_time >= time(hour=hour+1):
+                is_available = True
+                break
+        
+        # Return availability status
+        return jsonify({
+            'status': 'success',
+            'is_available': is_available
+        })
+        
+    except Exception as e:
+        print(f"Error checking staff availability: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500

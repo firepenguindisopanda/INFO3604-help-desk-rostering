@@ -423,6 +423,7 @@ def generate_schedule(start_date=None, end_date=None):
             "status": "error",
             "message": str(e)
         }
+        
 
 def get_or_create_main_schedule(start_date, end_date):
     """Get or create the main schedule object"""
