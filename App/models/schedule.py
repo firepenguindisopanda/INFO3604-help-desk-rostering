@@ -5,7 +5,6 @@ class Schedule(db.Model):
     __tablename__ = 'schedule'
     
     id = db.Column(db.Integer, primary_key=True)
-    week_number = db.Column(db.Integer, nullable=False)
     start_date = db.Column(db.DateTime, nullable=False)
     end_date = db.Column(db.DateTime, nullable=False)
     generated_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -16,13 +15,15 @@ class Schedule(db.Model):
     shifts = db.relationship('Shift', backref='schedule', lazy=True, cascade="all, delete-orphan")
     semester = db.relationship('Semester', backref='schedules')
     
-    def __init__(self, week_number, start_date, end_date=None, semester_id=None):
-        self.week_number = week_number
-        self.start_date = start_date
+    def __init__(self, id=None, start_date=None, end_date=None, semester_id=None):
+        if id is not None:
+            self.id = id
+            
+        self.start_date = start_date or datetime.utcnow()
         
         # If end_date not provided, set it to 6 days after start_date (for a 7-day week)
         if end_date is None:
-            self.end_date = start_date + timedelta(days=6)
+            self.end_date = self.start_date + timedelta(days=6)
         else:
             self.end_date = end_date
             
@@ -32,7 +33,6 @@ class Schedule(db.Model):
     def get_json(self):
         return {
             'Schedule ID': self.id,
-            'Week Number': self.week_number,
             'Start Date': self.start_date.strftime('%Y-%m-%d'),
             'End Date': self.end_date.strftime('%Y-%m-%d'),
             'Generated At': self.generated_at.strftime('%Y-%m-%d %H:%M:%S'),
@@ -52,4 +52,4 @@ class Schedule(db.Model):
         """Return a human-friendly date range string for display"""
         start_str = self.start_date.strftime('%B %d')
         end_str = self.end_date.strftime('%B %d, %Y')
-        return f"Week {self.week_number}: {start_str} - {end_str}"
+        return f"{start_str} - {end_str}"

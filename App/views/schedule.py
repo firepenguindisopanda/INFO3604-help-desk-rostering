@@ -1,11 +1,12 @@
+# App/views/schedule.py
 from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for
 from flask_jwt_extended import jwt_required, current_user
 from datetime import datetime, timedelta
 from App.controllers.schedule import (
     help_desk_scheduler,  # Keep for testing
-    generate_help_desk_schedule,
+    generate_schedule,    # Updated generator that doesn't use weeks
     publish_schedule,
-    get_schedule_for_week
+    get_current_schedule  # New function to get current schedule
 )
 from App.middleware import admin_required
 
@@ -22,10 +23,31 @@ def schedule():
 @admin_required
 def get_schedule_details():
     """Get detailed schedule data for the admin UI"""
-    # For demo purposes, you can still use the hard-coded scheduler
-    # In a real application, you would get the week number from the request
-    # and use get_schedule_for_week(week_number)
+    # Check if we have a specific schedule ID to get details for
+    schedule_id = request.args.get('id')
     
+    if schedule_id:
+        # Get the current schedule
+        schedule = get_current_schedule()
+        if schedule:
+            return jsonify({
+                'status': 'success',
+                'schedule': schedule,
+                'staff_index': {
+                    '0': 'Daniel Rasheed',
+                    '1': 'Michelle Liu',
+                    '2': 'Stayaan Maharaj',
+                    '3': 'Daniel Yatali',
+                    '4': 'Satish Maharaj',
+                    '5': 'Selena Madrey',
+                    '6': 'Veron Ramkissoon',
+                    '7': 'Tamika Ramkissoon',
+                    '8': 'Samuel Mahadeo',
+                    '9': 'Neha Maharaj'
+                }
+            })
+    
+    # Default behavior - use the hard-coded demo for now
     try:
         # Original demo implementation
         I, J, K = 10, 40, 1
@@ -74,26 +96,28 @@ def get_schedule_details():
 @schedule_views.route('/api/schedule/generate', methods=['POST'])
 @jwt_required()
 @admin_required
-def generate_schedule():
-    """Generate a new schedule using the model-based approach"""
+def generate_schedule_endpoint():
+    """Generate a schedule with specified date range"""
     try:
         data = request.json
-        week_number = data.get('week_number', 1)
         
-        # Parse the start date or default to next Monday
+        # Parse dates
         start_date_str = data.get('start_date')
+        end_date_str = data.get('end_date')
+        
+        start_date = None
         if start_date_str:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
         else:
-            # Default to next Monday
-            today = datetime.now()
-            days_ahead = (0 - today.weekday()) % 7
-            if days_ahead == 0:
-                days_ahead = 7
-            start_date = today + timedelta(days=days_ahead)
+            # Default to today
+            start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # Call the new schedule generator
-        result = generate_help_desk_schedule(week_number, start_date)
+        end_date = None
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+        
+        # Call the schedule generator
+        result = generate_schedule(start_date, end_date)
         return jsonify(result)
     
     except Exception as e:
@@ -110,12 +134,12 @@ def publish_schedule_endpoint(schedule_id):
     result = publish_schedule(schedule_id)
     return jsonify(result)
 
-@schedule_views.route('/api/schedule/week/<int:week_number>', methods=['GET'])
+@schedule_views.route('/api/schedule/current', methods=['GET'])
 @jwt_required()
-def get_week_schedule(week_number):
-    """Get the schedule for a specific week"""
-    schedule = get_schedule_for_week(week_number)
+def get_current_schedule_endpoint():
+    """Get the current schedule"""
+    schedule = get_current_schedule()
     if schedule:
         return jsonify({'status': 'success', 'schedule': schedule})
     else:
-        return jsonify({'status': 'error', 'message': 'Schedule not found'}), 404
+        return jsonify({'status': 'error', 'message': 'No schedule found'}), 404

@@ -4,7 +4,7 @@ from flask import jsonify
 
 from App.models import (
     Schedule, Shift, Student, HelpDeskAssistant, 
-    CourseCapability, Availability, ShiftCourseDemand, 
+    CourseCapability, Availability, 
     Allocation, Course
 )
 from App.database import db
@@ -145,50 +145,64 @@ def help_desk_scheduler(I, J, K):
             'message': message
         }
 
-
-def lab_assistant_scheduler():
-    pass
-
-
-def generate_help_desk_schedule(week_number, start_date, semester_id=None):
+def generate_schedule(start_date=None, end_date=None):
     """
-    Generate a help desk schedule using actual database models.
+    Generate a help desk schedule with flexible date range.
     
     Args:
-        week_number: The week number for this schedule
         start_date: The start date for this schedule (datetime object)
-        semester_id: Optional semester ID
+        end_date: The end date for this schedule (datetime object)
     
     Returns:
         A dictionary with the schedule information
     """
     try:
-        # Create the schedule object
-        schedule = Schedule(week_number, start_date, semester_id=semester_id)
-        db.session.add(schedule)
-        db.session.flush()  # Get the schedule ID without committing yet
+        # If start_date is not provided, use the current date
+        if start_date is None:
+            start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # Generate shifts for the schedule (Monday-Friday)
+        # If end_date is not provided, set it to the end of the week (Friday)
+        if end_date is None:
+            # Get the end of the current week (Friday)
+            days_to_friday = 4 - start_date.weekday()  # 4 = Friday
+            if days_to_friday < 0:  # If today is already past Friday
+                days_to_friday += 7  # Go to next Friday
+            end_date = start_date + timedelta(days=days_to_friday)
+        
+        # Check if we're scheduling for a full week or partial week
+        is_full_week = start_date.weekday() == 0 and (end_date - start_date).days >= 4
+        
+        # Get or create the main schedule
+        schedule = get_or_create_main_schedule(start_date, end_date)
+        
+        # Clear existing shifts for the date range
+        clear_shifts_in_range(schedule.id, start_date, end_date)
+        
+        # Generate shifts for the schedule (only for the specified date range)
         shifts = []
-        for day in range(5):  # 0=Monday through 4=Friday
-            date = start_date + timedelta(days=day)
+        current_date = start_date
+        
+        while current_date <= end_date:
+            # Skip weekends (day_of_week >= 5)
+            if current_date.weekday() < 5:  # 0=Monday through 4=Friday
+                # Generate hourly shifts for this day (9am-5pm)
+                for hour in range(9, 17):  # 9am through 4pm
+                    shift_start = datetime.combine(current_date.date(), datetime.min.time()) + timedelta(hours=hour)
+                    shift_end = shift_start + timedelta(hours=1)
+                    
+                    shift = Shift(current_date, shift_start, shift_end, schedule.id)
+                    db.session.add(shift)
+                    db.session.flush()  # Get the shift ID
+                    shifts.append(shift)
+                    
+                    # Set course demands for each shift
+                    active_courses = Course.query.all()
+                    for course in active_courses:
+                        # Default requirement is 2 tutors per course
+                        add_course_demand_to_shift(shift.id, course.code, 2, 2)
             
-            # Generate 8 hourly shifts per day (9am-5pm)
-            for hour in range(9, 17):  # 9am through 4pm
-                shift_start = datetime.combine(date.date(), datetime.min.time()) + timedelta(hours=hour)
-                shift_end = shift_start + timedelta(hours=1)
-                
-                shift = Shift(date, shift_start, shift_end, schedule.id)
-                db.session.add(shift)
-                db.session.flush()  # Get the shift ID
-                shifts.append(shift)
-                
-                # Set course demands for each shift
-                # In a real application, you would get these from your requirements
-                active_courses = Course.query.all()
-                for course in active_courses:
-                    # Default requirement is 2 tutors per course
-                    shift.add_course_demand(course.code, 2, 2)
+            # Move to the next day
+            current_date += timedelta(days=1)
         
         # Get all active assistants
         assistants = HelpDeskAssistant.query.filter_by(active=True).all()
@@ -211,28 +225,55 @@ def generate_help_desk_schedule(week_number, start_date, semester_id=None):
         
         # For each shift and course demand
         for shift in shifts:
-            for demand in shift.course_demands:
-                course_code = demand.course_code
+            course_demands = get_course_demands_for_shift(shift.id)
+            for demand in course_demands:
+                course_code = demand['course_code']
                 
                 # For each course, calculate the number of assigned assistants who can teach it
+                capable_assistants = []
+                for assistant in assistants:
+                    # Check if this assistant can teach this course
+                    capabilities = CourseCapability.query.filter_by(
+                        assistant_username=assistant.username,
+                        course_code=course_code
+                    ).all()
+                    
+                    if capabilities:
+                        capable_assistants.append(assistant)
+                
+                # Sum up assigned capable assistants
                 assistants_for_course = sum(
-                    x[a.username, shift.id] 
-                    for a in assistants 
-                    if any(c.course_code == course_code for c in a.course_capabilities)
+                    x[a.username, shift.id] for a in capable_assistants
                 )
                 
                 # Objective: minimize shortfall weighted by importance
                 shortfall = model.NewIntVar(0, len(assistants), f'shortfall_{shift.id}_{course_code}')
-                model.Add(shortfall >= demand.tutors_required - assistants_for_course)
-                objective_terms.append(shortfall * demand.weight)
-        
-        model.Minimize(sum(objective_terms))
+                model.Add(shortfall >= demand['tutors_required'] - assistants_for_course)
+                objective_terms.append(shortfall * demand['weight'])
         
         # --- Constraints ---
-        # Constraint 1: Each assistant must be assigned to at least min_hours shifts
+        # Constraint 1: Each assistant should be assigned to a reasonable number of shifts
+        # For partial week, adjust the minimum hours proportionally
         for assistant in assistants:
             min_hours = assistant.hours_minimum
-            model.Add(sum(x[assistant.username, s.id] for s in shifts) >= min_hours)
+            
+            # If this is not a full week, scale the minimum hours based on the date range
+            if not is_full_week:
+                days_in_range = sum(1 for d in range((end_date - start_date).days + 1) 
+                                    if (start_date + timedelta(days=d)).weekday() < 5)
+                scaling_factor = days_in_range / 5.0  # 5 weekdays in a full week
+                min_hours = max(1, int(min_hours * scaling_factor))  # At least 1 hour
+            
+            # Add a soft constraint instead of a hard constraint for minimum hours
+            # This helps the model find a solution even if perfect assignment is impossible
+            assistant_shifts = sum(x[assistant.username, s.id] for s in shifts)
+            
+            # Penalty for not meeting minimum hours
+            shortfall = model.NewIntVar(0, min_hours, f'hour_shortfall_{assistant.username}')
+            model.Add(shortfall >= min_hours - assistant_shifts)
+            
+            # Add to objective with a higher weight
+            objective_terms.append(shortfall * 10)  # Higher weight makes this more important
         
         # Constraint 2: Each shift must have at least 2 assistants
         for shift in shifts:
@@ -253,11 +294,18 @@ def generate_help_desk_schedule(week_number, start_date, semester_id=None):
                 if not is_available:
                     model.Add(x[assistant.username, shift.id] == 0)
         
+        # Add the objective terms to the model
+        model.Minimize(sum(objective_terms))
+        
         # --- Solve ---
         solver = cp_model.CpSolver()
+        solver.parameters.max_time_in_seconds = 30.0  # Limit solve time to 30 seconds
         status = solver.Solve(model)
         
         if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
+            # Clear existing allocations for these shifts
+            clear_allocations_for_shifts(shifts)
+            
             # Create allocations for the assignments
             for assistant in assistants:
                 for shift in shifts:
@@ -271,7 +319,13 @@ def generate_help_desk_schedule(week_number, start_date, semester_id=None):
             return {
                 "status": "success",
                 "schedule_id": schedule.id,
-                "message": "Schedule generated successfully"
+                "message": "Schedule generated successfully",
+                "details": {
+                    "start_date": start_date.strftime('%Y-%m-%d'),
+                    "end_date": end_date.strftime('%Y-%m-%d'),
+                    "is_full_week": is_full_week,
+                    "shifts_created": len(shifts)
+                }
             }
         else:
             db.session.rollback()
@@ -291,6 +345,92 @@ def generate_help_desk_schedule(week_number, start_date, semester_id=None):
             "message": str(e)
         }
 
+def get_or_create_main_schedule(start_date, end_date):
+    """Get or create the main schedule object"""
+    # Check for existing main schedule (id=1)
+    schedule = Schedule.query.get(1)
+    
+    if not schedule:
+        # Create a new main schedule
+        schedule = Schedule(1, start_date, end_date)
+        db.session.add(schedule)
+        db.session.flush()
+    else:
+        # Update the existing schedule's date range
+        schedule.start_date = start_date
+        schedule.end_date = end_date
+        db.session.add(schedule)
+        db.session.flush()
+    
+    return schedule
+
+def clear_shifts_in_range(schedule_id, start_date, end_date):
+    """Clear existing shifts in the date range"""
+    # Find shifts in this date range
+    shifts_to_delete = Shift.query.filter(
+        Shift.schedule_id == schedule_id,
+        Shift.date >= start_date,
+        Shift.date <= end_date
+    ).all()
+    
+    # Delete allocations for these shifts
+    for shift in shifts_to_delete:
+        Allocation.query.filter_by(shift_id=shift.id).delete()
+        
+        # Delete course demands for these shifts
+        # Since we don't have direct ShiftCourseDemand class imported,
+        # use db.session.execute to run a raw SQL DELETE query
+        db.session.execute(
+            f"DELETE FROM shift_course_demand WHERE shift_id = {shift.id}"
+        )
+    
+    # Now delete the shifts themselves
+    for shift in shifts_to_delete:
+        db.session.delete(shift)
+    
+    db.session.flush()
+
+def clear_allocations_for_shifts(shifts):
+    """Clear allocations for the given shifts"""
+    for shift in shifts:
+        Allocation.query.filter_by(shift_id=shift.id).delete()
+    
+    db.session.flush()
+
+def add_course_demand_to_shift(shift_id, course_code, tutors_required=2, weight=None):
+    """Add course demand for a shift using raw SQL"""
+    # If weight is not provided, use tutors_required as the weight
+    if weight is None:
+        weight = tutors_required
+    
+    # Use raw SQL to insert the course demand
+    db.session.execute(
+        f"""INSERT INTO shift_course_demand 
+            (shift_id, course_code, tutors_required, weight) 
+            VALUES ({shift_id}, '{course_code}', {tutors_required}, {weight})"""
+    )
+    db.session.flush()
+
+def get_course_demands_for_shift(shift_id):
+    """Get course demands for a shift using raw SQL"""
+    # Use raw SQL to select the course demands
+    result = db.session.execute(
+        f"""SELECT course_code, tutors_required, weight 
+            FROM shift_course_demand 
+            WHERE shift_id = {shift_id}"""
+    )
+    
+    # Convert the result to a list of dictionaries
+    demands = []
+    for row in result:
+        demands.append({
+            'course_code': row[0],
+            'tutors_required': row[1],
+            'weight': row[2]
+        })
+    
+    return demands
+
 def publish_schedule(schedule_id):
     """Publish a schedule and notify all assigned staff"""
     try:
@@ -305,7 +445,7 @@ def publish_schedule(schedule_id):
             
             # Notify each student
             for username in students:
-                notify_schedule_published(username, schedule.week_number)
+                notify_schenotify_schedule_published(username, 0)  # Week number 0 since we're not using weeks
                 
             return {"status": "success", "message": "Schedule published and notifications sent"}
         else:
@@ -330,13 +470,10 @@ def get_assistants_for_shift(shift_id):
     
     return assistants
 
-def get_schedule_for_week(week_number, semester_id=None):
-    """Get a detailed schedule for a specific week"""
-    query = Schedule.query.filter_by(week_number=week_number)
-    if semester_id:
-        query = query.filter_by(semester_id=semester_id)
-    
-    schedule = query.first()
+def get_current_schedule():
+    """Get the current schedule with all shifts"""
+    # Get the main schedule (id=1)
+    schedule = Schedule.query.get(1)
     if not schedule:
         return None
         
@@ -362,7 +499,7 @@ def get_schedule_for_week(week_number, semester_id=None):
     # Format into days array with shifts
     days = []
     for day_idx in range(5):  # Monday to Friday
-        day_date = schedule.start_date + timedelta(days=day_idx)
+        day_date = schedule.start_date + timedelta(days=day_idx) if schedule.start_date else datetime.utcnow()
         day_shifts = []
         
         if day_idx in shifts_by_day:
@@ -384,8 +521,7 @@ def get_schedule_for_week(week_number, semester_id=None):
     
     return {
         "schedule_id": schedule.id,
-        "week_number": schedule.week_number,
-        "date_range": schedule.get_formatted_date_range(),
+        "date_range": f"{schedule.start_date.strftime('%d %b')} - {schedule.end_date.strftime('%d %b, %Y')}" if schedule.start_date and schedule.end_date else "Current Schedule",
         "is_published": schedule.is_published,
         "days": days
     }
