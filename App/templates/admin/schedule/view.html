@@ -67,6 +67,21 @@
         font-size: 1.2em;
         color: #333;
     }
+    
+    .btn-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    
+    .btn-success {
+        background-color: #10b981;
+        color: white;
+    }
+    
+    .btn-success:hover {
+        background-color: #059669;
+    }
 </style>
 {% endblock %}
 
@@ -89,13 +104,16 @@
     <div class="flex-spacer"></div>
     
     <div class="date-group" style="justify-content: flex-end;">
-        <button class="btn btn-primary" id="generateSchedule">Generate Schedule</button>
+        <div class="btn-group">
+            <button class="btn btn-primary" id="generateSchedule">Generate Schedule</button>
+            <button class="btn btn-primary" id="saveSchedule" style="display: none;">Save Changes</button>
+        </div>
     </div>
 </div>
 
 <div class="loading-indicator" id="loadingIndicator" style="display: none;">
     <div class="spinner"></div>
-    <p>Generating schedule...</p>
+    <p>Processing schedule...</p>
 </div>
 
 <div class="schedule-grid">
@@ -106,26 +124,31 @@
                 <th>
                     <div class="day-header">
                         <span class="day-name">Monday</span>
+                        <span class="day-date"></span>
                     </div>
                 </th>
                 <th>
                     <div class="day-header">
                         <span class="day-name">Tuesday</span>
+                        <span class="day-date"></span>
                     </div>
                 </th>
                 <th>
                     <div class="day-header">
                         <span class="day-name">Wednesday</span>
+                        <span class="day-date"></span>
                     </div>
                 </th>
                 <th>
                     <div class="day-header">
                         <span class="day-name">Thursday</span>
+                        <span class="day-date"></span>
                     </div>
                 </th>
                 <th>
                     <div class="day-header">
                         <span class="day-name">Friday</span>
+                        <span class="day-date"></span>
                     </div>
                 </th>
             </tr>
@@ -165,4 +188,31 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/admin-schedule.js') }}"></script>
+<script>
+    // Show save button once the schedule is generated or loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        // When a schedule is loaded, show the save button
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    // Check if schedule is populated
+                    const scheduleStats = document.getElementById('scheduleStats');
+                    if (scheduleStats && scheduleStats.style.display !== 'none') {
+                        // Show save button
+                        const saveBtn = document.getElementById('saveSchedule');
+                        if (saveBtn) {
+                            saveBtn.style.display = 'block';
+                        }
+                    }
+                }
+            });
+        });
+        
+        // Observe changes to the schedule stats div
+        const target = document.getElementById('scheduleStats');
+        if (target) {
+            observer.observe(target, { childList: true, subtree: true });
+        }
+    });
+</script>
 {% endblock %}

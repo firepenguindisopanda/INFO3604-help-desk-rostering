@@ -524,6 +524,94 @@ def get_course_demands_for_shift(shift_id):
         logger.error(f"Error getting course demands for shift {shift_id}: {e}")
         return []  # Return empty list on error
 
+def sync_schedule_data():
+    """
+    Ensure schedule data is synced between admin and volunteer views.
+    This ensures both views are looking at the same database information.
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # The main schedule is stored with ID 1
+        schedule = Schedule.query.get(1)
+        
+        if not schedule:
+            logger.info("No main schedule exists yet")
+            return False
+        
+        # Get all shifts for this schedule
+        shifts = Shift.query.filter_by(schedule_id=schedule.id).all()
+        
+        if not shifts:
+            logger.info("Schedule exists but has no shifts")
+            return False
+        
+        # Make sure all shifts have proper allocation records
+        shift_ids = [shift.id for shift in shifts]
+        allocations = Allocation.query.filter(Allocation.shift_id.in_(shift_ids)).all()
+        
+        # Log counts for debugging
+        logger.info(f"Schedule {schedule.id} has {len(shifts)} shifts and {len(allocations)} allocations")
+        
+        # Count allocations per shift
+        allocation_counts = {}
+        for allocation in allocations:
+            allocation_counts[allocation.shift_id] = allocation_counts.get(allocation.shift_id, 0) + 1
+        
+        shifts_without_allocations = [shift.id for shift in shifts if allocation_counts.get(shift.id, 0) == 0]
+        if shifts_without_allocations:
+            logger.warning(f"Found {len(shifts_without_allocations)} shifts without allocations")
+        
+        # Ensure all allocations have valid student assistants
+        for allocation in allocations:
+            student = Student.query.get(allocation.username)
+            if not student:
+                logger.warning(f"Allocation {allocation.id} references non-existent student {allocation.username}")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error syncing schedule data: {e}")
+        return False
+
+def publish_and_notify(schedule_id):
+    """
+    Publish the schedule and notify all assigned staff.
+    Also ensures data is synced between admin and volunteer views.
+    
+    Args:
+        schedule_id: ID of the schedule to publish
+        
+    Returns:
+        dict: Result of the operation
+    """
+    try:
+        # First publish the schedule
+        result = publish_schedule(schedule_id)
+        
+        if result.get('status') != 'success':
+            return result
+            
+        # Then sync the data
+        sync_success = sync_schedule_data()
+        
+        if not sync_success:
+            logger.warning("Schedule published but data sync failed or was not necessary")
+        
+        return {
+            "status": "success",
+            "message": "Schedule published and notifications sent",
+            "sync_status": "success" if sync_success else "warning"
+        }
+            
+    except Exception as e:
+        logger.error(f"Error publishing and notifying: {e}")
+        return {
+            "status": "error", 
+            "message": f"Error: {str(e)}"
+        }
+
 def publish_schedule(schedule_id):
     """Publish a schedule and notify all assigned staff"""
     try:

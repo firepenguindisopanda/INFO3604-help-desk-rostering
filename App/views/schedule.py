@@ -1,13 +1,16 @@
-# App/views/schedule.py
 from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for
 from flask_jwt_extended import jwt_required, current_user
 from datetime import datetime, timedelta
 from App.controllers.schedule import (
-    generate_schedule,    # Updated generator that doesn't use weeks
+    generate_schedule,
     publish_schedule,
-    get_current_schedule  # New function to get current schedule
+    get_current_schedule,
+    publish_and_notify
 )
+from App.models import Schedule, Shift, Allocation, Student
+from App.database import db
 from App.middleware import admin_required
+
 
 schedule_views = Blueprint('schedule_views', __name__, template_folder='../templates')
 
@@ -17,6 +20,203 @@ schedule_views = Blueprint('schedule_views', __name__, template_folder='../templ
 def schedule():
     return render_template('admin/schedule/view.html')
 
+@schedule_views.route('/api/schedule/save', methods=['POST'])
+@jwt_required()
+@admin_required
+def save_schedule():
+    """Save schedule changes to the database"""
+    try:
+        print("Received request to save schedule")
+        data = request.json
+        
+        # Parse dates
+        start_date_str = data.get('start_date')
+        end_date_str = data.get('end_date')
+        assignments = data.get('assignments', [])
+        
+        print(f"Save request: start={start_date_str}, end={end_date_str}, assignments={len(assignments)}")
+        
+        # Validate
+        if not start_date_str or not end_date_str:
+            return jsonify({
+                'status': 'error',
+                'message': 'Start and end dates are required'
+            }), 400
+            
+        # Parse dates
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({
+                'status': 'error',
+                'message': 'Invalid date format. Use YYYY-MM-DD.'
+            }), 400
+            
+        # Get or create the main schedule
+        schedule = Schedule.query.get(1)
+        if not schedule:
+            print("Creating new main schedule")
+            schedule = Schedule(1, start_date, end_date)
+            db.session.add(schedule)
+        else:
+            print(f"Updating existing schedule: id={schedule.id}")
+            schedule.start_date = start_date
+            schedule.end_date = end_date
+            db.session.add(schedule)
+            
+        db.session.flush()
+        
+        # Get all current shifts for this schedule in the date range
+        current_shifts = Shift.query.filter(
+            Shift.schedule_id == schedule.id,
+            Shift.date >= start_date,
+            Shift.date <= end_date
+        ).all()
+        
+        shift_lookup = {}
+        
+        # Build a lookup map to find existing shifts by date and time
+        for shift in current_shifts:
+            key = f"{shift.date.strftime('%Y-%m-%d')}_{shift.start_time.hour}"
+            shift_lookup[key] = shift
+            
+        print(f"Found {len(current_shifts)} existing shifts in date range")
+        
+        # Track successful assignments and processed shifts
+        successful_assignments = 0
+        processed_shift_ids = set()
+        
+        # Process assignments and create/update shifts and allocations
+        for assignment in assignments:
+            day = assignment.get('day')
+            time_str = assignment.get('time')
+            staff_list = assignment.get('staff', [])
+            
+            print(f"Processing assignment: day={day}, time={time_str}, staff={len(staff_list)}")
+                
+            # Convert day name to index (0=Monday, 1=Tuesday, etc.)
+            day_map = {'MON': 0, 'TUE': 1, 'WED': 2, 'THUR': 3, 'FRI': 4, 
+                       'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4}
+            day_idx = day_map.get(day, 0)
+            
+            # Calculate shift date based on start_date and day index
+            shift_date = start_date + timedelta(days=day_idx)
+            
+            # Parse shift time
+            try:
+                # Time format is like "9:00 am" or "9:00 - 10:00"
+                if '-' in time_str:
+                    # Format is "9:00 - 10:00"
+                    start_time_str = time_str.split('-')[0].strip()
+                else:
+                    # Format is "9:00 am"
+                    start_time_str = time_str
+                
+                # Remove am/pm and just get the hour
+                start_time_str = start_time_str.lower()
+                if 'am' in start_time_str:
+                    start_time_str = start_time_str.replace('am', '').strip()
+                elif 'pm' in start_time_str:
+                    start_time_str = start_time_str.replace('pm', '').strip()
+                
+                # Extract hour
+                hour = int(start_time_str.split(':')[0])
+                
+                # Adjust hour for PM if needed (but not for 12pm)
+                if 'pm' in time_str.lower() and hour < 12:
+                    hour += 12
+                    
+                # Log parsed time details
+                print(f"Parsed time: original='{time_str}', extracted hour={hour}")
+                
+                # Create lookup key for existing shifts
+                shift_key = f"{shift_date.strftime('%Y-%m-%d')}_{hour}"
+                
+                # Check if shift already exists
+                shift = shift_lookup.get(shift_key)
+                
+                # If shift doesn't exist, create it
+                if not shift:
+                    print(f"Creating new shift for {shift_key}")
+                    shift_start = datetime.combine(shift_date.date(), datetime.min.time().replace(hour=hour, minute=0))
+                    shift_end = shift_start + timedelta(hours=1)
+                    
+                    shift = Shift(shift_date, shift_start, shift_end, schedule.id)
+                    db.session.add(shift)
+                    db.session.flush()  # Get the shift ID
+                    # Add to lookup for future reference
+                    shift_lookup[shift_key] = shift
+                else:
+                    print(f"Using existing shift {shift.id} for {shift_key}")
+                
+                # Track this shift as processed
+                processed_shift_ids.add(shift.id)
+                
+                # Delete existing allocations for this shift
+                deleted_count = Allocation.query.filter_by(shift_id=shift.id).delete()
+                print(f"Deleted {deleted_count} existing allocations for shift {shift.id}")
+                
+                # Create allocations for staff if there are any
+                if staff_list:
+                    for staff in staff_list:
+                        staff_id = staff.get('id')
+                        
+                        # Verify staff exists
+                        student = Student.query.get(staff_id)
+                        if not student:
+                            print(f"Warning: Student {staff_id} not found")
+                            continue
+                            
+                        # Create allocation
+                        allocation = Allocation(staff_id, shift.id, schedule.id)
+                        db.session.add(allocation)
+                        
+                        print(f"Created allocation for staff {staff_id} on shift {shift.id}")
+                else:
+                    print(f"No staff assigned to shift {shift.id}")
+                
+                successful_assignments += 1
+                
+            except Exception as e:
+                print(f"Error processing shift {day} at {time_str}: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+        
+        # Handle shifts that weren't included in the assignments
+        # This is important for when you remove all staff from a shift
+        unprocessed_shifts = [shift for shift in current_shifts if shift.id not in processed_shift_ids]
+        print(f"Found {len(unprocessed_shifts)} shifts in date range not processed in assignments")
+        
+        for shift in unprocessed_shifts:
+            # Clear all allocations for unprocessed shifts
+            deleted_count = Allocation.query.filter_by(shift_id=shift.id).delete()
+            print(f"Deleted {deleted_count} allocations from unprocessed shift {shift.id} on {shift.date}")
+                
+        # Commit changes
+        db.session.commit()
+        
+        print(f"Schedule saved successfully with {successful_assignments} assignments")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Schedule saved successfully',
+            'schedule_id': schedule.id,
+            'assignments_saved': successful_assignments,
+            'shifts_cleared': len(unprocessed_shifts)
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving schedule: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+        
 @schedule_views.route('/api/schedule/details', methods=['GET'])
 @jwt_required()
 @admin_required
@@ -46,51 +246,18 @@ def get_schedule_details():
                 }
             })
     
-    # Default behavior - use the hard-coded demo for now
-    try:
-        # Original demo implementation
-        I, J, K = 10, 40, 1
-        result = generate_schedule(I, J, K)
-        
-        if result['status'] != 'success':
-            return jsonify(result), 400
-            
-        # Format the data for the UI (same as before)
-        assignments = result['assignments']
-        staff_index = result['staff_index']
-        
-        # Define days and shift times for hourly slots
-        days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-        shift_times = ["9:00 am", "10:00 am", "11:00 am", "12:00 pm", 
-                      "1:00 pm", "2:00 pm", "3:00 pm", "4:00 pm"]
-        
-        # Create a formatted schedule
-        formatted_schedule = []
-        for day_idx, day in enumerate(days):
-            day_shifts = []
-            for time_idx, time in enumerate(shift_times):
-                shift_id = day_idx * len(shift_times) + time_idx
-                staff_list = assignments.get(shift_id, [])
-                day_shifts.append({
-                    'time': time,
-                    'staff': staff_list
-                })
-            formatted_schedule.append({
-                'day': day,
-                'shifts': day_shifts
-            })
-            
+    # Default behavior is to get the current schedule
+    schedule = get_current_schedule()
+    if schedule:
         return jsonify({
             'status': 'success',
-            'schedule': formatted_schedule,
-            'staff_index': staff_index
+            'schedule': schedule
         })
-        
-    except Exception as e:
+    else:
         return jsonify({
             'status': 'error',
-            'message': str(e)
-        }), 500
+            'message': 'No schedule found'
+        }), 404
 
 @schedule_views.route('/api/schedule/generate', methods=['POST'])
 @jwt_required()
@@ -133,12 +300,133 @@ def publish_schedule_endpoint(schedule_id):
     result = publish_schedule(schedule_id)
     return jsonify(result)
 
+@schedule_views.route('/api/schedule/<int:schedule_id>/publish_with_sync', methods=['POST'])
+@jwt_required()
+@admin_required
+def publish_schedule_with_sync(schedule_id):
+    """Publish a schedule, notify all assigned staff, and sync data between views"""
+    
+    result = publish_and_notify(schedule_id)
+    return jsonify(result)
+
 @schedule_views.route('/api/schedule/current', methods=['GET'])
 @jwt_required()
 def get_current_schedule_endpoint():
     """Get the current schedule"""
-    schedule = get_current_schedule()
-    if schedule:
-        return jsonify({'status': 'success', 'schedule': schedule})
-    else:
-        return jsonify({'status': 'error', 'message': 'No schedule found'}), 404
+    try:
+        print("Getting current schedule")
+        # Get the main schedule (id=1)
+        schedule = Schedule.query.get(1)
+        
+        if not schedule:
+            print("No schedule found")
+            return jsonify({'status': 'error', 'message': 'No schedule found'}), 404
+        
+        print(f"Found schedule: id={schedule.id}, start={schedule.start_date}, end={schedule.end_date}")
+        
+        # Get all shifts for this schedule
+        shifts = Shift.query.filter_by(schedule_id=schedule.id).all()
+        print(f"Found {len(shifts)} shifts")
+        
+        # Format the schedule for display
+        formatted_schedule = {
+            "schedule_id": schedule.id,
+            "date_range": f"{schedule.start_date.strftime('%d %b')} - {schedule.end_date.strftime('%d %b, %Y')}",
+            "is_published": schedule.is_published,
+            "days": []
+        }
+        
+        # Group shifts by day
+        shifts_by_day = {}
+        for shift in shifts:
+            day_idx = shift.date.weekday()  # 0=Monday, 1=Tuesday, etc.
+            if day_idx >= 5:  # Skip weekend shifts
+                continue
+                
+            if day_idx not in shifts_by_day:
+                shifts_by_day[day_idx] = []
+                
+            # Get assistants for this shift
+            assistants = []
+            allocations = Allocation.query.filter_by(shift_id=shift.id).all()
+            
+            for allocation in allocations:
+                student = Student.query.get(allocation.username)
+                if student:
+                    assistants.append({
+                        "username": student.username,
+                        "name": student.get_name(),
+                        "id": student.username
+                    })
+            
+            # Format time
+            formatted_time = shift.formatted_time() if hasattr(shift, 'formatted_time') else f"{shift.start_time.strftime('%I:%M %p')} to {shift.end_time.strftime('%I:%M %p')}"
+            
+            # Add shift data
+            shifts_by_day[day_idx].append({
+                "shift_id": shift.id,
+                "time": formatted_time,
+                "hour": shift.start_time.hour,
+                "assistants": assistants
+            })
+        
+        # Sort shifts for each day by hour
+        for day_idx in shifts_by_day:
+            shifts_by_day[day_idx].sort(key=lambda s: s["hour"])
+        
+        # Create days array with all days (Mon-Fri)
+        days = []
+        day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+        day_codes = ["MON", "TUE", "WED", "THUR", "FRI"]
+        
+        for day_idx in range(5):
+            # Calculate the date for this day
+            day_date = schedule.start_date + timedelta(days=day_idx)
+            day_shifts = []
+            
+            # If we have shifts for this day, add them
+            if day_idx in shifts_by_day:
+                # Create a full day of shifts (9am-5pm)
+                for hour in range(9, 17):
+                    # Find the shift for this hour
+                    matching_shifts = [s for s in shifts_by_day[day_idx] if s["hour"] == hour]
+                    
+                    if matching_shifts:
+                        day_shifts.append(matching_shifts[0])
+                    else:
+                        # Add an empty shift for this hour
+                        time_str = f"{hour}:00 am" if hour < 12 else f"{hour-12 if hour > 12 else hour}:00 pm"
+                        day_shifts.append({
+                            "shift_id": None,
+                            "time": f"{time_str} to {hour+1}:00 am" if hour < 11 else f"{time_str} to {(hour+1)-12 if hour+1 > 12 else hour+1}:00 pm",
+                            "assistants": []
+                        })
+            else:
+                # Create all empty shifts for this day
+                for hour in range(9, 17):
+                    time_str = f"{hour}:00 am" if hour < 12 else f"{hour-12 if hour > 12 else hour}:00 pm"
+                    day_shifts.append({
+                        "shift_id": None,
+                        "time": f"{time_str} to {hour+1}:00 am" if hour < 11 else f"{time_str} to {(hour+1)-12 if hour+1 > 12 else hour+1}:00 pm",
+                        "assistants": []
+                    })
+            
+            # Add this day to the days array
+            days.append({
+                "day": day_names[day_idx],
+                "day_code": day_codes[day_idx],
+                "date": day_date.strftime("%d %b"),
+                "shifts": day_shifts
+            })
+        
+        # Add days to the formatted schedule
+        formatted_schedule["days"] = days
+        
+        print(f"Returning formatted schedule with {len(days)} days")
+        return jsonify({'status': 'success', 'schedule': formatted_schedule})
+        
+    except Exception as e:
+        print(f"Error getting current schedule: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'message': str(e)}), 500

@@ -29,8 +29,68 @@ def get_dashboard_data(username):
         my_shifts = get_my_upcoming_shifts(username, today)
         
         print(f"Fetching full schedule...")
-        # 3. Get the full schedule for all staff
-        full_schedule = get_full_schedule(today)
+        # 3. Get the full schedule from the same source used by the admin view
+        from App.controllers.schedule import get_current_schedule
+        schedule_data = get_current_schedule()
+        
+        # If no schedule exists, create a minimal structure
+        if not schedule_data or not schedule_data.get('days'):
+            print("No published schedule found, using minimal structure")
+            full_schedule = {
+                'days_of_week': ['MON', 'TUE', 'WED', 'THUR', 'FRI'],
+                'time_slots': ['9:00 am', '10:00 am', '11:00 am', '12:00 pm', '1:00 pm', '2:00 pm', '3:00 pm', '4:00 pm'],
+                'staff_schedule': {}
+            }
+        else:
+            # Format the full schedule data for the volunteer dashboard view
+            days_of_week = ['MON', 'TUE', 'WED', 'THUR', 'FRI']
+            time_slots = ['9:00 am', '10:00 am', '11:00 am', '12:00 pm', '1:00 pm', '2:00 pm', '3:00 pm', '4:00 pm']
+            
+            # Extract staff schedule into a format that works with the dashboard
+            staff_schedule = {}
+            for time_slot in time_slots:
+                staff_schedule[time_slot] = {day: [] for day in days_of_week}
+            
+            # Map days to their three-letter codes
+            day_to_code = {
+                "Monday": "MON", 
+                "Tuesday": "TUE", 
+                "Wednesday": "WED", 
+                "Thursday": "THUR", 
+                "Friday": "FRI"
+            }
+            
+            # Iterate through each day and shift in the schedule data
+            for day_data in schedule_data.get('days', []):
+                day_name = day_data.get('day')
+                day_code = day_to_code.get(day_name)
+                
+                if not day_code:
+                    continue
+                
+                # Iterate through shifts for this day
+                for shift_idx, shift in enumerate(day_data.get('shifts', [])):
+                    if shift_idx >= len(time_slots):
+                        continue
+                    
+                    time_slot = time_slots[shift_idx]
+                    
+                    # Get assistant names
+                    assistant_names = []
+                    for assistant in shift.get('assistants', []):
+                        name = assistant.get('name')
+                        if name:
+                            assistant_names.append(name)
+                    
+                    # Add to staff schedule
+                    staff_schedule[time_slot][day_code] = assistant_names
+            
+            # Create the full schedule object
+            full_schedule = {
+                'days_of_week': days_of_week,
+                'time_slots': time_slots,
+                'staff_schedule': staff_schedule
+            }
         
         # Log some useful debugging info
         print(f"Dashboard data summary for {username}:")
