@@ -1,5 +1,6 @@
 from App.database import db
 from datetime import datetime
+from werkzeug.security import generate_password_hash
 
 class RegistrationRequest(db.Model):
     __tablename__ = 'registration_request'
@@ -16,8 +17,9 @@ class RegistrationRequest(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     processed_at = db.Column(db.DateTime, nullable=True)
     processed_by = db.Column(db.String(20), nullable=True)
+    password = db.Column(db.String(120), nullable=True)  # Store hashed password
     
-    def __init__(self, username, name, email, degree, reason=None, phone=None, transcript_path=None):
+    def __init__(self, username, name, email, degree, reason=None, phone=None, transcript_path=None, password=None):
         self.username = username
         self.name = name
         self.email = email
@@ -26,6 +28,16 @@ class RegistrationRequest(db.Model):
         self.reason = reason
         self.transcript_path = transcript_path
         self.status = 'PENDING'
+        
+        # Set hashed password if provided
+        if password:
+            self.set_password(password)
+        else:
+            self.password = None
+    
+    def set_password(self, password):
+        """Create hashed password."""
+        self.password = generate_password_hash(password)
     
     def get_json(self):
         return {
