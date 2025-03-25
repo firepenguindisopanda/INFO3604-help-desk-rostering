@@ -3,6 +3,7 @@ from flask import jsonify
 from ortools.sat.python import cp_model
 import logging
 from sqlalchemy import text
+from App.models.course_constants import get_all_course_codes, STANDARD_COURSES
 
 from App.models import (
     Schedule, Shift, Student, HelpDeskAssistant, 
@@ -114,26 +115,16 @@ def generate_schedule(start_date=None, end_date=None):
         # Clear existing shifts for the date range
         clear_shifts_in_range(schedule.id, start_date, end_date)
         
-        # Get all courses BEFORE creating shifts - Fix the error here
+        # Get all courses from the standardized list
         all_courses = Course.query.all()
         if not all_courses:
-            # Create some default courses if none exist
-            default_courses = [
-                ('COMP3602', 'Software Engineering I'),
-                ('COMP3603', 'Human-Computer Interaction'),
-                ('COMP3605', 'Introduction to Data Analytics'),
-                ('COMP3607', 'Object-Oriented Programming II'),
-                ('COMP3609', 'Game Programming'),
-                ('COMP3610', 'Big Data Analytics'),
-                ('COMP3611', 'Game Design'),
-                ('COMP3613', 'Software Engineering II')
-            ]
-            for code, name in default_courses:
+            # Create standard courses if none exist
+            for code, name in STANDARD_COURSES:
                 course = Course(code, name)
                 db.session.add(course)
             db.session.commit()
             all_courses = Course.query.all()
-            logger.info(f"Created {len(all_courses)} default courses")
+            logger.info(f"Created {len(all_courses)} standard courses")
         
         # Generate shifts for the schedule (only for the specified date range)
         shifts = []

@@ -506,30 +506,17 @@ def update_availability():
 @volunteer_views.route('/api/courses')
 @jwt_required()
 def get_courses():
-    """Get all available courses"""
+    """Get all available courses from the standardized list"""
     try:
-        courses = Course.query.all()
-        # Create default courses if none exist
-        if not courses:
-            default_courses = [
-                ('COMP3602', 'Software Engineering I'),
-                ('COMP3603', 'Human-Computer Interaction'),
-                ('COMP3605', 'Introduction to Data Analytics'),
-                ('COMP3607', 'Object-Oriented Programming II'),
-                ('COMP3609', 'Game Programming'),
-                ('COMP3610', 'Big Data Analytics'),
-                ('COMP3611', 'Game Design'),
-                ('COMP3613', 'Software Engineering II')
-            ]
-            for code, name in default_courses:
-                course = Course(code, name)
-                db.session.add(course)
-            db.session.commit()
-            courses = Course.query.all()
+        # Import the standardized course list
+        from App.models.course_constants import STANDARD_COURSES
+        
+        # Format the courses as required by the frontend
+        formatted_courses = [{'code': code, 'name': name} for code, name in STANDARD_COURSES]
         
         return jsonify({
             'success': True,
-            'courses': [{'code': course.code, 'name': course.name} for course in courses]
+            'courses': formatted_courses
         })
     except Exception as e:
         print(f"Error getting courses: {e}")

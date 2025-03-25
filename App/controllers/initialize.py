@@ -34,6 +34,7 @@ from App.database import db
 from datetime import datetime, timedelta, time
 from sqlalchemy import text
 import logging
+from App.models.course_constants import STANDARD_COURSES
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -54,11 +55,36 @@ def initialize():
     admin = create_user('a', '123', type='admin')
     logger.info(f"Created admin user: {admin.username}")
     
+    # Create standard courses
+    create_standard_courses()
+    
     # Create all student assistants with availability
     create_student_assistants()
-
     
     logger.info('Database initialized successfully with all sample data')
+
+def create_standard_courses():
+    """Create all standard courses in the database"""
+    logger.info("Creating standard courses")
+    
+    # First, check if courses already exist
+    existing_courses = Course.query.all()
+    if existing_courses:
+        logger.info(f"Found {len(existing_courses)} existing courses - skipping creation")
+        return
+    
+    # Create all courses from the standardized list
+    for code, name in STANDARD_COURSES:
+        course = Course(code, name)
+        db.session.add(course)
+    
+    # Commit the courses to the database
+    try:
+        db.session.commit()
+        logger.info(f"Successfully created {len(STANDARD_COURSES)} standard courses")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating standard courses: {e}")
 
 def create_student_assistants():
     """Create all student assistant accounts with their availability and course capabilities"""
@@ -129,7 +155,7 @@ def create_student_assistants():
             'password': 'password123',
             'degree': 'BSc',
             'email': 'daniel.yatali@my.uwi.edu',
-            'courses': ['COMP3603', 'COMP3609', 'COMP3611'],
+            'courses': ['COMP3603', 'COMP3609', 'COMP2611'],
             'availabilities': [
                 {'day_of_week': 4, 'start_time': '10:00:00', 'end_time': '11:00:00'},
                 {'day_of_week': 1, 'start_time': '11:00:00', 'end_time': '12:00:00'},
@@ -144,7 +170,7 @@ def create_student_assistants():
             'password': 'password123',
             'degree': 'MSc',
             'email': 'satish.maharaj@my.uwi.edu',
-            'courses': ['COMP3602', 'COMP3610', 'COMP3611'],
+            'courses': ['COMP3602', 'COMP3610', 'COMP2611'],
             'availabilities': [
                 {'day_of_week': 3, 'start_time': '9:00:00', 'end_time': '10:00:00'},
                 {'day_of_week': 3, 'start_time': '10:00:00', 'end_time': '11:00:00'},
@@ -177,7 +203,7 @@ def create_student_assistants():
             'password': 'password123',
             'degree': 'BSc',
             'email': 'veron.ramkissoon@my.uwi.edu',
-            'courses': ['COMP3603', 'COMP3610', 'COMP3611'],
+            'courses': ['COMP3603', 'COMP3610', 'COMP2611'],
             'availabilities': [
                 {'day_of_week': 0, 'start_time': '14:00:00', 'end_time': '15:00:00'},
                 {'day_of_week': 0, 'start_time': '15:00:00', 'end_time': '16:00:00'},
@@ -191,7 +217,7 @@ def create_student_assistants():
             'password': 'password123',
             'degree': 'BSc',
             'email': 'tamika.ramkissoon@my.uwi.edu',
-            'courses': ['COMP3605', 'COMP3607', 'COMP3611'],
+            'courses': ['COMP3605', 'COMP3607', 'COMP2611'],
             'availabilities': [
                 {'day_of_week': 4, 'start_time': '11:00:00', 'end_time': '12:00:00'},
                 {'day_of_week': 4, 'start_time': '12:00:00', 'end_time': '13:00:00'},
@@ -282,4 +308,4 @@ def create_student_assistants():
             db.session.rollback()
             logger.error(f"Error creating student {student['username']}: {e}")
             
-        logger.info(f"Created {len(student_data)} student assistants with availability data"),
+    logger.info(f"Created {len(student_data)} student assistants with availability data")
