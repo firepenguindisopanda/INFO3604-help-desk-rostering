@@ -242,33 +242,23 @@ def profile():
         except Exception as e:
             print(f"Error processing availability {avail.id}: {e}")
     
-    # Debug: Print the final availability map being sent to the template
-    for day, slots in availability_by_day.items():
-        print(f"Day {day}: {slots}")
-    
     # Get stats
+    from App.controllers.tracking import get_student_stats
     stats = get_student_stats(username) or {
         'daily': {'hours': 0, 'date': datetime.utcnow().strftime('%Y-%m-%d')},
-        'weekly': {'hours': 0, 'start_date': (datetime.utcnow() - timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.utcnow().strftime('%Y-%m-%d')},
+        'weekly': {'hours': 0, 'start_date': (datetime.utcnow() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.utcnow().strftime('%Y-%m-%d')},
         'monthly': {'hours': 0, 'month': datetime.utcnow().strftime('%B %Y')},
         'semester': {'hours': 0},
         'absences': 0
     }
     
-    # Build user data dictionary with metadata from the profile table if it exists
-    profile_data = getattr(student, 'profile_data', None)
-    if profile_data and isinstance(profile_data, str):
+    # Determine if student has profile data
+    profile_data = {}
+    if hasattr(student, 'profile_data') and student.profile_data:
         try:
-            profile_data = json.loads(profile_data)
+            profile_data = json.loads(student.profile_data)
         except:
             profile_data = {}
-    else:
-        profile_data = {}
-    
-    # Determine image URL
-    image_url = None
-    if profile_data and 'image_filename' in profile_data:
-        image_url = url_for('static', filename=f'uploads/{profile_data["image_filename"]}')
     
     # Build user data dictionary
     user_data = {
@@ -276,7 +266,6 @@ def profile():
         "id": username,
         "phone": profile_data.get('phone', '398-3921'),
         "email": profile_data.get('email', f"{username}@my.uwi.edu"),
-        "image_url": image_url,
         "degree": student.degree,
         "address": {
             "street": profile_data.get('street', '45 Coconut Drive'),
@@ -520,6 +509,24 @@ def get_courses():
     """Get all available courses"""
     try:
         courses = Course.query.all()
+        # Create default courses if none exist
+        if not courses:
+            default_courses = [
+                ('COMP3602', 'Software Engineering I'),
+                ('COMP3603', 'Human-Computer Interaction'),
+                ('COMP3605', 'Introduction to Data Analytics'),
+                ('COMP3607', 'Object-Oriented Programming II'),
+                ('COMP3609', 'Game Programming'),
+                ('COMP3610', 'Big Data Analytics'),
+                ('COMP3611', 'Game Design'),
+                ('COMP3613', 'Software Engineering II')
+            ]
+            for code, name in default_courses:
+                course = Course(code, name)
+                db.session.add(course)
+            db.session.commit()
+            courses = Course.query.all()
+        
         return jsonify({
             'success': True,
             'courses': [{'code': course.code, 'name': course.name} for course in courses]

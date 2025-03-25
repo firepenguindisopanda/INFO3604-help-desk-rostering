@@ -27,24 +27,8 @@
         margin-bottom: 0.5rem;
     }
     
-    .update-courses-btn {
-        background-color: transparent;
-        color: #2563eb;
-        border: 1px solid #2563eb;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        font-size: 14px;
-        cursor: pointer;
-        margin-top: 1rem;
-        transition: background-color 0.2s;
-    }
-    
-    .update-courses-btn:hover {
-        background-color: #f0f7ff;
-    }
-    
-    /* Edit profile modal */
-    .edit-profile-modal {
+    /* Modal Styles */
+    .modal {
         display: none;
         position: fixed;
         top: 0;
@@ -80,126 +64,22 @@
         color: #333;
     }
     
-    .edit-form {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
-    }
-    
-    .edit-form-group {
-        margin-bottom: 1rem;
-    }
-    
-    .edit-form-group label {
-        display: block;
+    .modal-title {
+        font-size: 1.5rem;
         margin-bottom: 0.5rem;
-        font-weight: 500;
     }
     
-    .edit-form-group input, 
-    .edit-form-group textarea,
-    .edit-form-group select {
-        width: 100%;
-        padding: 0.75rem;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 14px;
-    }
-    
-    .edit-form-group.full-width {
-        grid-column: span 2;
-    }
-    
-    .preview-image {
-        width: 100px;
-        height: 100px;
-        object-fit: cover;
-        border-radius: 50%;
-        margin-top: 0.5rem;
-    }
-    
-    .upload-btn {
-        display: inline-block;
-        padding: 0.5rem 1rem;
-        background-color: #f0f7ff;
-        color: #2563eb;
-        border: 1px solid #2563eb;
-        border-radius: 4px;
-        cursor: pointer;
-        margin-top: 0.5rem;
-    }
-    
-    /* Courses modal styles */
-    .course-selection {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 0.75rem;
-        margin-top: 1rem;
-    }
-    
-    .course-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    
-    .loading-spinner {
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        border: 3px solid #f3f3f3;
-        border-top: 3px solid #3498db;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin-right: 0.5rem;
-        display: none;
-    }
-    
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    
-    .stats-card .stat-value {
-        font-size: 24px;
-        font-weight: 700;
-    }
-    
-    .day-column .time-slot:empty {
-        visibility: hidden;
-    }
-    
-    .availability-table.display-mode {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 0.5rem;
-    }
-    
-    .availability-table.display-mode .time-column {
-        display: none;
-    }
-    
-    .availability-table.display-mode .day-header {
-        background-color: #f5f5f5;
-        padding: 0.5rem;
-        text-align: center;
-        font-weight: 500;
-        font-size: 14px;
-        border-radius: 4px;
-    }
-    
-    .availability-table.display-mode .time-slot {
-        padding: 0.5rem;
-        text-align: center;
-        font-size: 13px;
+    .modal-subtitle {
         color: #666;
-        border-radius: 4px;
-        min-height: 30px;
+        font-size: 0.9rem;
+        margin-bottom: 1.5rem;
     }
     
-    .availability-table.display-mode .time-slot.available {
-        background-color: #ecfdf5;
-        color: #10b981;
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 1.5rem;
     }
     
     /* Availability Grid Styles */
@@ -237,33 +117,6 @@
         color: #10b981;
     }
     
-    /* Modal Styles */
-    .modal-title {
-        font-size: 1.5rem;
-        margin-bottom: 0.5rem;
-    }
-    
-    .modal-subtitle {
-        color: #666;
-        font-size: 0.9rem;
-        margin-bottom: 1.5rem;
-    }
-    
-    .modal-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 1rem;
-        margin-top: 1.5rem;
-    }
-    
-    .edit-form-actions {
-        grid-column: span 2;
-        display: flex;
-        justify-content: flex-end;
-        gap: 1rem;
-        margin-top: 1.5rem;
-    }
-    
     /* Flash message styles */
     .flash-message {
         padding: 0.75rem 1rem;
@@ -279,6 +132,65 @@
     .flash-message.error {
         background-color: #fee2e2;
         color: #b91c1c;
+    }
+
+    .day-column .time-slot:empty {
+        visibility: hidden;
+    }
+    
+    .availability-table.display-mode {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0.5rem;
+    }
+    
+    .availability-table.display-mode .time-column {
+        display: none;
+    }
+    
+    .availability-table.display-mode .day-header {
+        background-color: #f5f5f5;
+        padding: 0.5rem;
+        text-align: center;
+        font-weight: 500;
+        font-size: 14px;
+        border-radius: 4px;
+    }
+    
+    .availability-table.display-mode .time-slot {
+        padding: 0.5rem;
+        text-align: center;
+        font-size: 13px;
+        color: #666;
+        border-radius: 4px;
+        min-height: 30px;
+    }
+    
+    .availability-table.display-mode .time-slot.available {
+        background-color: #ecfdf5;
+        color: #10b981;
+    }
+    
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 0.5rem;
+        display: none;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .stats-card .stat-value {
+        font-size: 24px;
+        font-weight: 700;
     }
 </style>
 {% endblock %}
@@ -330,7 +242,6 @@
         </div>
         
         <div class="profile-actions">
-            <button class="edit-profile-btn">Edit Profile</button>
             <button class="update-availability-btn">Update Availability</button>
         </div>
     </div>
@@ -344,10 +255,9 @@
                 <span class="course-tag">{{ course }}</span>
                 {% endfor %}
             {% else %}
-                <p>No courses selected yet.</p>
+                <p>No courses selected yet. Please contact an administrator to update your courses.</p>
             {% endif %}
         </div>
-        <button class="update-courses-btn">Update Courses</button>
     </div>
     
     <!-- Availability Section -->
@@ -397,93 +307,8 @@
     </div>
 </div>
 
-<!-- Edit Profile Modal -->
-<div id="editProfileModal" class="edit-profile-modal">
-    <div class="modal-content">
-        <span class="modal-close" id="closeProfileModal">&times;</span>
-        <h2 class="modal-title">Edit Your Profile</h2>
-        <p class="modal-subtitle">Update your personal information</p>
-        
-        <form id="editProfileForm" class="edit-form" enctype="multipart/form-data">
-            <div class="edit-form-group">
-                <label for="name">Full Name</label>
-                <input type="text" id="name" name="name" value="{{ user.name }}" required>
-            </div>
-            
-            <div class="edit-form-group">
-                <label for="phone">Phone Number</label>
-                <input type="text" id="phone" name="phone" value="{{ user.phone|default('398-3921') }}">
-            </div>
-            
-            <div class="edit-form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" value="{{ user.email|default(user.id ~ '@my.uwi.edu') }}">
-            </div>
-            
-            <div class="edit-form-group">
-                <label for="profileImage">Profile Picture</label>
-                <input type="file" id="profileImage" name="profile_image" class="hidden" accept="image/*">
-                <img src="{{ user.image_url|default(url_for('static', filename='images/DefaultAvatar.jpg')) }}" alt="Profile Preview" class="preview-image" id="imagePreview">
-                <label for="profileImage" class="upload-btn">Choose Image</label>
-            </div>
-            
-            <div class="edit-form-group">
-                <label for="street">Street Address</label>
-                <input type="text" id="street" name="street" value="{{ user.address.street|default('45 Coconut Drive') }}">
-            </div>
-            
-            <div class="edit-form-group">
-                <label for="city">City</label>
-                <input type="text" id="city" name="city" value="{{ user.address.city|default('San Fernando') }}">
-            </div>
-            
-            <div class="edit-form-group">
-                <label for="country">Country</label>
-                <input type="text" id="country" name="country" value="{{ user.address.country|default('Trinidad and Tobago') }}">
-            </div>
-            
-            <div class="edit-form-group">
-                <label for="degree">Degree</label>
-                <select id="degree" name="degree">
-                    <option value="BSc" {% if user.degree == 'BSc' %}selected{% endif %}>BSc</option>
-                    <option value="MSc" {% if user.degree == 'MSc' %}selected{% endif %}>MSc</option>
-                    <option value="PhD" {% if user.degree == 'PhD' %}selected{% endif %}>PhD</option>
-                </select>
-            </div>
-            
-            <div class="edit-form-actions">
-                <span class="loading-spinner" id="profileSpinner"></span>
-                <button type="button" class="btn btn-secondary" id="cancelProfileEdit">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Changes</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Update Courses Modal -->
-<div id="coursesModal" class="edit-profile-modal">
-    <div class="modal-content">
-        <span class="modal-close" id="closeCoursesModal">&times;</span>
-        <h2 class="modal-title">Update Course Capabilities</h2>
-        <p class="modal-subtitle">Select the courses you can assist with</p>
-        
-        <form id="updateCoursesForm">
-            <div class="course-selection" id="coursesList">
-                <!-- Course options will be populated here -->
-                <div class="loading-spinner" id="coursesSpinner" style="display: block; margin: 2rem auto;"></div>
-            </div>
-            
-            <div class="edit-form-actions">
-                <span class="loading-spinner" id="courseUpdateSpinner"></span>
-                <button type="button" class="btn btn-secondary" id="cancelCoursesEdit">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Courses</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <!-- Availability Update Modal -->
-<div id="availabilityModal" class="edit-profile-modal">
+<div id="availabilityModal" class="modal">
     <div class="modal-content">
         <span class="modal-close" id="closeAvailabilityModal">&times;</span>
         <h2 class="modal-title">Update Availability</h2>
@@ -538,17 +363,7 @@
         }, 5000);
         
         // Element references
-        const editProfileBtn = document.querySelector('.edit-profile-btn');
         const updateAvailabilityBtn = document.querySelector('.update-availability-btn');
-        const updateCoursesBtn = document.querySelector('.update-courses-btn');
-        
-        // Profile edit modal elements
-        const editProfileModal = document.getElementById('editProfileModal');
-        const editProfileForm = document.getElementById('editProfileForm');
-        const profileCancelBtn = document.getElementById('cancelProfileEdit');
-        const closeProfileModal = document.getElementById('closeProfileModal');
-        const profileImageInput = document.getElementById('profileImage');
-        const profileImagePreview = document.getElementById('imagePreview');
         
         // Availability modal elements
         const availabilityModal = document.getElementById('availabilityModal');
@@ -556,13 +371,7 @@
         const submitAvailabilityBtn = document.getElementById('submitAvailability');
         const cancelAvailabilityBtn = document.getElementById('cancelAvailability');
         const selectableSlots = document.querySelectorAll('.selectable');
-        
-        // Courses modal elements
-        const coursesModal = document.getElementById('coursesModal');
-        const closeCoursesModal = document.getElementById('closeCoursesModal');
-        const updateCoursesForm = document.getElementById('updateCoursesForm');
-        const coursesCancelBtn = document.getElementById('cancelCoursesEdit');
-        
+
         // Time slots in the display
         const timeSlots = [
             '9am - 10am', '10am - 11am', '11am - 12pm', '12pm - 1pm',
@@ -578,38 +387,6 @@
             'FRI': 4
         };
     
-        // --- Profile Image Preview ---
-        if (profileImageInput) {
-            profileImageInput.addEventListener('change', function(e) {
-                if (e.target.files && e.target.files[0]) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        profileImagePreview.src = e.target.result;
-                    }
-                    reader.readAsDataURL(e.target.files[0]);
-                }
-            });
-        }
-        
-        // --- Profile Edit Modal ---
-        if (editProfileBtn) {
-            editProfileBtn.addEventListener('click', function() {
-                editProfileModal.style.display = 'block';
-            });
-        }
-        
-        if (profileCancelBtn) {
-            profileCancelBtn.addEventListener('click', function() {
-                editProfileModal.style.display = 'none';
-            });
-        }
-        
-        if (closeProfileModal) {
-            closeProfileModal.addEventListener('click', function() {
-                editProfileModal.style.display = 'none';
-            });
-        }
-        
         // --- Availability Modal ---
         if (updateAvailabilityBtn) {
             updateAvailabilityBtn.addEventListener('click', function() {
@@ -630,36 +407,10 @@
             });
         }
         
-        // --- Courses Modal ---
-        if (updateCoursesBtn) {
-            updateCoursesBtn.addEventListener('click', function() {
-                loadAvailableCourses();
-                coursesModal.style.display = 'block';
-            });
-        }
-        
-        if (closeCoursesModal) {
-            closeCoursesModal.addEventListener('click', function() {
-                coursesModal.style.display = 'none';
-            });
-        }
-        
-        if (coursesCancelBtn) {
-            coursesCancelBtn.addEventListener('click', function() {
-                coursesModal.style.display = 'none';
-            });
-        }
-        
         // Close modals on outside click
         window.addEventListener('click', function(event) {
-            if (event.target === editProfileModal) {
-                editProfileModal.style.display = 'none';
-            }
             if (event.target === availabilityModal) {
                 availabilityModal.style.display = 'none';
-            }
-            if (event.target === coursesModal) {
-                coursesModal.style.display = 'none';
             }
         });
         
@@ -668,96 +419,6 @@
             selectableSlots.forEach(slot => {
                 slot.addEventListener('click', function() {
                     this.classList.toggle('selected');
-                });
-            });
-        }
-        
-        // Handle profile form submit
-        if (editProfileForm) {
-            editProfileForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const profileSpinner = document.getElementById('profileSpinner');
-                if (profileSpinner) profileSpinner.style.display = 'inline-block';
-                
-                // Create FormData for file upload
-                const formData = new FormData(this);
-                
-                // AJAX request to update profile
-                fetch('/volunteer/update_profile', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (profileSpinner) profileSpinner.style.display = 'none';
-                    
-                    if (data.success) {
-                        // Show success message
-                        showFlashMessage('Profile updated successfully!', 'success');
-                        
-                        // Close modal
-                        editProfileModal.style.display = 'none';
-                        
-                        // Update profile image if it was changed
-                        if (data.image_url) {
-                            const profileDisplayImage = document.getElementById('profileDisplayImage');
-                            if (profileDisplayImage) {
-                                profileDisplayImage.src = data.image_url + '?t=' + new Date().getTime(); // Add timestamp to bypass cache
-                            }
-                        }
-                        
-                        // Update other fields without reload
-                        updateProfileDisplay(formData);
-                    } else {
-                        showFlashMessage('Error updating profile: ' + data.message, 'error');
-                    }
-                })
-                .catch(error => {
-                    if (profileSpinner) profileSpinner.style.display = 'none';
-                    console.error('Error:', error);
-                    showFlashMessage('An error occurred while updating your profile.', 'error');
-                });
-            });
-        }
-        
-        // Handle courses form submit
-        if (updateCoursesForm) {
-            updateCoursesForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const courseUpdateSpinner = document.getElementById('courseUpdateSpinner');
-                if (courseUpdateSpinner) courseUpdateSpinner.style.display = 'inline-block';
-                
-                // Get selected courses
-                const selectedCourses = Array.from(
-                    document.querySelectorAll('input[name="courses[]"]:checked')
-                ).map(checkbox => checkbox.value);
-                
-                // AJAX request to update courses
-                fetch('/volunteer/update_courses', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ courses: selectedCourses })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (courseUpdateSpinner) courseUpdateSpinner.style.display = 'none';
-                    
-                    if (data.success) {
-                        showFlashMessage('Courses updated successfully!', 'success');
-                        coursesModal.style.display = 'none';
-                        
-                        // Update the course tags without page reload
-                        updateCourseDisplay(selectedCourses);
-                    } else {
-                        showFlashMessage('Error updating courses: ' + data.message, 'error');
-                    }
-                })
-                .catch(error => {
-                    if (courseUpdateSpinner) courseUpdateSpinner.style.display = 'none';
-                    console.error('Error:', error);
-                    showFlashMessage('An error occurred while updating your courses.', 'error');
                 });
             });
         }
@@ -879,90 +540,6 @@
             }
         }
         
-        // Function to load available courses
-        function loadAvailableCourses() {
-            const coursesList = document.getElementById('coursesList');
-            const coursesSpinner = document.getElementById('coursesSpinner');
-            
-            if (!coursesList || !coursesSpinner) return;
-            
-            coursesSpinner.style.display = 'block';
-            coursesList.innerHTML = '';
-            
-            fetch('/api/courses')
-            .then(response => response.json())
-            .then(data => {
-                coursesSpinner.style.display = 'none';
-                
-                if (data.courses && data.courses.length > 0) {
-                    // Get current user courses from the data attribute
-                    const courseTags = document.querySelector('.course-tags');
-                    const userCoursesElements = courseTags.querySelectorAll('.course-tag');
-                    const userCourses = Array.from(userCoursesElements).map(el => el.textContent.trim());
-                    
-                    // Create course checkboxes
-                    data.courses.forEach(course => {
-                        const courseItem = document.createElement('div');
-                        courseItem.className = 'course-item';
-                        
-                        const isChecked = userCourses.includes(course.code);
-                        
-                        courseItem.innerHTML = `
-                            <input type="checkbox" id="course-${course.code}" name="courses[]" value="${course.code}" ${isChecked ? 'checked' : ''}>
-                            <label for="course-${course.code}">${course.code}</label>
-                        `;
-                        
-                        coursesList.appendChild(courseItem);
-                    });
-                } else {
-                    coursesList.innerHTML = '<p>No courses available.</p>';
-                }
-            })
-            .catch(error => {
-                coursesSpinner.style.display = 'none';
-                console.error('Error loading courses:', error);
-                coursesList.innerHTML = '<p>Error loading courses. Please try again.</p>';
-            });
-        }
-        
-        // Function to update profile display without reloading
-        function updateProfileDisplay(formData) {
-            const nameValue = document.querySelector('.profile-info-section .role-block .value');
-            const phoneValue = document.querySelector('.profile-info-section .contact-block .value');
-            const emailValue = document.querySelector('.profile-info-section .contact-block .email');
-            const streetValue = document.querySelector('.profile-info-section .address-block .value');
-            const cityValue = document.querySelector('.profile-info-section .address-block .city');
-            const countryValue = document.querySelector('.profile-info-section .address-block .country');
-            
-            if (nameValue) nameValue.textContent = formData.get('name');
-            if (phoneValue) phoneValue.textContent = formData.get('phone');
-            if (emailValue) emailValue.textContent = formData.get('email');
-            if (streetValue) streetValue.textContent = formData.get('street');
-            if (cityValue) cityValue.textContent = formData.get('city');
-            if (countryValue) countryValue.textContent = formData.get('country');
-        }
-        
-        // Function to update course display without reloading
-        function updateCourseDisplay(selectedCourses) {
-            const courseTags = document.querySelector('.course-tags');
-            if (courseTags) {
-                courseTags.innerHTML = '';
-                
-                if (selectedCourses.length > 0) {
-                    selectedCourses.forEach(course => {
-                        const tag = document.createElement('span');
-                        tag.className = 'course-tag';
-                        tag.textContent = course;
-                        courseTags.appendChild(tag);
-                    });
-                } else {
-                    const noCoursesMsg = document.createElement('p');
-                    noCoursesMsg.textContent = 'No courses selected yet.';
-                    courseTags.appendChild(noCoursesMsg);
-                }
-            }
-        }
-    
         // Function to update availability display after submission
         function updateAvailabilityDisplay(selectedSlots) {
             const days = ['MON', 'TUE', 'WED', 'THUR', 'FRI'];

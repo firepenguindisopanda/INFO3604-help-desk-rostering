@@ -123,6 +123,7 @@
         padding: 0.75rem 1.5rem;
     }
     
+    /* Edit Profile Modal */
     .edit-modal {
         display: none;
         position: fixed;
@@ -136,13 +137,15 @@
     
     .edit-modal-content {
         background-color: white;
-        margin: 10% auto;
+        margin: 5% auto;
         padding: 2rem;
         width: 80%;
-        max-width: 600px;
+        max-width: 800px;
         border-radius: 8px;
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         position: relative;
+        max-height: 90vh;
+        overflow-y: auto;
     }
     
     .edit-form-group {
@@ -156,7 +159,8 @@
     }
     
     .edit-form-group input,
-    .edit-form-group select {
+    .edit-form-group select,
+    .edit-form-group textarea {
         width: 100%;
         padding: 0.5rem;
         border: 1px solid #ddd;
@@ -195,6 +199,108 @@
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
+    
+    /* Course selection styles */
+    .course-selection {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 0.75rem;
+        margin: 1rem 0;
+    }
+    
+    .course-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    /* Availability editor styles */
+    .availability-grid {
+        display: grid;
+        grid-template-columns: auto repeat(5, 1fr);
+        gap: 0.5rem;
+        margin: 1rem 0;
+    }
+    
+    .availability-grid .header {
+        padding: 0.5rem;
+        text-align: center;
+        font-weight: 500;
+        background-color: #f8f9fa;
+    }
+    
+    .availability-grid .header-column {
+        text-align: right;
+    }
+    
+    .availability-grid .time-slot {
+        padding: 0.5rem;
+        text-align: center;
+        font-size: 13px;
+        color: #666;
+        border-radius: 4px;
+    }
+    
+    .availability-grid .selectable {
+        cursor: pointer;
+        background-color: #f5f5f5;
+        transition: all 0.2s;
+    }
+    
+    .availability-grid .selectable:hover {
+        background-color: #e5e7eb;
+    }
+    
+    .availability-grid .selectable.selected {
+        background-color: #e6f0ff;
+        color: #0066cc;
+    }
+    
+    /* Email form row */
+    .email-form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Tabs for editing different sections */
+    .edit-tabs {
+        display: flex;
+        border-bottom: 1px solid #eee;
+        margin-bottom: 1.5rem;
+    }
+    
+    .edit-tab {
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+    }
+    
+    .edit-tab.active {
+        border-bottom-color: #0066cc;
+        color: #0066cc;
+        font-weight: 500;
+    }
+    
+    .tab-content {
+        display: none;
+    }
+    
+    .tab-content.active {
+        display: block;
+    }
+    
+    /* Form layout */
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    
+    .form-grid .edit-form-group.full-width {
+        grid-column: span 2;
+    }
 </style>
 {% endblock %}
 
@@ -224,6 +330,11 @@
         <div class="detail-row">
             <div class="detail-label">Rate</div>
             <div class="detail-value">${{ profile.rate }} per hour</div>
+        </div>
+        
+        <div class="detail-row">
+            <div class="detail-label">Email</div>
+            <div class="detail-value">{{ profile.email|default(profile.username ~ '@my.uwi.edu') }}</div>
         </div>
         
         <div class="detail-row">
@@ -271,7 +382,22 @@
     </div>
     
     <div class="action-buttons">
-        <a href="{{ url_for('tracking_views.time_tracking') }}" class="btn btn-secondary">Back to Time Tracking</a>
+        {% if request.referrer and 'tracking' in request.referrer %}
+            <a href="{{ url_for('tracking_views.time_tracking') }}" class="btn btn-secondary">Back to Time Tracking</a>
+        {% elif request.referrer and 'profile' in request.referrer %}
+            <a href="{{ url_for('profile_views.profile') }}" class="btn btn-secondary">Back to Staff Profiles</a>
+        {% else %}
+            <!-- Fallback that shows both options -->
+            <div class="btn-group">
+                <button class="btn btn-secondary dropdown-toggle" type="button" id="backOptions" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    Return to
+                </button>
+                <div class="dropdown-menu" aria-labelledby="backOptions">
+                    <a class="dropdown-item" href="{{ url_for('tracking_views.time_tracking') }}">Time Tracking</a>
+                    <a class="dropdown-item" href="{{ url_for('profile_views.profile') }}">Staff List</a>
+                </div>
+            </div>
+        {% endif %}
         <button class="btn btn-primary" id="generateReportBtn">Generate Attendance Report</button>
     </div>
 </div>
@@ -280,41 +406,92 @@
 <div id="editModal" class="edit-modal">
     <div class="edit-modal-content">
         <button class="close-btn">&times;</button>
-        <h2>Edit Student Profile</h2>
+        <h2>Edit {{ profile.name }}'s Profile</h2>
+        
+        <div class="edit-tabs">
+            <div class="edit-tab active" data-tab="basic">Basic Info</div>
+            <div class="edit-tab" data-tab="courses">Courses</div>
+            <div class="edit-tab" data-tab="availability">Availability</div>
+        </div>
+        
         <form id="editForm">
-            <input type="hidden" id="studentUsername" name="username" value="{{ profile.username }}">
+            <input type="hidden" name="username" value="{{ profile.username }}">
             
-            <div class="edit-form-group">
-                <label for="studentName">Name</label>
-                <input type="text" id="studentName" name="name" value="{{ profile.name }}">
+            <!-- Basic Info Tab -->
+            <div class="tab-content active" id="basic-tab">
+                <div class="form-grid">
+                    <div class="edit-form-group">
+                        <label for="name">Full Name</label>
+                        <input type="text" id="name" name="name" value="{{ profile.name }}">
+                    </div>
+                    
+                    <div class="edit-form-group">
+                        <label for="degree">Degree</label>
+                        <select id="degree" name="degree">
+                            <option value="BSc" {% if profile.degree == 'BSc' %}selected{% endif %}>BSc</option>
+                            <option value="MSc" {% if profile.degree == 'MSc' %}selected{% endif %}>MSc</option>
+                            <option value="PhD" {% if profile.degree == 'PhD' %}selected{% endif %}>PhD</option>
+                        </select>
+                    </div>
+                    
+                    <div class="edit-form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" value="{{ profile.email|default(profile.username ~ '@my.uwi.edu') }}">
+                    </div>
+                    
+                    <div class="edit-form-group">
+                        <label for="phone">Phone Number</label>
+                        <input type="text" id="phone" name="phone" value="{{ profile.phone|default('398-3921') }}">
+                    </div>
+                    
+                    <div class="edit-form-group">
+                        <label for="rate">Hourly Rate ($)</label>
+                        <input type="number" id="rate" name="rate" min="0" step="0.01" value="{{ profile.rate }}">
+                    </div>
+                    
+                    <div class="edit-form-group">
+                        <label for="hours_minimum">Minimum Hours Per Week</label>
+                        <input type="number" id="hours_minimum" name="hours_minimum" min="0" value="{{ profile.hours_minimum }}">
+                    </div>
+                </div>
             </div>
             
-            <div class="edit-form-group">
-                <label for="studentDegree">Degree</label>
-                <select id="studentDegree" name="degree">
-                    <option value="BSc" {% if profile.degree == 'BSc' %}selected{% endif %}>BSc</option>
-                    <option value="MSc" {% if profile.degree == 'MSc' %}selected{% endif %}>MSc</option>
-                    <option value="PhD" {% if profile.degree == 'PhD' %}selected{% endif %}>PhD</option>
-                </select>
+            <!-- Courses Tab -->
+            <div class="tab-content" id="courses-tab">
+                <h3>Course Capabilities</h3>
+                <p>Select the courses this assistant can help with:</p>
+                
+                <div class="course-selection" id="courseSelection">
+                    <div class="loading-spinner" style="display: block; margin: 2rem auto;"></div>
+                    <p>Loading courses...</p>
+                </div>
             </div>
             
-            <div class="edit-form-group">
-                <label for="studentRate">Hourly Rate ($)</label>
-                <input type="number" id="studentRate" name="rate" min="0" step="0.01" value="{{ profile.rate }}">
-            </div>
-            
-            <div class="edit-form-group">
-                <label for="studentMinHours">Minimum Hours</label>
-                <input type="number" id="studentMinHours" name="hours_minimum" min="0" value="{{ profile.hours_minimum }}">
-            </div>
-            
-            <div class="edit-form-group">
-                <label>Status</label>
-                <div>
-                    <input type="radio" id="activeStatus" name="active" value="true" {% if profile.active %}checked{% endif %}>
-                    <label for="activeStatus">Active</label>
-                    <input type="radio" id="inactiveStatus" name="active" value="false" {% if not profile.active %}checked{% endif %}>
-                    <label for="inactiveStatus">Inactive</label>
+            <!-- Availability Tab -->
+            <div class="tab-content" id="availability-tab">
+                <h3>Weekly Availability</h3>
+                <p>Select the time slots when this assistant is available:</p>
+                
+                <div class="availability-grid">
+                    <div class="day-column header-column">
+                        <div class="header"></div>
+                        <div class="time-slot">9am - 10am</div>
+                        <div class="time-slot">10am - 11am</div>
+                        <div class="time-slot">11am - 12pm</div>
+                        <div class="time-slot">12pm - 1pm</div>
+                        <div class="time-slot">1pm - 2pm</div>
+                        <div class="time-slot">2pm - 3pm</div>
+                        <div class="time-slot">3pm - 4pm</div>
+                    </div>
+                    
+                    {% for day_name in ['MON', 'TUE', 'WED', 'THUR', 'FRI'] %}
+                    <div class="day-column">
+                        <div class="header">{{ day_name }}</div>
+                        {% for time_slot in ['9am - 10am', '10am - 11am', '11am - 12pm', '12pm - 1pm', '1pm - 2pm', '2pm - 3pm', '3pm - 4pm'] %}
+                            <div class="time-slot selectable" data-time-slot="{{ time_slot }}" data-day="{{ day_name }}">{{ time_slot }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
             
@@ -347,9 +524,39 @@
         const editForm = document.getElementById('editForm');
         const formSpinner = document.getElementById('formSpinner');
         
+        // Tab navigation
+        const tabs = document.querySelectorAll('.edit-tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                const tabId = this.getAttribute('data-tab');
+                
+                // Remove active class from all tabs and contents
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab and corresponding content
+                this.classList.add('active');
+                document.getElementById(`${tabId}-tab`).classList.add('active');
+                
+                // If courses tab is selected, load courses
+                if (tabId === 'courses' && !document.querySelector('.course-item')) {
+                    loadCourses();
+                }
+                
+                // If availability tab is selected, initialize availability
+                if (tabId === 'availability') {
+                    initializeAvailability();
+                }
+            });
+        });
+        
         // Open modal when edit button is clicked
         editProfileBtn.addEventListener('click', function() {
             editModal.style.display = 'block';
+            // Load courses on first open
+            setTimeout(loadCourses, 100);
         });
         
         // Close modal when cancel is clicked
@@ -369,24 +576,216 @@
             }
         });
         
+        // Toggle time slots
+        function setupTimeSlots() {
+            const slots = document.querySelectorAll('.availability-grid .selectable');
+            slots.forEach(slot => {
+                slot.addEventListener('click', function() {
+                    this.classList.toggle('selected');
+                });
+            });
+        }
+        
+        setupTimeSlots();
+        
+        // Function to load all courses
+        function loadCourses() {
+            const courseSelection = document.getElementById('courseSelection');
+            if (!courseSelection) return;
+            
+            // Show loading spinner
+            courseSelection.innerHTML = '<div class="loading-spinner" style="display: block; margin: 2rem auto;"></div><p>Loading courses...</p>';
+            
+            // Get user's current courses
+            const currentCourses = {{ profile.courses|tojson }};
+            
+            // Fetch all available courses
+            fetch('/api/courses')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.courses) {
+                        courseSelection.innerHTML = '';
+                        
+                        // Sort courses
+                        data.courses.sort((a, b) => a.code.localeCompare(b.code));
+                        
+                        // Create checkbox for each course
+                        data.courses.forEach(course => {
+                            const isChecked = currentCourses.includes(course.code);
+                            
+                            const courseItem = document.createElement('div');
+                            courseItem.className = 'course-item';
+                            
+                            courseItem.innerHTML = `
+                                <input type="checkbox" id="course-${course.code}" name="courses[]" value="${course.code}" ${isChecked ? 'checked' : ''}>
+                                <label for="course-${course.code}">${course.code} - ${course.name}</label>
+                            `;
+                            
+                            courseSelection.appendChild(courseItem);
+                        });
+                    } else {
+                        courseSelection.innerHTML = '<p>No courses available or error loading courses.</p>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading courses:', error);
+                    courseSelection.innerHTML = '<p>Error loading courses. Please try again.</p>';
+                });
+        }
+        
+        // Initialize availability time slots based on current data
+        function initializeAvailability() {
+            // Reset all selections
+            document.querySelectorAll('.availability-grid .selectable').forEach(slot => {
+                slot.classList.remove('selected');
+            });
+            
+            // Get student's availability data
+            const availabilities = {{ profile.availabilities|tojson }};
+            
+            // Map of day names to day codes
+            const dayMapping = {
+                'Monday': 'MON',
+                'Tuesday': 'TUE',
+                'Wednesday': 'WED',
+                'Thursday': 'THUR',
+                'Friday': 'FRI'
+            };
+            
+            // For each availability record
+            availabilities.forEach(avail => {
+                try {
+                    // Get day code (MON, TUE, etc.)
+                    const dayName = avail.Day;
+                    const dayCode = dayMapping[dayName] || dayName;
+                    
+                    // Get time slot from start/end times
+                    const startTime = avail['Start Time'];
+                    const endTime = avail['End Time'];
+                    
+                    // Find matching start time
+                    let matchingTimeSlot = null;
+                    
+                    // Try to match a time slot
+                    if (startTime.includes('09:00') || startTime.includes('9:00')) {
+                        matchingTimeSlot = '9am - 10am';
+                    } else if (startTime.includes('10:00')) {
+                        matchingTimeSlot = '10am - 11am';
+                    } else if (startTime.includes('11:00')) {
+                        matchingTimeSlot = '11am - 12pm';
+                    } else if (startTime.includes('12:00')) {
+                        matchingTimeSlot = '12pm - 1pm';
+                    } else if (startTime.includes('13:00') || startTime.includes('1:00 PM')) {
+                        matchingTimeSlot = '1pm - 2pm';
+                    } else if (startTime.includes('14:00') || startTime.includes('2:00 PM')) {
+                        matchingTimeSlot = '2pm - 3pm';
+                    } else if (startTime.includes('15:00') || startTime.includes('3:00 PM')) {
+                        matchingTimeSlot = '3pm - 4pm';
+                    }
+                    
+                    if (matchingTimeSlot) {
+                        // Find the corresponding time slot element and select it
+                        const slot = document.querySelector(`.availability-grid .selectable[data-day="${dayCode}"][data-time-slot="${matchingTimeSlot}"]`);
+                        if (slot) {
+                            slot.classList.add('selected');
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error processing availability:', e);
+                }
+            });
+        }
+        
         // Form submission
         editForm.addEventListener('submit', function(e) {
             e.preventDefault();
             
+            // Show loading spinner
             formSpinner.style.display = 'inline-block';
             
+            // Get all form values
             const formData = {
-                username: document.getElementById('studentUsername').value,
-                name: document.getElementById('studentName').value,
-                degree: document.getElementById('studentDegree').value,
-                rate: parseFloat(document.getElementById('studentRate').value),
-                hours_minimum: parseInt(document.getElementById('studentMinHours').value),
+                username: document.querySelector('input[name="username"]').value,
+                name: document.getElementById('name').value,
+                degree: document.getElementById('degree').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                rate: parseFloat(document.getElementById('rate').value),
+                hours_minimum: parseInt(document.getElementById('hours_minimum').value),
                 active: document.querySelector('input[name="active"]:checked').value === 'true'
             };
             
-            fetch('/api/student/profile', {
+            // Get selected courses
+            const courseCheckboxes = document.querySelectorAll('input[name="courses[]"]:checked');
+            formData.courses = Array.from(courseCheckboxes).map(checkbox => checkbox.value);
+            
+            // Get selected availability time slots
+            const availabilitySlots = [];
+            const selectedSlots = document.querySelectorAll('.availability-grid .selectable.selected');
+            
+            selectedSlots.forEach(slot => {
+                const dayCode = slot.getAttribute('data-day');
+                const timeSlot = slot.getAttribute('data-time-slot');
+                
+                // Map day codes to day indices
+                const dayMapping = {
+                    'MON': 0,
+                    'TUE': 1,
+                    'WED': 2,
+                    'THUR': 3,
+                    'FRI': 4
+                };
+                
+                const dayIndex = dayMapping[dayCode];
+                
+                // Parse time slot to get start and end time
+                const [startStr, endStr] = timeSlot.split(' - ');
+                
+                // Convert to 24-hour format for database storage
+                const formatTime = (timeStr) => {
+                    if (!timeStr) return "00:00:00";
+                    
+                    let hour, minute, period;
+                    
+                    if (timeStr.includes('am')) {
+                        period = 'am';
+                        timeStr = timeStr.replace('am', '').trim();
+                    } else if (timeStr.includes('pm')) {
+                        period = 'pm';
+                        timeStr = timeStr.replace('pm', '').trim();
+                    }
+                    
+                    if (timeStr.includes(':')) {
+                        [hour, minute] = timeStr.split(':').map(part => parseInt(part, 10));
+                    } else {
+                        hour = parseInt(timeStr, 10);
+                        minute = 0;
+                    }
+                    
+                    if (period === 'pm' && hour < 12) hour += 12;
+                    if (period === 'am' && hour === 12) hour = 0;
+                    
+                    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
+                };
+                
+                // Add to availability slots
+                availabilitySlots.push({
+                    day: dayIndex,
+                    start_time: formatTime(startStr),
+                    end_time: formatTime(endStr)
+                });
+            });
+            
+            formData.availabilities = availabilitySlots;
+            
+            console.log('Submitting staff profile update:', formData);
+            
+            // Send update to server
+            fetch('/api/admin/staff/update-profile', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify(formData)
             })
             .then(response => response.json())
@@ -394,85 +793,87 @@
                 formSpinner.style.display = 'none';
                 
                 if (data.success) {
-                    alert('Profile updated successfully!');
-                    editModal.style.display = 'none';
-                    // Reload page to show updated info
+                    // Show success message
+                    alert('Profile updated successfully! The page will refresh to show the changes.');
+                    
+                    // Reload the page to see changes
                     window.location.reload();
                 } else {
-                    alert('Error: ' + data.message);
+                    alert('Error updating profile: ' + (data.message || 'Unknown error'));
                 }
             })
             .catch(error => {
                 formSpinner.style.display = 'none';
-                console.error('Error:', error);
-                alert('An error occurred while updating the profile');
+                console.error('Error updating profile:', error);
+                alert('An error occurred while updating the profile. Please try again.');
             });
         });
-    });
-    
-    function generateAttendanceReport(staffId, staffName) {
-        // Show a loading indicator
-        const loadingIndicator = document.createElement('div');
-        loadingIndicator.className = 'loading-indicator';
-        loadingIndicator.style.position = 'fixed';
-        loadingIndicator.style.top = '50%';
-        loadingIndicator.style.left = '50%';
-        loadingIndicator.style.transform = 'translate(-50%, -50%)';
-        loadingIndicator.style.background = 'rgba(255, 255, 255, 0.9)';
-        loadingIndicator.style.padding = '2rem';
-        loadingIndicator.style.borderRadius = '8px';
-        loadingIndicator.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
-        loadingIndicator.style.zIndex = '1000';
         
-        loadingIndicator.innerHTML = `
-            <div class="spinner" style="border: 4px solid #f3f3f3; border-top: 4px solid #0066cc; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; margin: 0 auto 1rem;"></div>
-            <p style="text-align: center; margin: 0;">Generating report for ${staffName}...</p>
-            <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
-        `;
-        
-        document.body.appendChild(loadingIndicator);
-        
-        // Make the API request
-        fetch('/api/staff/attendance/report', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                staff_id: staffId,
-                download: true
+        // Function to generate attendance report
+        function generateAttendanceReport(staffId, staffName) {
+            // Show a loading indicator
+            const loadingIndicator = document.createElement('div');
+            loadingIndicator.className = 'loading-indicator';
+            loadingIndicator.style.position = 'fixed';
+            loadingIndicator.style.top = '50%';
+            loadingIndicator.style.left = '50%';
+            loadingIndicator.style.transform = 'translate(-50%, -50%)';
+            loadingIndicator.style.background = 'rgba(255, 255, 255, 0.9)';
+            loadingIndicator.style.padding = '2rem';
+            loadingIndicator.style.borderRadius = '8px';
+            loadingIndicator.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+            loadingIndicator.style.zIndex = '1000';
+            
+            loadingIndicator.innerHTML = `
+                <div class="spinner" style="border: 4px solid #f3f3f3; border-top: 4px solid #0066cc; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; margin: 0 auto 1rem;"></div>
+                <p style="text-align: center; margin: 0;">Generating report for ${staffName}...</p>
+                <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+            `;
+            
+            document.body.appendChild(loadingIndicator);
+            
+            // Make the API request
+            fetch('/api/staff/attendance/report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    staff_id: staffId,
+                    download: true
+                })
             })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Failed to generate report');
-            }
-            return response.blob();
-        })
-        .then(blob => {
-            // Remove loading indicator
-            document.body.removeChild(loadingIndicator);
-            
-            // Create download link
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = `attendance_report_${staffName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
-            
-            document.body.appendChild(a);
-            a.click();
-            
-            setTimeout(() => {
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-            }, 100);
-        })
-        .catch(error => {
-            console.error('Error generating report:', error);
-            document.body.removeChild(loadingIndicator);
-            alert('An error occurred while generating the report. Please try again.');
-        });
-    }
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to generate report');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                // Remove loading indicator
+                document.body.removeChild(loadingIndicator);
+                
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `attendance_report_${staffName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
+                
+                document.body.appendChild(a);
+                a.click();
+                
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                }, 100);
+            })
+            .catch(error => {
+                console.error('Error generating report:', error);
+                document.body.removeChild(loadingIndicator);
+                alert('An error occurred while generating the report. Please try again.');
+            });
+        }
+    });
 </script>
 {% endblock %}
