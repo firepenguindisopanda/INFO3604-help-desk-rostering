@@ -11,7 +11,7 @@ from App.controllers.tracking import (
     generate_attendance_report
 )
 from App.middleware import admin_required
-from App.models import TimeEntry, Student
+from App.models import TimeEntry, Student, HelpDeskAssistant
 import json
 
 tracking_views = Blueprint('tracking_views', __name__, template_folder='../templates')
@@ -20,44 +20,43 @@ tracking_views = Blueprint('tracking_views', __name__, template_folder='../templ
 @jwt_required()
 @admin_required
 def time_tracking():
-    # Hard-coded staff data for the default student
-    staff_data = [{
-        'id': '8',
-        'name': 'Default Student',
-        'image': '/static/images/DefaultAvatar.jpg',
-        'semester_attendance': "10.5",
-        'week_attendance': "5.5",
-        'selected': True
-    }]
+    # Get actual staff data from the database
+    staff_data = get_all_assistant_stats()
+    
+    # If no staff data is returned, handle the empty case
+    if not staff_data:
+        staff_data = []
+    
+    # Mark the first student as selected for initial display
+    if staff_data:
+        staff_data[0]['selected'] = True
     
     # Get current date for display
     now = datetime.utcnow()
     current_week = now.isocalendar()[1]
     current_month = now.strftime('%b')
     
-    # Get all time entries directly
-    entries = TimeEntry.query.all()
-    print(f"Found {len(entries)} time entries")
+    # Determine which assistant's attendance records to show
+    selected_username = staff_data[0]['id'] if staff_data else None
     
-    # Format as attendance records
-    attendance_records = []
-    for entry in entries:
-        try:
-            record = {
-                'staff_id': entry.username,
-                'staff_name': 'Default Student',  # Hard-coded for simplicity
-                'image': '/static/images/DefaultAvatar.jpg',
-                'date': entry.clock_in.strftime('%m-%d-%y') if entry.clock_in else 'Unknown',
-                'day': entry.clock_in.strftime('%A') if entry.clock_in else 'Unknown',
-                'login_time': entry.clock_in.strftime('%I:%M%p') if entry.clock_in else 'ABSENT',
-                'logout_time': entry.clock_out.strftime('%I:%M%p') if entry.clock_out else 
-                              ('ON DUTY' if entry.status == 'active' else 'ABSENT')
-            }
-            attendance_records.append(record)
-        except Exception as e:
-            print(f"Error formatting time entry {entry.id}: {e}")
+    # Get attendance records for the selected assistant
+    if selected_username:
+        # Calculate date range for current week
+        week_start = now - timedelta(days=now.weekday())  # Monday
+        week_end = week_start + timedelta(days=6)  # Sunday
+        
+        attendance_records = get_shift_attendance_records(
+            date_range=(week_start, week_end)
+        )
+        
+        # Filter for just this staff member if specified
+        if selected_username:
+            attendance_records = [r for r in attendance_records if r['staff_id'] == selected_username]
+    else:
+        # No staff selected, show empty records
+        attendance_records = []
     
-    print(f"Prepared {len(attendance_records)} attendance records for display")
+    print(f"Loaded {len(staff_data)} staff members and {len(attendance_records)} attendance records")
     
     return render_template('admin/tracking/index.html',
                           staff_data=staff_data,
@@ -76,30 +75,45 @@ def get_staff_attendance(staff_id):
     
     # Calculate date range based on week number
     now = datetime.utcnow()
-    start_of_year = datetime(now.year, 1, 1)
-    week_number = int(week)
+    year = now.year
     
-    # Adjust for week numbering starting at 1
-    week_start = start_of_year + timedelta(days=(week_number-1)*7)
-    
-    # Adjust to Monday of that week
-    week_start = week_start - timedelta(days=week_start.weekday())
-    week_end = week_start + timedelta(days=6)
-    
-    # Get attendance records
-    attendance_records = get_shift_attendance_records(
-        date_range=(week_start, week_end)
-    )
-    
-    # Filter for just this staff member
-    staff_records = [r for r in attendance_records if r['staff_id'] == staff_id]
-    
-    return jsonify({
-        "staff_id": staff_id,
-        "week": week,
-        "month": month,
-        "attendance_records": staff_records
-    })
+    try:
+        # Convert to integers
+        week_number = int(week)
+        
+        # Calculate the first day of the specified week
+        first_day = datetime(year, 1, 1)
+        if first_day.weekday() > 0:
+            # If the first day is not Monday, adjust to previous Monday
+            first_day = first_day - timedelta(days=first_day.weekday())
+        
+        # Calculate week start and end
+        week_start = first_day + timedelta(weeks=week_number-1)
+        week_end = week_start + timedelta(days=6)
+        
+        # Get attendance records
+        attendance_records = get_shift_attendance_records(
+            date_range=(week_start, week_end)
+        )
+        
+        # Filter for just this staff member
+        staff_records = [r for r in attendance_records if r['staff_id'] == staff_id]
+        
+        return jsonify({
+            "staff_id": staff_id,
+            "week": week,
+            "month": month,
+            "attendance_records": staff_records
+        })
+    except Exception as e:
+        print(f"Error fetching staff attendance: {e}")
+        return jsonify({
+            "staff_id": staff_id,
+            "week": week,
+            "month": month,
+            "error": str(e),
+            "attendance_records": []
+        })
 
 @tracking_views.route('/api/staff/attendance/report', methods=['POST'])
 @jwt_required()
@@ -180,13 +194,19 @@ def raw_time_entries():
     # Format entries for display
     formatted_entries = []
     for entry in entries:
+        # Get student name
+        student = Student.query.get(entry.username)
+        student_name = student.get_name() if student else entry.username
+        
         formatted_entries.append({
             'id': entry.id,
             'username': entry.username,
+            'name': student_name,
             'shift_id': entry.shift_id,
             'clock_in': entry.clock_in.strftime('%Y-%m-%d %H:%M:%S') if entry.clock_in else None,
             'clock_out': entry.clock_out.strftime('%Y-%m-%d %H:%M:%S') if entry.clock_out else None,
-            'status': entry.status
+            'status': entry.status,
+            'hours': entry.get_hours_worked() if entry.status == 'completed' else 'N/A'
         })
     
     # Simple HTML to display entries
@@ -211,10 +231,12 @@ def raw_time_entries():
             <tr>
                 <th>ID</th>
                 <th>Username</th>
+                <th>Name</th>
                 <th>Shift ID</th>
                 <th>Clock In</th>
                 <th>Clock Out</th>
                 <th>Status</th>
+                <th>Hours</th>
             </tr>
             %s
         </table>
@@ -223,7 +245,7 @@ def raw_time_entries():
     """ % (
         len(formatted_entries),
         "\n".join([
-            f"<tr><td>{e['id']}</td><td>{e['username']}</td><td>{e['shift_id']}</td><td>{e['clock_in']}</td><td>{e['clock_out']}</td><td>{e['status']}</td></tr>"
+            f"<tr><td>{e['id']}</td><td>{e['username']}</td><td>{e['name']}</td><td>{e['shift_id']}</td><td>{e['clock_in']}</td><td>{e['clock_out']}</td><td>{e['status']}</td><td>{e['hours']}</td></tr>"
             for e in formatted_entries
         ])
     )

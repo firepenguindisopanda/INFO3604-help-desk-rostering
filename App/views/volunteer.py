@@ -3,7 +3,14 @@ from flask_jwt_extended import jwt_required, current_user
 from werkzeug.utils import secure_filename
 from App.middleware import volunteer_required
 from App.models import Student, HelpDeskAssistant, CourseCapability, Availability, User, Course, TimeEntry
-from App.controllers.tracking import get_student_stats
+from App.controllers.tracking import (
+    get_student_stats, 
+    get_today_shift,
+    get_shift_history,
+    get_time_distribution,
+    clock_in,
+    clock_out
+)
 from App.database import db
 from App.controllers.notification import notify_availability_updated
 import datetime
@@ -11,7 +18,6 @@ import os
 import json
 
 from datetime import datetime, timedelta, time
-
 
 volunteer_views = Blueprint('volunteer_views', __name__, template_folder='../templates')
 
@@ -49,6 +55,121 @@ def dashboard():
                           next_shift=next_shift,
                           my_shifts=my_shifts,
                           full_schedule=full_schedule)
+
+@volunteer_views.route('/volunteer/time_tracking')
+@jwt_required()
+@volunteer_required
+def time_tracking():
+    username = current_user.username
+    
+    # Get student stats
+    stats = get_student_stats(username) or {
+        'daily': {'hours': 0, 'date': datetime.now().strftime('%Y-%m-%d')},
+        'weekly': {'hours': 0, 'start_date': (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.now().strftime('%Y-%m-%d')},
+        'monthly': {'hours': 0, 'month': datetime.now().strftime('%B %Y')},
+        'semester': {'hours': 0},
+        'absences': 0
+    }
+    
+    # Get today's shift information
+    today_shift = get_today_shift(username)
+    
+    # Get shift history
+    shift_history = get_shift_history(username)
+    
+    # Get time distribution data for chart
+    time_distribution = get_time_distribution(username)
+    
+    # Format stats for display
+    now = datetime.now()
+    
+    daily = {
+        "date_range": now.strftime("%d %b, %I:%M %p"),
+        "hours": f"{stats['daily']['hours']:.1f}"
+    }
+    
+    week_start = datetime.strptime(stats['weekly']['start_date'], '%Y-%m-%d')
+    week_end = datetime.strptime(stats['weekly']['end_date'], '%Y-%m-%d')
+    
+    weekly = {
+        "date_range": f"Week {now.isocalendar()[1]}, {week_start.strftime('%b %d')} - {week_end.strftime('%b %d')}",
+        "hours": f"{stats['weekly']['hours']:.1f}"
+    }
+    
+    monthly = {
+        "date_range": stats['monthly']['month'],
+        "hours": f"{stats['monthly']['hours']:.1f}"
+    }
+    
+    semester = {
+        "date_range": "Current Semester",
+        "hours": f"{stats['semester']['hours']:.1f}"
+    }
+    
+    return render_template('volunteer/time_tracking/index.html',
+                          today_shift=today_shift,
+                          shift_history=shift_history,
+                          time_distribution=time_distribution,
+                          daily=daily,
+                          weekly=weekly,
+                          monthly=monthly,
+                          semester=semester)
+
+@volunteer_views.route('/volunteer/time_tracking/clock_in', methods=['POST'])
+@jwt_required()
+@volunteer_required
+def clock_in_endpoint():
+    username = current_user.username
+    
+    # Get today's shift to get the shift_id
+    today_shift = get_today_shift(username)
+    shift_id = today_shift.get('shift_id')
+    
+    # If there's no active shift, return an error
+    if not shift_id or today_shift.get('status') != 'active':
+        return jsonify({
+            'success': False,
+            'message': 'No active shift found for clocking in'
+        })
+    
+    # Check if already clocked in
+    if today_shift.get('starts_now'):
+        return jsonify({
+            'success': False,
+            'message': 'You are already clocked in for this shift'
+        })
+    
+    # Call the clock_in controller
+    result = clock_in(username, shift_id)
+    
+    # Log the result
+    print(f"Clock in result for {username}: {result}")
+    
+    return jsonify(result)
+
+@volunteer_views.route('/volunteer/time_tracking/clock_out', methods=['POST'])
+@jwt_required()
+@volunteer_required
+def clock_out_endpoint():
+    username = current_user.username
+    
+    # Get today's shift to verify clocked in status
+    today_shift = get_today_shift(username)
+    
+    # Verify the user is clocked in
+    if not today_shift.get('starts_now'):
+        return jsonify({
+            'success': False,
+            'message': 'You are not currently clocked in'
+        })
+    
+    # Call the clock_out controller
+    result = clock_out(username)
+    
+    # Log the result
+    print(f"Clock out result for {username}: {result}")
+    
+    return jsonify(result)
 
 @volunteer_views.route('/volunteer/profile')
 @jwt_required()
@@ -126,7 +247,6 @@ def profile():
         print(f"Day {day}: {slots}")
     
     # Get stats
-    from App.controllers.tracking import get_student_stats
     stats = get_student_stats(username) or {
         'daily': {'hours': 0, 'date': datetime.utcnow().strftime('%Y-%m-%d')},
         'weekly': {'hours': 0, 'start_date': (datetime.utcnow() - timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.utcnow().strftime('%Y-%m-%d')},
@@ -408,117 +528,6 @@ def get_courses():
         print(f"Error getting courses: {e}")
         return jsonify({'success': False, 'message': str(e)})
 
-@volunteer_views.route('/volunteer/time_tracking')
-@jwt_required()
-@volunteer_required
-def time_tracking():
-    username = current_user.username
-    
-    # Import controller functions
-    from App.controllers.tracking import (
-        get_student_stats, 
-        get_today_shift,
-        get_shift_history,
-        get_time_distribution
-    )
-    
-    # Get student stats
-    stats = get_student_stats(username) or {
-        'daily': {'hours': 0, 'date': datetime.now().strftime('%Y-%m-%d')},
-        'weekly': {'hours': 0, 'start_date': (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.now().strftime('%Y-%m-%d')},
-        'monthly': {'hours': 0, 'month': datetime.now().strftime('%B %Y')},
-        'semester': {'hours': 0},
-        'absences': 0
-    }
-    
-    # Get today's shift information
-    today_shift = get_today_shift(username)
-    
-    # Get shift history
-    shift_history = get_shift_history(username)
-    
-    # Get time distribution data for chart
-    time_distribution = get_time_distribution(username)
-    
-    # Format stats for display
-    now = datetime.now()
-    
-    daily = {
-        "date_range": now.strftime("%d %b, %I:%M %p"),
-        "hours": f"{stats['daily']['hours']:.1f}"
-    }
-    
-    week_start = datetime.strptime(stats['weekly']['start_date'], '%Y-%m-%d')
-    week_end = datetime.strptime(stats['weekly']['end_date'], '%Y-%m-%d')
-    
-    weekly = {
-        "date_range": f"Week {now.isocalendar()[1]}, {week_start.strftime('%b %d')} - {week_end.strftime('%b %d')}",
-        "hours": f"{stats['weekly']['hours']:.1f}"
-    }
-    
-    monthly = {
-        "date_range": stats['monthly']['month'],
-        "hours": f"{stats['monthly']['hours']:.1f}"
-    }
-    
-    semester = {
-        "date_range": "Current Semester",
-        "hours": f"{stats['semester']['hours']:.1f}"
-    }
-    
-    return render_template('volunteer/time_tracking/index.html',
-                          today_shift=today_shift,
-                          shift_history=shift_history,
-                          time_distribution=time_distribution,
-                          daily=daily,
-                          weekly=weekly,
-                          monthly=monthly,
-                          semester=semester)
-
-@volunteer_views.route('/volunteer/time_tracking/clock_in', methods=['POST'])
-@jwt_required()
-@volunteer_required
-def clock_in_endpoint():
-    from App.controllers.tracking import clock_in as clock_in_controller
-    from App.controllers.tracking import get_today_shift
-    
-    username = current_user.username
-    
-    # Get today's shift to get the shift_id
-    today_shift = get_today_shift(username)
-    shift_id = today_shift.get('shift_id')
-    
-    # If there's no active shift, return an error
-    if not shift_id:
-        return jsonify({
-            'success': False,
-            'message': 'No active shift found for clocking in'
-        })
-    
-    # Call the clock_in controller
-    result = clock_in_controller(username, shift_id)
-    
-    # Log the result
-    print(f"Clock in result for {username}: {result}")
-    
-    return jsonify(result)
-
-@volunteer_views.route('/volunteer/time_tracking/clock_out', methods=['POST'])
-@jwt_required()
-@volunteer_required
-def clock_out_endpoint():
-    from App.controllers.tracking import clock_out as clock_out_controller
-    
-    username = current_user.username
-    
-    # Call the clock_out controller
-    result = clock_out_controller(username)
-    
-    # Log the result
-    print(f"Clock out result for {username}: {result}")
-    
-    return jsonify(result)
-
 @volunteer_views.route('/volunteer/requests')
 @jwt_required()
 @volunteer_required
@@ -570,7 +579,7 @@ def submit_request():
     # Validate required fields
     if not shift_id or not reason:
         flash("Shift and reason are required fields", "error")
-        return redirect(url_for('requests_views.volunteer_requests'))
+        return redirect(url_for('volunteer_views.requests'))
     
     # Create the request
     success, message = create_student_request(
