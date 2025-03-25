@@ -56,7 +56,7 @@ def time_tracking():
         # No staff selected, show empty records
         attendance_records = []
     
-    print(f"Loaded {len(staff_data)} staff members and {len(attendance_records)} attendance records")
+    print(f"Loaded {len(staff_data)} Student Assistant and {len(attendance_records)} attendance records")
     
     return render_template('admin/tracking/index.html',
                           staff_data=staff_data,

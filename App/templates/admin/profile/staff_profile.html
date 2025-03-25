@@ -1,6 +1,6 @@
 {% extends "admin/base.html" %}
 
-{% block title %}{{ profile.name }} - Staff Profile{% endblock %}
+{% block title %}{{ profile.name }} - Student Assistant Profile{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/profile.css') }}">
@@ -778,7 +778,7 @@
             
             formData.availabilities = availabilitySlots;
             
-            console.log('Submitting staff profile update:', formData);
+            console.log('Submitting Student Assistant profile update:', formData);
             
             // Send update to server
             fetch('/api/admin/staff/update-profile', {

@@ -420,7 +420,7 @@ def admin_update_staff_profile():
     
     except Exception as e:
         db.session.rollback()
-        print(f"Error updating staff profile: {e}")
+        print(f"Error updating Student Assistant profile: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({

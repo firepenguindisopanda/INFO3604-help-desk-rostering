@@ -174,7 +174,7 @@ def save_schedule():
                         
                         print(f"Created allocation for staff {staff_id} on shift {shift.id}")
                 else:
-                    print(f"No staff assigned to shift {shift.id}")
+                    print(f"No Student Assistant assigned to shift {shift.id}")
                 
                 successful_assignments += 1
                 
@@ -550,7 +550,7 @@ def get_available_staff():
         })
         
     except Exception as e:
-        print(f"Error getting available staff: {e}")
+        print(f"Error getting available Student Assistant: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({
@@ -648,7 +648,7 @@ def check_staff_availability():
         })
         
     except Exception as e:
-        print(f"Error checking staff availability: {e}")
+        print(f"Error checking Student Assistant availability: {e}")
         return jsonify({
             'status': 'error',
             'message': str(e)
