@@ -5,7 +5,8 @@ from App.controllers.schedule import (
     generate_schedule,
     publish_schedule,
     get_current_schedule,
-    publish_and_notify
+    publish_and_notify,
+    clear_schedule
 )
 from App.models import Schedule, Shift, Allocation, Student
 from App.database import db
@@ -299,6 +300,22 @@ def publish_schedule_endpoint(schedule_id):
     """Publish a schedule and notify all assigned staff"""
     result = publish_schedule(schedule_id)
     return jsonify(result)
+
+@schedule_views.route('/api/schedule/clear', methods=['POST'])
+@jwt_required()
+@admin_required
+def clear_schedule_endpoint():
+    """Clear the entire schedule from the database"""
+    try:
+        # Call the controller function to clear the schedule
+        result = clear_schedule()
+        return jsonify(result)
+    
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 @schedule_views.route('/api/schedule/<int:schedule_id>/publish_with_sync', methods=['POST'])
 @jwt_required()

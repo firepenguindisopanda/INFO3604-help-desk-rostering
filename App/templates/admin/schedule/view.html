@@ -82,6 +82,47 @@
     .btn-success:hover {
         background-color: #059669;
     }
+
+    .schedule-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 2rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .controls-container {
+        background-color: #f5f5f5;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 0 2rem 20px 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .btn-group {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .btn-success {
+        background-color: #10b981;
+        color: white;
+    }
+    
+    .btn-success:hover {
+        background-color: #059669;
+    }
+    
+    .btn-danger {
+        background-color: #ef4444;
+        color: white;
+    }
+    
+    .btn-danger:hover {
+        background-color: #dc2626;
+    }
 </style>
 {% endblock %}
 
@@ -105,6 +146,7 @@
     
     <div class="date-group" style="justify-content: flex-end;">
         <div class="btn-group">
+            <button class="btn btn-danger" id="clearSchedule">Clear Schedule</button>
             <button class="btn btn-primary" id="generateSchedule">Generate Schedule</button>
             <button class="btn btn-primary" id="saveSchedule" style="display: none;">Save Changes</button>
         </div>
@@ -164,13 +206,6 @@
     </table>
 </div>
 
-<div class="schedule-stats" id="scheduleStats" style="display: none;">
-    <h3>Schedule Statistics</h3>
-    <div class="stats-list" id="statsList">
-        <!-- Statistics will be loaded dynamically -->
-    </div>
-</div>
-
 <!-- Staff search modal -->
 <div id="staffSearchModal" class="modal">
     <div class="modal-content">
@@ -184,35 +219,22 @@
         </div>
     </div>
 </div>
+
+
+<div id="clearConfirmModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h2>Confirm Clear Schedule</h2>
+        <p>Are you sure you want to clear the entire schedule? This action cannot be undone.</p>
+        <div class="btn-group" style="margin-top: 20px; justify-content: flex-end;">
+            <button class="btn" id="cancelClear">Cancel</button>
+            <button class="btn btn-danger" id="confirmClear">Clear Schedule</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/admin-schedule.js') }}"></script>
-<script>
-    // Show save button once the schedule is generated or loaded
-    document.addEventListener('DOMContentLoaded', function() {
-        // When a schedule is loaded, show the save button
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                    // Check if schedule is populated
-                    const scheduleStats = document.getElementById('scheduleStats');
-                    if (scheduleStats && scheduleStats.style.display !== 'none') {
-                        // Show save button
-                        const saveBtn = document.getElementById('saveSchedule');
-                        if (saveBtn) {
-                            saveBtn.style.display = 'block';
-                        }
-                    }
-                }
-            });
-        });
-        
-        // Observe changes to the schedule stats div
-        const target = document.getElementById('scheduleStats');
-        if (target) {
-            observer.observe(target, { childList: true, subtree: true });
-        }
-    });
-</script>
+
 {% endblock %}

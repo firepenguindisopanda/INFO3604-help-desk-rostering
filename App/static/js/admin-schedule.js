@@ -32,10 +32,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // --- Load Current Schedule If Available ---
     loadCurrentSchedule();
+
+    initializeClearScheduleButton();
     
     // Preload availability data after schedule loads
     setTimeout(preloadAvailabilityData, 1000);
 });
+
+
 
 function addAvailabilityStyles() {
     const style = document.createElement('style');
@@ -126,7 +130,6 @@ function loadCurrentSchedule() {
     fetch('/api/schedule/current')
         .then(response => {
             if (!response.ok) {
-                // If no schedule exists yet, that's not an error - just don't display anything
                 if (response.status === 404) {
                     console.log("No existing schedule found - nothing to load");
                     loadingIndicator.style.display = 'none';
@@ -143,59 +146,45 @@ function loadCurrentSchedule() {
             
             if (data.status === 'success' && data.schedule && data.schedule.schedule_id !== null) {
                 console.log("Existing schedule found, rendering:", data.schedule);
+                
+                // FIX: Check the day alignment before rendering
+                if (data.schedule.days && data.schedule.days.length > 0) {
+                    // Debug the days array to see what's happening
+                    console.log("Days array:", data.schedule.days.map(d => d.day));
+                    
+                    // Make sure days are in correct order: Monday-Friday
+                    const correctOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+                    const currentOrder = data.schedule.days.map(d => d.day);
+                    
+                    // Check if we need to reorder
+                    if (JSON.stringify(currentOrder) !== JSON.stringify(correctOrder)) {
+                        console.warn("Day order mismatch, fixing alignment");
+                        
+                        // Create a properly ordered days array
+                        const reorderedDays = [];
+                        for (const dayName of correctOrder) {
+                            const dayData = data.schedule.days.find(d => d.day === dayName);
+                            if (dayData) {
+                                reorderedDays.push(dayData);
+                            } else {
+                                // Create empty day if missing
+                                reorderedDays.push({
+                                    day: dayName,
+                                    date: "",
+                                    shifts: []
+                                });
+                            }
+                        }
+                        
+                        // Replace with corrected order
+                        data.schedule.days = reorderedDays;
+                    }
+                }
+                
+                // Now render with the fixed days array
                 renderSchedule(data.schedule.days);
                 
-                // Show schedule stats
-                const statsDiv = document.getElementById('scheduleStats');
-                statsDiv.style.display = 'block';
-                
-                // Add stats
-                const statsList = document.getElementById('statsList');
-                statsList.innerHTML = `
-                    <div class="stat-item">
-                        <div class="stat-label">Schedule ID:</div>
-                        <div class="stat-value">${data.schedule.schedule_id}</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Schedule Date Range:</div>
-                        <div class="stat-value">${data.schedule.date_range}</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Published:</div>
-                        <div class="stat-value">${data.schedule.is_published ? 'Yes' : 'No'}</div>
-                    </div>
-                `;
-                
-                // Add buttons in a container div
-                const buttonContainer = document.createElement('div');
-                buttonContainer.className = 'btn-group';
-                
-                // Add save button if not already published
-                if (!data.schedule.is_published) {
-                    const saveBtn = document.createElement('button');
-                    saveBtn.id = 'saveSchedule';
-                    saveBtn.className = 'btn btn-primary';
-                    saveBtn.textContent = 'Save Changes';
-                    saveBtn.setAttribute('data-schedule-id', data.schedule.schedule_id);
-                    saveBtn.onclick = function() {
-                        saveScheduleChanges();
-                    };
-                    buttonContainer.appendChild(saveBtn);
-                }
-                
-                // Add publish button if not already published
-                if (!data.schedule.is_published) {
-                    const publishBtn = document.createElement('button');
-                    publishBtn.className = 'btn btn-success';
-                    publishBtn.textContent = 'Publish Schedule';
-                    publishBtn.onclick = function() {
-                        publishScheduleWithSync(data.schedule.schedule_id);
-                    };
-                    buttonContainer.appendChild(publishBtn);
-                }
-                
-                // Add the button container to the stats list
-                statsList.appendChild(buttonContainer);
+                // Rest of your existing code...
                 
                 return true; // Signal that we loaded an existing schedule
             } else {
@@ -230,64 +219,11 @@ function loadScheduleData(scheduleId) {
             if (data.status === 'success') {
                 renderSchedule(data.schedule.days);
                 
-                // Show schedule stats
-                const statsDiv = document.getElementById('scheduleStats');
-                statsDiv.style.display = 'block';
-                
-                // Add stats
-                const statsList = document.getElementById('statsList');
-                statsList.innerHTML = `
-                    <div class="stat-item">
-                        <div class="stat-label">Schedule Date Range:</div>
-                        <div class="stat-value">${data.schedule.date_range}</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Published:</div>
-                        <div class="stat-value">${data.schedule.is_published ? 'Yes' : 'No'}</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Schedule Type:</div>
-                        <div class="stat-value">${data.details && !data.details.is_full_week ? 'Partial Week' : 'Full Week'}</div>
-                    </div>
-                `;
-                
-                // Add buttons in a container div for better styling
-                const buttonContainer = document.createElement('div');
-                buttonContainer.className = 'btn-group';
-                
-                // Add save button if it doesn't exist
-                let saveBtn = document.getElementById('saveSchedule');
-                if (!saveBtn) {
-                    saveBtn = document.createElement('button');
-                    saveBtn.id = 'saveSchedule';
-                    saveBtn.className = 'btn btn-primary';
-                    saveBtn.textContent = 'Save Changes';
+                // Update save button with schedule ID
+                const saveBtn = document.getElementById('saveSchedule');
+                if (saveBtn) {
                     saveBtn.setAttribute('data-schedule-id', scheduleId);
-                    saveBtn.style.display = 'block'; // Make sure it's visible
-                    saveBtn.onclick = function() {
-                        saveScheduleChanges();
-                    };
-                    buttonContainer.appendChild(saveBtn);
-                } else {
-                    // Update existing save button
-                    saveBtn.style.display = 'block';
-                    saveBtn.setAttribute('data-schedule-id', scheduleId);
-                    buttonContainer.appendChild(saveBtn);
                 }
-                
-                // Add publish button if not already published
-                if (!data.schedule.is_published) {
-                    const publishBtn = document.createElement('button');
-                    publishBtn.className = 'btn btn-success';
-                    publishBtn.textContent = 'Publish Schedule';
-                    publishBtn.onclick = function() {
-                        publishScheduleWithSync(scheduleId);
-                    };
-                    buttonContainer.appendChild(publishBtn);
-                }
-                
-                // Add the button container to the stats list
-                statsList.appendChild(buttonContainer);
             } else {
                 showNotification(`Failed to load schedule: ${data.message}`, 'error');
             }
@@ -389,6 +325,11 @@ function initializeGenerateButton() {
     const saveBtn = document.getElementById('saveSchedule');
     const loadingIndicator = document.getElementById('loadingIndicator');
   
+    // Make save button always visible
+    if (saveBtn) {
+        saveBtn.style.display = 'block';
+    }
+
     generateBtn.addEventListener('click', function() {
         // Show loading indicator
         loadingIndicator.style.display = 'flex';
@@ -426,9 +367,8 @@ function initializeGenerateButton() {
                 // Show success message
                 showNotification('Schedule generated successfully', 'success');
                 
-                // Show the save button now that we have a schedule
+                // Set the schedule ID on the save button
                 if (saveBtn) {
-                    saveBtn.style.display = 'block';
                     saveBtn.setAttribute('data-schedule-id', data.schedule_id);
                 }
             } else {
@@ -544,25 +484,6 @@ function saveScheduleChanges() {
                 document.querySelectorAll('[data-schedule-id]').forEach(elem => {
                     elem.setAttribute('data-schedule-id', data.schedule_id);
                 });
-                
-                // Add a timestamp to the save to track when it happened
-                const saveTimestamp = document.createElement('div');
-                saveTimestamp.className = 'save-timestamp';
-                saveTimestamp.textContent = `Last saved: ${new Date().toLocaleTimeString()}`;
-                saveTimestamp.style.marginTop = '10px';
-                saveTimestamp.style.color = '#666';
-                saveTimestamp.style.fontSize = '12px';
-                
-                const statsDiv = document.getElementById('scheduleStats');
-                if (statsDiv) {
-                    // Remove any existing timestamp
-                    const existingTimestamp = statsDiv.querySelector('.save-timestamp');
-                    if (existingTimestamp) {
-                        existingTimestamp.remove();
-                    }
-                    
-                    statsDiv.appendChild(saveTimestamp);
-                }
             }
         } else {
             console.error("Failed to save schedule:", data);
@@ -1235,6 +1156,104 @@ function preloadAvailabilityData() {
         }
     });
 }
+
+
+// Add this function to clear the schedule
+function clearSchedule() {
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    loadingIndicator.style.display = 'flex';
+    
+    fetch('/api/schedule/clear', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(errorData => {
+                throw new Error(errorData.message || 'Failed to clear schedule.');
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        loadingIndicator.style.display = 'none';
+        
+        if (data.status === 'success') {
+            showNotification('Schedule cleared successfully', 'success');
+            
+            // Clear the schedule display
+            const scheduleBody = document.getElementById('scheduleBody');
+            scheduleBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="empty-schedule">
+                        <p>No schedule generated yet. Click "Generate Schedule" to create a new schedule.</p>
+                    </td>
+                </tr>
+            `;
+            
+            // Clear any cached data in the UI
+            if (window.availabilityCache) {
+                window.availabilityCache = {};
+            }
+            
+            // Reset any schedule-related attributes
+            document.querySelectorAll('[data-schedule-id]').forEach(elem => {
+                elem.removeAttribute('data-schedule-id');
+            });
+            
+            // Force reload of the page to ensure everything is fresh
+            // Uncomment this if needed:
+            // window.location.reload();
+        } else {
+            showNotification(`Failed to clear schedule: ${data.message}`, 'error');
+        }
+    })
+    .catch(error => {
+        loadingIndicator.style.display = 'none';
+        console.error('Error clearing schedule:', error);
+        showNotification(`An error occurred: ${error.message || 'Unknown error'}`, 'error');
+    });
+}
+
+
+function initializeClearScheduleButton() {
+    const clearBtn = document.getElementById('clearSchedule');
+    const confirmModal = document.getElementById('clearConfirmModal');
+    const cancelBtn = document.getElementById('cancelClear');
+    const confirmBtn = document.getElementById('confirmClear');
+    const closeModalBtn = confirmModal.querySelector('.close-modal');
+    
+    // Open confirmation modal when clear button is clicked
+    clearBtn.addEventListener('click', function() {
+        confirmModal.style.display = 'block';
+    });
+    
+    // Close modal when cancel is clicked
+    cancelBtn.addEventListener('click', function() {
+        confirmModal.style.display = 'none';
+    });
+    
+    // Close modal when X is clicked
+    closeModalBtn.addEventListener('click', function() {
+        confirmModal.style.display = 'none';
+    });
+    
+    // Close modal when clicking outside the modal
+    window.addEventListener('click', function(event) {
+        if (event.target === confirmModal) {
+            confirmModal.style.display = 'none';
+        }
+    });
+    
+    // Execute clear schedule when confirm is clicked
+    confirmBtn.addEventListener('click', function() {
+        clearSchedule();
+        confirmModal.style.display = 'none';
+    });
+}
+
 
 // ==============================
 // UTILITY FUNCTIONS

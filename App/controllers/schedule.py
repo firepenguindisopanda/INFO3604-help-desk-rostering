@@ -643,6 +643,74 @@ def get_assistants_for_shift(shift_id):
     
     return assistants
 
+def clear_schedule():
+    """
+    Clear the entire schedule, removing all shifts, allocations, and course demands.
+    Uses direct database operations to ensure complete removal.
+    
+    Returns:
+        Dictionary with operation status
+    """
+    try:
+        # Get the main schedule
+        schedule = Schedule.query.get(1)
+        
+        if not schedule:
+            return {
+                "status": "success",
+                "message": "No schedule exists to clear"
+            }
+        
+        # Perform deletions in the correct order to avoid foreign key constraint violations
+        
+        # 1. First delete all allocations for this schedule
+        allocation_count = Allocation.query.filter_by(schedule_id=schedule.id).delete()
+        
+        # 2. Get all shift IDs for this schedule
+        shifts = Shift.query.filter_by(schedule_id=schedule.id).all()
+        shift_ids = [shift.id for shift in shifts]
+        shift_count = len(shifts)
+        
+        # 3. Delete all shift course demands using raw SQL
+        if shift_ids:
+            # Convert list to comma-separated string for SQL IN clause
+            shift_ids_str = ','.join(str(id) for id in shift_ids)
+            db.session.execute(
+                text(f"DELETE FROM shift_course_demand WHERE shift_id IN ({shift_ids_str})")
+            )
+        
+        # 4. Delete all shifts for this schedule
+        Shift.query.filter_by(schedule_id=schedule.id).delete()
+        
+        # 5. Reset schedule published status but keep the schedule record
+        schedule.is_published = False
+        db.session.add(schedule)
+        
+        # Commit all changes
+        db.session.commit()
+        
+        # 6. Force database synchronization
+        db.session.expire_all()
+        
+        logger.info(f"Schedule cleared successfully: {shift_count} shifts and {allocation_count} allocations removed")
+        
+        return {
+            "status": "success",
+            "message": "Schedule cleared successfully",
+            "details": {
+                "shifts_removed": shift_count,
+                "allocations_removed": allocation_count
+            }
+        }
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error clearing schedule: {e}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
 def get_current_schedule():
     """Get the current schedule with all shifts"""
     try:
@@ -788,3 +856,4 @@ def get_current_schedule():
         "is_published": schedule.is_published,
         "days": days
     }
+
