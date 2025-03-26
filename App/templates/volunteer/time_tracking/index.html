@@ -1,479 +1,203 @@
 {% extends "volunteer/base.html" %}
 
-{% block title %}Assistant - Time Tracking{% endblock %}
-{% block header_title %}Time Tracking{% endblock %}
+{% block title %}Time Tracking - Help Desk System{% endblock %}
 
 {% block extra_css %}
-<style>
-    /* Today's Shift Card */
-    .shift-info-card {
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        padding: 1.5rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        margin-bottom: 2rem;
-    }
-    
-    .shift-info-card.active {
-        background-color: #ecfdf5; /* Green background for active shifts */
-    }
-    
-    .shift-info-card.future {
-        background-color: #e6f0ff; /* Blue background for future shifts */
-    }
-    
-    .shift-info-card.now {
-        background-color: #fffbeb; /* Yellow background for shifts happening now */
-    }
-    
-    .shift-details p {
-        margin: 0.5rem 0;
-        font-size: 15px;
-    }
-    
-    .action-button {
-        padding: 10px 24px;
-        border-radius: 4px;
-        font-weight: 600;
-        font-size: 14px;
-        cursor: pointer;
-        border: none;
-        text-transform: uppercase;
-        color: white;
-        transition: all 0.2s ease;
-    }
-    
-    .clock-in {
-        background-color: #2563eb;
-    }
-    
-    .clock-in:hover {
-        background-color: #1d4ed8;
-        transform: translateY(-2px);
-    }
-    
-    .clock-out {
-        background-color: #ef4444;
-    }
-    
-    .clock-out:hover {
-        background-color: #dc2626;
-        transform: translateY(-2px);
-    }
-    
-    /* Two Column Layout */
-    .two-column-layout {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1.5rem;
-        margin-bottom: 2rem;
-    }
-    
-    @media (max-width: 768px) {
-        .two-column-layout {
-            grid-template-columns: 1fr;
-        }
-    }
-    
-    /* Shift History Table */
-    .shift-history-table {
-        width: 100%;
-        border-collapse: collapse;
-        background-color: white;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    
-    .shift-history-table th,
-    .shift-history-table td {
-        padding: 12px 16px;
-        text-align: left;
-        border-bottom: 1px solid #eee;
-    }
-    
-    .shift-history-table th {
-        background-color: #f8f9fa;
-        font-weight: 500;
-        color: #555;
-    }
-    
-    .shift-history-table tr:last-child td {
-        border-bottom: none;
-    }
-    
-    /* Time Distribution Chart */
-    .time-distribution {
-        background-color: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        height: 100%;
-    }
-    
-    .time-distribution h3 {
-        margin-top: 0;
-        margin-bottom: 1rem;
-        font-size: 16px;
-        font-weight: 500;
-    }
-    
-    .chart-container {
-        height: 200px;
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        margin-top: 2rem;
-        padding: 0 1rem;
-    }
-    
-    .bar-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        width: 18%;
-    }
-    
-    .bar {
-        width: 100%;
-        background-color: #2563eb;
-        transition: all 0.3s ease;
-        border-radius: 4px 4px 0 0;
-    }
-    
-    .bar-label {
-        margin-top: 0.5rem;
-        font-size: 0.85rem;
-        color: #666;
-    }
-    
-    /* Hours Worked Cards */
-    .hours-worked-section {
-        margin-bottom: 2rem;
-    }
-    
-    .hours-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 1rem;
-    }
-    
-    @media (max-width: 992px) {
-        .hours-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
-    
-    @media (max-width: 576px) {
-        .hours-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-    
-    .hours-card {
-        background-color: #2563eb;
-        color: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        display: flex;
-        flex-direction: column;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .hours-card h3 {
-        margin: 0;
-        font-size: 14px;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-    }
-    
-    .date-range {
-        font-size: 12px;
-        margin-bottom: 1rem;
-        opacity: 0.8;
-    }
-    
-    .hours-value {
-        font-size: 24px;
-        font-weight: 700;
-        margin: 0;
-    }
-    
-    /* Section Titles */
-    .section-title {
-        font-size: 18px;
-        font-weight: 600;
-        margin-bottom: 1rem;
-        color: #333;
-    }
-    
-    /* Empty Messages */
-    .empty-message {
-        text-align: center;
-        padding: 2rem;
-        color: #666;
-        background-color: #f9f9fa;
-        border-radius: 8px;
-        margin-bottom: 1.5rem;
-    }
-    
-    /* Loading Overlay */
-    .loading-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-    }
-    
-    .loading-spinner {
-        width: 50px;
-        height: 50px;
-        border: 5px solid #f3f3f3;
-        border-top: 5px solid #2563eb;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-    }
-    
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/volunteer/time_tracking.css') }}">
 {% endblock %}
 
 {% block content %}
-<section class="today-shift-section">
+<div class="content">
+  <!-- Today's Shift Section -->
+  <div class="today-shift-section">
     <h2 class="section-title">Today's Shift</h2>
-    
-    <div class="shift-info-card {{ today_shift.status }}">
-        <div class="shift-details">
-            <p><strong>Date:</strong> {{ today_shift.date }}</p>
-            <p><strong>Time:</strong> {{ today_shift.start_time }} {% if today_shift.end_time != 'N/A' %}to {{ today_shift.end_time }}{% endif %}</p>
-            
-            {% if today_shift.status == 'future' %}
-                <p><strong>Status:</strong> Upcoming in {{ today_shift.time_until }}</p>
-            {% elif today_shift.status == 'active' %}
-                <p><strong>Status:</strong> Currently active ({{ today_shift.time_left }} remaining)</p>
-            {% elif today_shift.status == 'now' %}
-                <p><strong>Status:</strong> Ready to start</p>
-            {% else %}
-                <p><strong>Status:</strong> No shifts scheduled for today</p>
-            {% endif %}
-        </div>
-
-        {% if today_shift.status == 'active' %}
-            <button id="clockOut" class="action-button clock-out">CLOCK OUT</button>
-        {% elif today_shift.status == 'now' %}
-            <button id="clockIn" class="action-button clock-in">CLOCK IN</button>
+    <div class="shift-info-card">
+      <div class="shift-details">
+        <p><strong>Date:</strong> {{ today_shift.date }}</p>
+        <p><strong>Time:</strong> {{ today_shift.time }}</p>
+        {% if today_shift.status == 'future' %}
+          <p><strong>Starting in:</strong> {{ today_shift.time_until }}</p>
+        {% elif today_shift.status == 'active' %}
+          <p><strong>Time remaining:</strong> {{ today_shift.time_until }}</p>
         {% endif %}
-    </div>
-</section>
-
-<div class="two-column-layout">
-    <section class="shift-history-section">
-        <h2 class="section-title">Shift History</h2>
-        
-        {% if shift_history %}
-            <table class="shift-history-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Shift</th>
-                        <th>Hours</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for shift in shift_history %}
-                    <tr>
-                        <td>{{ shift.date }}</td>
-                        <td>{{ shift.time_range }}</td>
-                        <td>{{ shift.hours }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+      </div>
+      <div>
+        {% if today_shift.status == 'active' and not today_shift.starts_now %}
+          <button class="action-button clock-in" id="clockInBtn">Clock In</button>
+        {% elif today_shift.status == 'active' and today_shift.starts_now %}
+          <button class="action-button clock-out" id="clockOutBtn">Clock Out</button>
+        {% elif today_shift.status == 'future' %}
+          <button class="action-button clock-in" disabled>Clock In (Not Started)</button>
         {% else %}
-            <div class="empty-message">
-                <p>No shift history available yet.</p>
-            </div>
+          <button class="action-button clock-in" disabled>No Shift Today</button>
         {% endif %}
-    </section>
-
-    <section class="summary-section">
-        <h2 class="section-title">Last Week's Summary</h2>
-        <div class="time-distribution">
-            <h3>Time Distribution (Hours per Day)</h3>
-            <div class="chart-container">
-                {% for day in time_distribution %}
-                <div class="bar-container">
-                    <div class="bar" style="height: {{ day.percentage }}%; {% if day.percentage == 0 %}display: none;{% endif %}"></div>
-                    <div class="bar-label">{{ day.label }}</div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </section>
-</div>
-
-<section class="hours-worked-section">
-    <h2 class="section-title">Hours Worked</h2>
-    <div class="hours-grid">
-        <div class="hours-card daily">
-            <h3>DAILY TOTAL</h3>
-            <p class="date-range">{{ daily.date_range }}</p>
-            <p class="hours-value">{{ daily.hours }} hours</p>
-        </div>
-        
-        <div class="hours-card weekly">
-            <h3>WEEKLY TOTAL</h3>
-            <p class="date-range">{{ weekly.date_range }}</p>
-            <p class="hours-value">{{ weekly.hours }} hours</p>
-        </div>
-        
-        <div class="hours-card monthly">
-            <h3>MONTHLY TOTAL</h3>
-            <p class="date-range">{{ monthly.date_range }}</p>
-            <p class="hours-value">{{ monthly.hours }} hours</p>
-        </div>
-        
-        <div class="hours-card semester">
-            <h3>SEMESTER TOTAL</h3>
-            <p class="date-range">{{ semester.date_range }}</p>
-            <p class="hours-value">{{ semester.hours }} hours</p>
-        </div>
+      </div>
     </div>
-</section>
+  </div>
+
+  <!-- Two Column Layout -->
+  <div class="two-column-layout">
+    <!-- Shift History Section -->
+    <div class="shift-history-section">
+      <h2 class="section-title">Recent Shifts</h2>
+      <table class="shift-history-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Hours</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if shift_history %}
+            {% for shift in shift_history %}
+              <tr>
+                <td>{{ shift.date }}</td>
+                <td>{{ shift.time_range }}</td>
+                <td>{{ shift.hours }}</td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="3" style="text-align: center;">No recent shifts</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Time Distribution Chart -->
+    <div class="time-distribution">
+      <h3>Weekly Hours by Day</h3>
+      <div class="chart-container">
+        <div class="chart-y-labels">
+          <span>8h</span>
+          <span>6h</span>
+          <span>4h</span>
+          <span>2h</span>
+          <span>0h</span>
+        </div>
+        <div class="chart">
+          {% for day in time_distribution %}
+            <div class="chart-bar">
+              <div class="bar-value" style="height: {{ day.percentage }}%;"></div>
+              <div class="bar-label">{{ day.label }}<br>{{ day.hours|round(1) }}h</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hours Worked Section -->
+  <div class="hours-worked-section">
+    <h2 class="section-title">Hours Summary</h2>
+    <div class="hours-grid">
+      <div class="hours-card">
+        <h3>TODAY</h3>
+        <div class="date-range">{{ daily.date_range }}</div>
+        <p class="hours-value">{{ daily.hours }}</p>
+      </div>
+      <div class="hours-card">
+        <h3>THIS WEEK</h3>
+        <div class="date-range">{{ weekly.date_range }}</div>
+        <p class="hours-value">{{ weekly.hours }}</p>
+      </div>
+      <div class="hours-card">
+        <h3>THIS MONTH</h3>
+        <div class="date-range">{{ monthly.date_range }}</div>
+        <p class="hours-value">{{ monthly.hours }}</p>
+      </div>
+      <div class="hours-card">
+        <h3>SEMESTER TOTAL</h3>
+        <div class="date-range">{{ semester.date_range }}</div>
+        <p class="hours-value">{{ semester.hours }}</p>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const clockInBtn = document.getElementById('clockIn');
-        const clockOutBtn = document.getElementById('clockOut');
-        
-        // Show loading message function
-        function showLoading(message) {
-            // Create loading message container
-            const loadingContainer = document.createElement('div');
-            loadingContainer.id = 'loadingMessage';
-            loadingContainer.style.position = 'fixed';
-            loadingContainer.style.top = '50%';
-            loadingContainer.style.left = '50%';
-            loadingContainer.style.transform = 'translate(-50%, -50%)';
-            loadingContainer.style.padding = '20px';
-            loadingContainer.style.background = 'rgba(0, 0, 0, 0.7)';
-            loadingContainer.style.color = 'white';
-            loadingContainer.style.borderRadius = '8px';
-            loadingContainer.style.zIndex = '1000';
-            loadingContainer.style.textAlign = 'center';
-            
-            // Add loading spinner
-            const spinner = document.createElement('div');
-            spinner.style.border = '4px solid #f3f3f3';
-            spinner.style.borderTop = '4px solid #2563eb';
-            spinner.style.borderRadius = '50%';
-            spinner.style.width = '40px';
-            spinner.style.height = '40px';
-            spinner.style.margin = '0 auto 10px';
-            spinner.style.animation = 'spin 1s linear infinite';
-            loadingContainer.appendChild(spinner);
-            
-            // Add message
-            const messageText = document.createElement('div');
-            messageText.textContent = message;
-            loadingContainer.appendChild(messageText);
-            
-            // Add keyframe animation for spinner
-            const style = document.createElement('style');
-            style.textContent = '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }';
-            document.head.appendChild(style);
-            
-            // Add to document
-            document.body.appendChild(loadingContainer);
+document.addEventListener('DOMContentLoaded', function() {
+  const clockInBtn = document.getElementById('clockInBtn');
+  const clockOutBtn = document.getElementById('clockOutBtn');
+  
+  if (clockInBtn) {
+    clockInBtn.addEventListener('click', function() {
+      // Disable the button to prevent multiple clicks
+      this.disabled = true;
+      this.textContent = 'Processing...';
+      
+      // Make the API call to clock in
+      fetch('/volunteer/time_tracking/clock_in', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         }
-        
-        // Hide loading message
-        function hideLoading() {
-            const loadingContainer = document.getElementById('loadingMessage');
-            if (loadingContainer) {
-                loadingContainer.remove();
-            }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('Clocked in successfully!');
+          // Reload the page to update status
+          window.location.reload();
+        } else {
+          alert('Error clocking in: ' + data.message);
+          // Re-enable the button if there was an error
+          this.disabled = false;
+          this.textContent = 'Clock In';
         }
-        
-        if (clockInBtn) {
-            clockInBtn.addEventListener('click', function() {
-                // Show loading message
-                showLoading('Clocking in...');
-                
-                // AJAX request to clock in
-                fetch('/volunteer/time_tracking/clock_in', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // Hide loading message
-                    hideLoading();
-                    
-                    if (data.success) {
-                        window.location.reload();
-                    } else {
-                        alert('Error: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    // Hide loading message
-                    hideLoading();
-                    
-                    console.error('Error:', error);
-                    alert('An error occurred while clocking in.');
-                });
-            });
-        }
-        
-        if (clockOutBtn) {
-            clockOutBtn.addEventListener('click', function() {
-                // Show loading message
-                showLoading('Clocking out...');
-                
-                // AJAX request to clock out
-                fetch('/volunteer/time_tracking/clock_out', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // Hide loading message
-                    hideLoading();
-                    
-                    if (data.success) {
-                        window.location.reload();
-                    } else {
-                        alert('Error: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    // Hide loading message
-                    hideLoading();
-                    
-                    console.error('Error:', error);
-                    alert('An error occurred while clocking out.');
-                });
-            });
-        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while clocking in. Please try again.');
+        this.disabled = false;
+        this.textContent = 'Clock In';
+      });
     });
+  }
+  
+  if (clockOutBtn) {
+    clockOutBtn.addEventListener('click', function() {
+      // Confirm before clocking out
+      if (!confirm('Are you sure you want to clock out?')) {
+        return;
+      }
+      
+      // Disable the button to prevent multiple clicks
+      this.disabled = true;
+      this.textContent = 'Processing...';
+      
+      // Make the API call to clock out
+      fetch('/volunteer/time_tracking/clock_out', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('Clocked out successfully! Hours worked: ' + data.hours_worked);
+          // Reload the page to update status
+          window.location.reload();
+        } else {
+          alert('Error clocking out: ' + data.message);
+          // Re-enable the button if there was an error
+          this.disabled = false;
+          this.textContent = 'Clock Out';
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while clocking out. Please try again.');
+        this.disabled = false;
+        this.textContent = 'Clock Out';
+      });
+    });
+  }
+});
 </script>
 {% endblock %}

@@ -79,9 +79,12 @@ def notify_clock_out(username, shift_details):
     message = f"You clocked out for your {shift_details} shift."
     return create_notification(username, message, Notification.TYPE_CLOCK_OUT)
 
-def notify_schedule_published(username, week_number):
+def notify_schedule_published(username, schedule_date_range=None):
     """Notify a user that a new schedule was published"""
-    message = f"Week {week_number} Schedule has been published. Check out your shifts for the week."
+    if schedule_date_range:
+        message = f"A new schedule for {schedule_date_range} has been published. Check out your shifts."
+    else:
+        message = f"A new schedule has been published. Check out your shifts for the upcoming period."
     return create_notification(username, message, Notification.TYPE_SCHEDULE)
 
 def notify_shift_reminder(username, shift_details, minutes_before=15):

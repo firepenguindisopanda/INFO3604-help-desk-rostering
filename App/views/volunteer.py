@@ -3,7 +3,14 @@ from flask_jwt_extended import jwt_required, current_user
 from werkzeug.utils import secure_filename
 from App.middleware import volunteer_required
 from App.models import Student, HelpDeskAssistant, CourseCapability, Availability, User, Course, TimeEntry
-from App.controllers.tracking import get_student_stats
+from App.controllers.tracking import (
+    get_student_stats, 
+    get_today_shift,
+    get_shift_history,
+    get_time_distribution,
+    clock_in,
+    clock_out
+)
 from App.database import db
 from App.controllers.notification import notify_availability_updated
 import datetime
@@ -11,7 +18,6 @@ import os
 import json
 
 from datetime import datetime, timedelta, time
-
 
 volunteer_views = Blueprint('volunteer_views', __name__, template_folder='../templates')
 
@@ -25,7 +31,7 @@ def dashboard():
     # Import the dashboard data controller functions
     from App.controllers.dashboard import get_dashboard_data
     
-    # Get all the data needed for the dashboard
+    # Get all the data needed for the dashboard (with the latest published schedule)
     dashboard_data = get_dashboard_data(username)
     
     if not dashboard_data:
@@ -49,6 +55,121 @@ def dashboard():
                           next_shift=next_shift,
                           my_shifts=my_shifts,
                           full_schedule=full_schedule)
+
+@volunteer_views.route('/volunteer/time_tracking')
+@jwt_required()
+@volunteer_required
+def time_tracking():
+    username = current_user.username
+    
+    # Get student stats
+    stats = get_student_stats(username) or {
+        'daily': {'hours': 0, 'date': datetime.now().strftime('%Y-%m-%d')},
+        'weekly': {'hours': 0, 'start_date': (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.now().strftime('%Y-%m-%d')},
+        'monthly': {'hours': 0, 'month': datetime.now().strftime('%B %Y')},
+        'semester': {'hours': 0},
+        'absences': 0
+    }
+    
+    # Get today's shift information
+    today_shift = get_today_shift(username)
+    
+    # Get shift history
+    shift_history = get_shift_history(username)
+    
+    # Get time distribution data for chart
+    time_distribution = get_time_distribution(username)
+    
+    # Format stats for display
+    now = datetime.now()
+    
+    daily = {
+        "date_range": now.strftime("%d %b, %I:%M %p"),
+        "hours": f"{stats['daily']['hours']:.1f}"
+    }
+    
+    week_start = datetime.strptime(stats['weekly']['start_date'], '%Y-%m-%d')
+    week_end = datetime.strptime(stats['weekly']['end_date'], '%Y-%m-%d')
+    
+    weekly = {
+        "date_range": f"Week {now.isocalendar()[1]}, {week_start.strftime('%b %d')} - {week_end.strftime('%b %d')}",
+        "hours": f"{stats['weekly']['hours']:.1f}"
+    }
+    
+    monthly = {
+        "date_range": stats['monthly']['month'],
+        "hours": f"{stats['monthly']['hours']:.1f}"
+    }
+    
+    semester = {
+        "date_range": "Current Semester",
+        "hours": f"{stats['semester']['hours']:.1f}"
+    }
+    
+    return render_template('volunteer/time_tracking/index.html',
+                          today_shift=today_shift,
+                          shift_history=shift_history,
+                          time_distribution=time_distribution,
+                          daily=daily,
+                          weekly=weekly,
+                          monthly=monthly,
+                          semester=semester)
+
+@volunteer_views.route('/volunteer/time_tracking/clock_in', methods=['POST'])
+@jwt_required()
+@volunteer_required
+def clock_in_endpoint():
+    username = current_user.username
+    
+    # Get today's shift to get the shift_id
+    today_shift = get_today_shift(username)
+    shift_id = today_shift.get('shift_id')
+    
+    # If there's no active shift, return an error
+    if not shift_id or today_shift.get('status') != 'active':
+        return jsonify({
+            'success': False,
+            'message': 'No active shift found for clocking in'
+        })
+    
+    # Check if already clocked in
+    if today_shift.get('starts_now'):
+        return jsonify({
+            'success': False,
+            'message': 'You are already clocked in for this shift'
+        })
+    
+    # Call the clock_in controller
+    result = clock_in(username, shift_id)
+    
+    # Log the result
+    print(f"Clock in result for {username}: {result}")
+    
+    return jsonify(result)
+
+@volunteer_views.route('/volunteer/time_tracking/clock_out', methods=['POST'])
+@jwt_required()
+@volunteer_required
+def clock_out_endpoint():
+    username = current_user.username
+    
+    # Get today's shift to verify clocked in status
+    today_shift = get_today_shift(username)
+    
+    # Verify the user is clocked in
+    if not today_shift.get('starts_now'):
+        return jsonify({
+            'success': False,
+            'message': 'You are not currently clocked in'
+        })
+    
+    # Call the clock_out controller
+    result = clock_out(username)
+    
+    # Log the result
+    print(f"Clock out result for {username}: {result}")
+    
+    return jsonify(result)
 
 @volunteer_views.route('/volunteer/profile')
 @jwt_required()
@@ -77,7 +198,7 @@ def profile():
     
     print(f"Found {len(availabilities)} availability records for {username}")
     
-    # Format availabilities by day - this is the key part that needs fixing
+    # Format availabilities by day
     availability_by_day = {
         'MON': [], 'TUE': [], 'WED': [], 'THUR': [], 'FRI': []
     }
@@ -93,96 +214,51 @@ def profile():
                 print(f"Warning: Invalid day_of_week value: {avail.day_of_week}")
                 continue
                 
-            # Convert database time format (HH:MM:SS) to display format (Ham - Jam)
-            if avail.start_time and avail.end_time:
-                # Extract hours
+            # Format time slot based on the hour
+            if avail.start_time:
                 start_hour = avail.start_time.hour
-                end_hour = avail.end_time.hour
                 
-                # Format to 12-hour with am/pm
-                start_ampm = 'am' if start_hour < 12 else 'pm'
-                end_ampm = 'am' if end_hour < 12 else 'pm'
-                
-                # Convert to 12-hour format
-                start_12h = start_hour if start_hour <= 12 else start_hour - 12
-                end_12h = end_hour if end_hour <= 12 else end_hour - 12
-                
-                # Handle 0 hour (midnight) as 12am
-                if start_hour == 0:
-                    start_12h = 12
-                if end_hour == 0:
-                    end_12h = 12
-                
-                # Format the time slot string exactly as expected in the template
-                time_slot = f"{start_12h}am - {end_12h}pm".replace('0am', 'am').replace('0pm', 'pm')
-                
-                # Special case for 12pm (noon)
-                if start_hour == 12:
-                    time_slot = time_slot.replace('12am', '12pm')
-                if end_hour == 12:
-                    time_slot = time_slot.replace('12pm - ', '12pm - ')
-                
-                # Fix the final format to match expected format in the template
-                if start_hour < 12 and end_hour < 12:
-                    time_slot = f"{start_12h}am - {end_12h}am"
-                elif start_hour >= 12 and end_hour >= 12:
-                    time_slot = f"{start_12h}pm - {end_12h}pm"
-                else:
-                    time_slot = f"{start_12h}am - {end_12h}pm"
-                
-                # Convert exact format for template comparison
-                # Map hours to specific slots
-                expected_slots = {
+                # Map hours to specific slots for display
+                time_slot_mapping = {
                     9: '9am - 10am', 
                     10: '10am - 11am', 
                     11: '11am - 12pm',
                     12: '12pm - 1pm',
                     13: '1pm - 2pm',
                     14: '2pm - 3pm',
-                    15: '3pm - 4pm'
+                    15: '3pm - 4pm',
+                    16: '4pm - 5pm'
                 }
                 
-                if start_hour in expected_slots:
-                    time_slot = expected_slots[start_hour]
-                    print(f"Mapped time slot {avail.start_time}-{avail.end_time} to {time_slot}")
-                    availability_by_day[day_name].append(time_slot)
+                if start_hour in time_slot_mapping:
+                    time_slot = time_slot_mapping[start_hour]
+                    if time_slot not in availability_by_day[day_name]:
+                        availability_by_day[day_name].append(time_slot)
                 else:
-                    print(f"Could not map time slot {avail.start_time}-{avail.end_time} to a standard slot")
+                    print(f"Warning: Hour {start_hour} not in expected time slots")
             else:
-                print(f"Warning: Missing start or end time for availability ID {avail.id}")
+                print(f"Warning: Missing start time for availability ID {avail.id}")
                 
         except Exception as e:
             print(f"Error processing availability {avail.id}: {e}")
-    
-    # Debug: Print the final availability map being sent to the template
-    for day, slots in availability_by_day.items():
-        print(f"Day {day}: {slots}")
     
     # Get stats
     from App.controllers.tracking import get_student_stats
     stats = get_student_stats(username) or {
         'daily': {'hours': 0, 'date': datetime.utcnow().strftime('%Y-%m-%d')},
-        'weekly': {'hours': 0, 'start_date': (datetime.utcnow() - timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.utcnow().strftime('%Y-%m-%d')},
+        'weekly': {'hours': 0, 'start_date': (datetime.utcnow() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.utcnow().strftime('%Y-%m-%d')},
         'monthly': {'hours': 0, 'month': datetime.utcnow().strftime('%B %Y')},
         'semester': {'hours': 0},
         'absences': 0
     }
     
-    # Build user data dictionary with metadata from the profile table if it exists
-    # In a real app, you might have a UserProfile table to store this data
-    profile_data = getattr(student, 'profile_data', None)
-    if profile_data and isinstance(profile_data, str):
+    # Determine if student has profile data
+    profile_data = {}
+    if hasattr(student, 'profile_data') and student.profile_data:
         try:
-            profile_data = json.loads(profile_data)
+            profile_data = json.loads(student.profile_data)
         except:
             profile_data = {}
-    else:
-        profile_data = {}
-    
-    # Determine image URL
-    image_url = None
-    if profile_data and 'image_filename' in profile_data:
-        image_url = url_for('static', filename=f'uploads/{profile_data["image_filename"]}')
     
     # Build user data dictionary
     user_data = {
@@ -190,7 +266,6 @@ def profile():
         "id": username,
         "phone": profile_data.get('phone', '398-3921'),
         "email": profile_data.get('email', f"{username}@my.uwi.edu"),
-        "image_url": image_url,
         "degree": student.degree,
         "address": {
             "street": profile_data.get('street', '45 Coconut Drive'),
@@ -259,7 +334,7 @@ def update_profile():
                 # Secure the filename
                 filename = secure_filename(file.filename)
                 # Add a timestamp to prevent filename collisions
-                timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+                timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
                 filename = f"{username}_{timestamp}_{filename}"
                 
                 # Make sure the upload directory exists
@@ -353,13 +428,13 @@ def update_availability():
         
         # Add new availabilities
         if 'availabilities' in data and data['availabilities']:
-            for day_info in data['availabilities']:
+            for slot in data['availabilities']:
                 try:
-                    day = day_info.get('day', 0)  # 0 for Monday, 1 for Tuesday, etc.
+                    day = slot.get('day', 0)  # 0 for Monday, 1 for Tuesday, etc.
                     
                     # Parse times with proper error handling
-                    start_time_str = day_info.get('start_time', '00:00:00')
-                    end_time_str = day_info.get('end_time', '00:00:00')
+                    start_time_str = slot.get('start_time', '00:00:00')
+                    end_time_str = slot.get('end_time', '00:00:00')
                     
                     # Ensure we have valid time strings before parsing
                     if not isinstance(start_time_str, str) or not isinstance(end_time_str, str):
@@ -367,21 +442,27 @@ def update_availability():
                         continue
                         
                     try:
-                        start_time = datetime.time.fromisoformat(start_time_str)
+                        # Try parsing as HH:MM:SS
+                        hour, minute, second = map(int, start_time_str.split(':'))
+                        start_time = time(hour=hour, minute=minute, second=second)
                     except ValueError:
-                        # Try alternative format
+                        # If that fails, just use the hour
                         try:
-                            start_time = datetime.datetime.strptime(start_time_str, '%H:%M:%S').time()
+                            hour = int(start_time_str.split(':')[0])
+                            start_time = time(hour=hour)
                         except ValueError:
                             print(f"Could not parse start time: {start_time_str}")
                             continue
                             
                     try:
-                        end_time = datetime.time.fromisoformat(end_time_str)
+                        # Try parsing as HH:MM:SS
+                        hour, minute, second = map(int, end_time_str.split(':'))
+                        end_time = time(hour=hour, minute=minute, second=second)
                     except ValueError:
-                        # Try alternative format
+                        # If that fails, just use the hour
                         try:
-                            end_time = datetime.datetime.strptime(end_time_str, '%H:%M:%S').time()
+                            hour = int(end_time_str.split(':')[0])
+                            end_time = time(hour=hour)
                         except ValueError:
                             print(f"Could not parse end time: {end_time_str}")
                             continue
@@ -425,127 +506,21 @@ def update_availability():
 @volunteer_views.route('/api/courses')
 @jwt_required()
 def get_courses():
-    """Get all available courses"""
+    """Get all available courses from the standardized list"""
     try:
-        courses = Course.query.all()
+        # Import the standardized course list
+        from App.models.course_constants import STANDARD_COURSES
+        
+        # Format the courses as required by the frontend
+        formatted_courses = [{'code': code, 'name': name} for code, name in STANDARD_COURSES]
+        
         return jsonify({
             'success': True,
-            'courses': [{'code': course.code, 'name': course.name} for course in courses]
+            'courses': formatted_courses
         })
     except Exception as e:
         print(f"Error getting courses: {e}")
         return jsonify({'success': False, 'message': str(e)})
-
-@volunteer_views.route('/volunteer/time_tracking')
-@jwt_required()
-@volunteer_required
-def time_tracking():
-    username = current_user.username
-    
-    # Import controller functions
-    from App.controllers.tracking import (
-        get_student_stats, 
-        get_today_shift,
-        get_shift_history,
-        get_time_distribution
-    )
-    
-    # Get student stats
-    stats = get_student_stats(username) or {
-        'daily': {'hours': 0, 'date': datetime.now().strftime('%Y-%m-%d')},
-        'weekly': {'hours': 0, 'start_date': (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.now().strftime('%Y-%m-%d')},
-        'monthly': {'hours': 0, 'month': datetime.now().strftime('%B %Y')},
-        'semester': {'hours': 0},
-        'absences': 0
-    }
-    
-    # Get today's shift information
-    today_shift = get_today_shift(username)
-    
-    # Get shift history
-    shift_history = get_shift_history(username)
-    
-    # Get time distribution data for chart
-    time_distribution = get_time_distribution(username)
-    
-    # Format stats for display
-    now = datetime.now()
-    
-    daily = {
-        "date_range": now.strftime("%d %b, %I:%M %p"),
-        "hours": f"{stats['daily']['hours']:.1f}"
-    }
-    
-    week_start = datetime.strptime(stats['weekly']['start_date'], '%Y-%m-%d')
-    week_end = datetime.strptime(stats['weekly']['end_date'], '%Y-%m-%d')
-    
-    weekly = {
-        "date_range": f"Week {now.isocalendar()[1]}, {week_start.strftime('%b %d')} - {week_end.strftime('%b %d')}",
-        "hours": f"{stats['weekly']['hours']:.1f}"
-    }
-    
-    monthly = {
-        "date_range": stats['monthly']['month'],
-        "hours": f"{stats['monthly']['hours']:.1f}"
-    }
-    
-    semester = {
-        "date_range": "Current Semester",
-        "hours": f"{stats['semester']['hours']:.1f}"
-    }
-    
-    return render_template('volunteer/time_tracking/index.html',
-                          today_shift=today_shift,
-                          shift_history=shift_history,
-                          time_distribution=time_distribution,
-                          daily=daily,
-                          weekly=weekly,
-                          monthly=monthly,
-                          semester=semester)
-
-@volunteer_views.route('/volunteer/time_tracking/clock_in', methods=['POST'])
-@jwt_required()
-@volunteer_required
-def clock_in_endpoint():
-    from App.controllers.tracking import clock_in as clock_in_controller
-    from App.controllers.tracking import get_today_shift
-    
-    username = current_user.username
-    
-    # Get today's shift to get the shift_id
-    today_shift = get_today_shift(username)
-    shift_id = today_shift.get('shift_id')
-    
-    # If there's no active shift, return an error
-    if not shift_id:
-        return jsonify({
-            'success': False,
-            'message': 'No active shift found for clocking in'
-        })
-    
-    # Call the clock_in controller
-    result = clock_in_controller(username, shift_id)
-    
-    # Log the result
-    print(f"Clock in result for {username}: {result}")
-    
-    return jsonify(result)
-
-@volunteer_views.route('/volunteer/time_tracking/clock_out', methods=['POST'])
-@jwt_required()
-@volunteer_required
-def clock_out_endpoint():
-    from App.controllers.tracking import clock_out as clock_out_controller
-    
-    username = current_user.username
-    
-    # Call the clock_out controller
-    result = clock_out_controller(username)
-    
-    # Log the result
-    print(f"Clock out result for {username}: {result}")
-    
-    return jsonify(result)
 
 @volunteer_views.route('/volunteer/requests')
 @jwt_required()
@@ -598,7 +573,7 @@ def submit_request():
     # Validate required fields
     if not shift_id or not reason:
         flash("Shift and reason are required fields", "error")
-        return redirect(url_for('requests_views.volunteer_requests'))
+        return redirect(url_for('volunteer_views.requests'))
     
     # Create the request
     success, message = create_student_request(
@@ -614,7 +589,6 @@ def submit_request():
         flash(message, "error")
         
     return redirect(url_for('volunteer_views.requests'))
-
 
 @volunteer_views.route('/debug_availability')
 @jwt_required()

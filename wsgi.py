@@ -6,7 +6,7 @@ from App.database import db, get_migrate
 from App.models import User
 from App.main import create_app
 from App.controllers import ( create_user, get_all_users_json, get_all_users, initialize, 
-    help_desk_scheduler)
+    generate_schedule)
 
 # This commands file allow you to create convenient CLI commands for testing controllers
 
@@ -59,7 +59,7 @@ schedule = AppGroup('schedule', help='Scheduling algorithm commands')
 # This command will be flask schedule hdesk
 @schedule.command("help", help="Creates an optimal solution for the help desk scheduler")
 def schedule_help_desk_command():
-    print(help_desk_scheduler(10, 45, 1))
+    print(generate_schedule(10, 45, 1))
 
 app.cli.add_command(schedule) # add the group to the cli
 
