@@ -20,9 +20,15 @@ LOGGER = logging.getLogger(__name__)
 '''
 class UserUnitTests(unittest.TestCase):
 
-    def test_new_user(self):
-        user = User("bob", "bobpass")
-        assert user.username == "bob"
+    def test_create_user(self):
+        user = User("bob", "bobpass", "admin")
+        self.assertEqual(user.username, "bob")
+        self.assertNotEqual(user.password, "bobpass")  # Ensure password is hashed
+        self.assertEqual(user.type, "admin")
+    
+    def test_default_user_type(self):
+        user = User("alice", "alicepass")
+        self.assertEqual(user.type, "student")  # Default type should be 'student'
 
     # pure function no side effects or integrations called
     def test_get_json(self):
@@ -30,9 +36,15 @@ class UserUnitTests(unittest.TestCase):
         user_json = user.get_json()
         self.assertDictEqual(user_json, {"Username":"bob", "Type":"admin"})
     
+    def test_set_password(self):
+        user = User("bob", "bobpass")
+        old_password_hash = user.password
+        user.set_password("newpass")
+        self.assertNotEqual(user.password, old_password_hash)  # Password hash should change
+        self.assertTrue(check_password_hash(user.password, "newpass"))
+    
     def test_hashed_password(self):
         password = "mypass"
-        hashed = generate_password_hash(password, method='sha256')
         user = User("bob", password)
         assert user.password != password
 
@@ -40,7 +52,20 @@ class UserUnitTests(unittest.TestCase):
         password = "mypass"
         user = User("bob", password)
         assert user.check_password(password)
+        assert not user.check_password("wrongpass")
 
+    def test_is_admin(self):
+        admin_user = User("admin", "adminpass", "admin")
+        student_user = User("student", "studentpass", "student")
+        self.assertTrue(admin_user.is_admin())
+        self.assertFalse(student_user.is_admin())
+
+    def test_is_student(self):
+        admin_user = User("admin", "adminpass", "admin")
+        student_user = User("student", "studentpass", "student")
+        self.assertFalse(admin_user.is_student())
+        self.assertTrue(student_user.is_student())
+    
 '''
     Integration Tests
 '''
@@ -49,10 +74,11 @@ class UserUnitTests(unittest.TestCase):
 # scope="class" would execute the fixture once and resued for all methods in the class
 @pytest.fixture(autouse=True, scope="module")
 def empty_db():
-    app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///test.db'})
-    create_db()
+    app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
+    with app.app_context():
+        db.drop_all()
+        db.create_all()
     yield app.test_client()
-    db.drop_all()
 
 
 def test_authenticate():
@@ -74,5 +100,3 @@ class UsersIntegrationTests(unittest.TestCase):
         update_user("bob", "ronnie")
         user = get_user("ronnie")
         assert user.username == "ronnie"
-        
-
