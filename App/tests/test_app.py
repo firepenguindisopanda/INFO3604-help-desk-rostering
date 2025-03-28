@@ -180,7 +180,19 @@ class AvailabilityUnitTests(unittest.TestCase):
         shift = MockShift(date=datetime(2023, 1, 3), start_time=datetime(2023, 1, 3, 10, 0), end_time=datetime(2023, 1, 3, 12, 0))  # Wrong day
         self.assertFalse(availability.is_available_for_shift(shift))
 
+class CourseCapabilityUnitTests(unittest.TestCase):
+    def test_course_capability_initialization(self):
+        capability = CourseCapability(assistant_username="assistant_user", course_code="CS101")
+        self.assertEqual(capability.assistant_username, "assistant_user")
+        self.assertEqual(capability.course_code, "CS101")
 
+    def test_get_json(self):
+        capability = CourseCapability(assistant_username="assistant_user", course_code="CS101")
+        expected_json = {
+            'Assistant ID': "assistant_user",
+            'Course Code': "CS101"
+        }
+        self.assertEqual(capability.get_json(), expected_json)
 
 '''
     Integration Tests
