@@ -420,6 +420,56 @@ class ScheduleUnitTests(unittest.TestCase):
         }
         self.assertEqual(schedule.get_json(), expected_json)
 
+class SemesterUnitTests(unittest.TestCase):
+    def test_semester_initialization_summer(self):
+        # Test for a summer semester (e.g., starting in August)
+        start_date = datetime(2023, 8, 1)
+        end_date = datetime(2023, 12, 15)
+        semester = Semester(start=start_date, end=end_date)
+        
+        self.assertEqual(semester.academic_year, "2023/2024")
+        self.assertEqual(semester.semester, 1)
+        self.assertEqual(semester.start, start_date)
+        self.assertEqual(semester.end, end_date)
+
+    def test_semester_initialization_winter(self):
+        # Test for a winter semester (e.g., starting in January)
+        start_date = datetime(2023, 1, 15)
+        end_date = datetime(2023, 5, 30)
+        semester = Semester(start=start_date, end=end_date)
+        
+        self.assertEqual(semester.academic_year, "2022/2023")
+        self.assertEqual(semester.semester, 2)
+        self.assertEqual(semester.start, start_date)
+        self.assertEqual(semester.end, end_date)
+
+    def test_semester_initialization_spring(self):
+        # Test for a spring semester (e.g., starting in March)
+        start_date = datetime(2023, 3, 1)
+        end_date = datetime(2023, 6, 30)
+        semester = Semester(start=start_date, end=end_date)
+        
+        self.assertEqual(semester.academic_year, "2022/2023")
+        self.assertEqual(semester.semester, 3)
+        self.assertEqual(semester.start, start_date)
+        self.assertEqual(semester.end, end_date)
+
+    def test_get_json(self):
+        # Test the get_json method
+        start_date = datetime(2023, 8, 1)
+        end_date = datetime(2023, 12, 15)
+        semester = Semester(start=start_date, end=end_date)
+        semester.id = 1  # Manually set the ID for testing
+        
+        expected_json = {
+            'Semester ID': 1,
+            'Academic Year': "2023/2024",
+            'Semester': 1,
+            'Start Date': start_date.date(),
+            'End Date': end_date.date()
+        }
+        self.assertEqual(semester.get_json(), expected_json)
+
 '''
     Integration Tests
 '''
