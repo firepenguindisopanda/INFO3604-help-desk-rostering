@@ -1,9 +1,10 @@
 import os, tempfile, pytest, logging, unittest
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from datetime import time, datetime
 from App.main import create_app
 from App.database import db, create_db
-from App.models import User, Student
+from App.models import *
 from App.controllers import (
     create_user,
     get_all_users_json,
@@ -12,6 +13,12 @@ from App.controllers import (
     update_user
 )
 
+from App.models.course_constants import (
+    get_course_name,
+    get_all_course_codes,
+    get_courses_dict,
+    is_valid_course
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -96,6 +103,22 @@ class StudentUnitTests(unittest.TestCase):
     def test_get_name_without_name_set(self):
         student = Student(username="john_doe", password="securepass")
         self.assertEqual(student.get_name(), "john_doe")  # Should return username if name is not set
+    
+class AdminUnitTests(unittest.TestCase):
+    def test_admin_initialization(self):
+        admin = Admin(username="admin_user", password="securepassword")
+        self.assertEqual(admin.username, "admin_user")
+        # Verify the hashed password
+        self.assertTrue(check_password_hash(admin.password, "securepassword"))
+        self.assertEqual(admin.type, "admin")
+
+    def test_get_json(self):
+        admin = Admin(username="admin_user", password="securepassword")
+        expected_json = {
+            'Admin ID': "admin_user"
+        }
+        self.assertEqual(admin.get_json(), expected_json)
+
 
 '''
     Integration Tests
