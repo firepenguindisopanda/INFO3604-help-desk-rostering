@@ -3,7 +3,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from App.main import create_app
 from App.database import db, create_db
-from App.models import User
+from App.models import User, Student
 from App.controllers import (
     create_user,
     get_all_users_json,
@@ -65,7 +65,38 @@ class UserUnitTests(unittest.TestCase):
         student_user = User("student", "studentpass", "student")
         self.assertFalse(admin_user.is_student())
         self.assertTrue(student_user.is_student())
-    
+
+class StudentUnitTests(unittest.TestCase):
+
+    def test_create_student(self):
+        student = Student(username="john_doe", password="securepass", degree="MSc", name="John Doe", profile_data='{"age": 25}')
+        self.assertEqual(student.username, "john_doe")
+        self.assertEqual(student.degree, "MSc")
+        self.assertEqual(student.name, "John Doe")
+        self.assertEqual(student.profile_data, '{"age": 25}')
+        self.assertEqual(student.type, "student")  # Inherited from User
+
+    def test_default_degree(self):
+        student = Student(username="jane_doe", password="securepass")
+        self.assertEqual(student.degree, "BSc")  # Default degree should be 'BSc'
+
+    def test_get_json(self):
+        student = Student(username="john_doe", password="securepass", degree="MSc", name="John Doe")
+        expected_json = {
+            "Student ID": "john_doe",
+            "Name": "John Doe",
+            "Degree Level": "MSc"
+        }
+        self.assertDictEqual(student.get_json(), expected_json)
+
+    def test_get_name_with_name_set(self):
+        student = Student(username="john_doe", password="securepass", name="John Doe")
+        self.assertEqual(student.get_name(), "John Doe")
+
+    def test_get_name_without_name_set(self):
+        student = Student(username="john_doe", password="securepass")
+        self.assertEqual(student.get_name(), "john_doe")  # Should return username if name is not set
+
 '''
     Integration Tests
 '''
