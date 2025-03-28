@@ -242,6 +242,28 @@ class CourseConstantsUnitTests(unittest.TestCase):
     def test_is_valid_course(self, mock_courses):
         self.assertTrue(is_valid_course('INFO3606'))
         self.assertFalse(is_valid_course('INVALID_CODE'))
+    
+class CourseUnitTests(unittest.TestCase):
+    def test_course_initialization(self):
+        course = Course(code="CS101", name="Introduction to Computer Science", semester=1)
+        self.assertEqual(course.code, "CS101")
+        self.assertEqual(course.name, "Introduction to Computer Science")
+        self.assertEqual(course.semester, 1)
+
+    def test_course_initialization_without_semester(self):
+        course = Course(code="CS102", name="Data Structures")
+        self.assertEqual(course.code, "CS102")
+        self.assertEqual(course.name, "Data Structures")
+        self.assertIsNone(course.semester)
+
+    def test_get_json(self):
+        course = Course(code="CS101", name="Introduction to Computer Science", semester=1)
+        expected_json = {
+            'Course Code': "CS101",
+            'Course Name': "Introduction to Computer Science",
+            'Semester': 1
+        }
+        self.assertEqual(course.get_json(), expected_json)
 
 '''
     Integration Tests
