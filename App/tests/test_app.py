@@ -1,6 +1,7 @@
 import os, tempfile, pytest, logging, unittest
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from unittest.mock import patch
 from datetime import time, datetime
 from App.main import create_app
 from App.database import db, create_db
@@ -193,6 +194,54 @@ class CourseCapabilityUnitTests(unittest.TestCase):
             'Course Code': "CS101"
         }
         self.assertEqual(capability.get_json(), expected_json)
+
+class CourseConstantsUnitTests(unittest.TestCase):
+    def setUp(self):
+        self.mock_courses = [
+            ('INFO3606', 'Cloud Computing'),
+            ('INFO3607', 'Fundamentals of WAN Technologies'),
+            ('INFO3608', 'E-Commerce'),
+        ]
+
+    @patch('App.models.course_constants.STANDARD_COURSES', new_callable=lambda: [
+        ('INFO3606', 'Cloud Computing'),
+        ('INFO3607', 'Fundamentals of WAN Technologies'),
+        ('INFO3608', 'E-Commerce'),
+    ])
+    def test_get_course_name(self, mock_courses):
+        self.assertEqual(get_course_name('INFO3606'), 'Cloud Computing')
+        self.assertEqual(get_course_name('INVALID_CODE'), 'INVALID_CODE')
+
+    @patch('App.models.course_constants.STANDARD_COURSES', new_callable=lambda: [
+        ('INFO3606', 'Cloud Computing'),
+        ('INFO3607', 'Fundamentals of WAN Technologies'),
+        ('INFO3608', 'E-Commerce'),
+    ])
+    def test_get_all_course_codes(self, mock_courses):
+        expected_codes = ['INFO3606', 'INFO3607', 'INFO3608']
+        self.assertListEqual(get_all_course_codes(), expected_codes)
+
+    @patch('App.models.course_constants.STANDARD_COURSES', new_callable=lambda: [
+        ('INFO3606', 'Cloud Computing'),
+        ('INFO3607', 'Fundamentals of WAN Technologies'),
+        ('INFO3608', 'E-Commerce'),
+    ])
+    def test_get_courses_dict(self, mock_courses):
+        expected_dict = {
+            'INFO3606': 'Cloud Computing',
+            'INFO3607': 'Fundamentals of WAN Technologies',
+            'INFO3608': 'E-Commerce',
+        }
+        self.assertDictEqual(get_courses_dict(), expected_dict)
+
+    @patch('App.models.course_constants.STANDARD_COURSES', new_callable=lambda: [
+        ('INFO3606', 'Cloud Computing'),
+        ('INFO3607', 'Fundamentals of WAN Technologies'),
+        ('INFO3608', 'E-Commerce'),
+    ])
+    def test_is_valid_course(self, mock_courses):
+        self.assertTrue(is_valid_course('INFO3606'))
+        self.assertFalse(is_valid_course('INVALID_CODE'))
 
 '''
     Integration Tests
