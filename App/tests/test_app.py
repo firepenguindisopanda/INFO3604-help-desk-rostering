@@ -379,7 +379,46 @@ class RegistrationRequestUnitTests(unittest.TestCase):
         self.registration_request.set_password("securepassword")
         self.assertTrue(check_password_hash(self.registration_request.password, "securepassword"))
 
+class ScheduleUnitTests(unittest.TestCase):
+    def test_schedule_initialization_with_all_parameters(self):
+        start_date = datetime(2023, 1, 1)
+        end_date = datetime(2023, 1, 7)
+        schedule = Schedule(id=1, start_date=start_date, end_date=end_date, semester_id=101)
+        
+        self.assertEqual(schedule.id, 1)
+        self.assertEqual(schedule.start_date, start_date)
+        self.assertEqual(schedule.end_date, end_date)
+        self.assertEqual(schedule.semester_id, 101)
+        self.assertFalse(schedule.is_published)
 
+    def test_schedule_initialization_with_defaults(self):
+        start_date = datetime(2023, 1, 1)
+        schedule = Schedule(start_date=start_date)
+        schedule.id = 1  # Manually set the ID for testing
+        
+        self.assertIsNotNone(schedule.id)
+        self.assertEqual(schedule.start_date, start_date)
+        self.assertEqual(schedule.end_date, start_date + timedelta(days=6))  # Default end_date is 6 days after start_date
+        self.assertIsNone(schedule.semester_id)
+        self.assertFalse(schedule.is_published)
+
+    def test_get_json(self):
+        start_date = datetime(2023, 1, 1)
+        end_date = datetime(2023, 1, 7)
+        generated_at = datetime(2023, 1, 1, 12, 0, 0)
+        
+        schedule = Schedule(id=1, start_date=start_date, end_date=end_date, semester_id=101)
+        schedule.generated_at = generated_at  # Manually set generated_at for testing
+        
+        expected_json = {
+            'Schedule ID': 1,
+            'Start Date': "2023-01-01",
+            'End Date': "2023-01-07",
+            'Generated At': "2023-01-01 12:00:00",
+            'Published': False,
+            'Semester ID': 101  # Include Semester ID in expected JSON
+        }
+        self.assertEqual(schedule.get_json(), expected_json)
 
 '''
     Integration Tests
