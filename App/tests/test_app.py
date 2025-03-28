@@ -324,6 +324,62 @@ class RequestUnitTests(unittest.TestCase):
         }
         self.assertEqual(self.request.get_json(), expected_json)
 
+class RegistrationRequestUnitTests(unittest.TestCase):
+    def setUp(self):
+        # Create a sample registration request object for testing
+        self.registration_request = RegistrationRequest(
+            username="student_user",
+            name="John Doe",
+            email="student@example.com",
+            degree="BSc",
+            reason="Enrollment",
+            phone="1234567890",
+            transcript_path="/path/to/transcript.pdf"
+        )
+        # Manually set attributes that are typically managed by the database
+        self.registration_request.id = 1
+        self.registration_request.status = "PENDING"
+        self.registration_request.created_at = datetime(2023, 1, 1, 8, 0, 0)
+        self.registration_request.processed_at = None
+        self.registration_request.processed_by = None
+
+    def test_approve(self):
+        self.registration_request.approve(admin_username="admin_user")
+        self.assertEqual(self.registration_request.status, "APPROVED")
+        self.assertIsInstance(self.registration_request.processed_at, datetime)
+        self.assertAlmostEqual(self.registration_request.processed_at, datetime.utcnow(), delta=timedelta(seconds=1))
+        self.assertEqual(self.registration_request.processed_by, "admin_user")
+
+    def test_reject(self):
+        self.registration_request.reject(admin_username="admin_user")
+        self.assertEqual(self.registration_request.status, "REJECTED")
+        self.assertIsInstance(self.registration_request.processed_at, datetime)
+        self.assertAlmostEqual(self.registration_request.processed_at, datetime.utcnow(), delta=timedelta(seconds=1))
+        self.assertEqual(self.registration_request.processed_by, "admin_user")
+
+    def test_get_json(self):
+        self.registration_request.approve(admin_username="admin_user")  # Approve the request to set processed fields
+        expected_json = {
+            'id': 1,
+            'username': "student_user",
+            'name': "John Doe",
+            'email': "student@example.com",
+            'phone': "1234567890",
+            'degree': "BSc",
+            'reason': "Enrollment",
+            'transcript_path': "/path/to/transcript.pdf",
+            'status': "APPROVED",
+            'created_at': "2023-01-01 08:00:00",
+            'processed_at': self.registration_request.processed_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'processed_by': "admin_user"
+        }
+        self.assertEqual(self.registration_request.get_json(), expected_json)
+
+    def test_set_password(self):
+        self.registration_request.set_password("securepassword")
+        self.assertTrue(check_password_hash(self.registration_request.password, "securepassword"))
+
+
 
 '''
     Integration Tests
