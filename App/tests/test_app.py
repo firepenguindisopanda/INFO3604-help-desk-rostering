@@ -2,7 +2,7 @@ import os, tempfile, pytest, logging, unittest
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from unittest.mock import patch
-from datetime import time, datetime
+from datetime import time, datetime, timedelta
 from App.main import create_app
 from App.database import db, create_db
 from App.models import *
@@ -264,6 +264,66 @@ class CourseUnitTests(unittest.TestCase):
             'Semester': 1
         }
         self.assertEqual(course.get_json(), expected_json)
+
+class RequestUnitTests(unittest.TestCase):
+    def setUp(self):
+        # Create a sample request object for testing
+        self.request = Request(
+            username="student_user",
+            shift_id=101,
+            date=datetime(2023, 1, 1),
+            time_slot="09:00-12:00",
+            reason="Personal",
+            replacement=None,
+            status="PENDING"
+        )
+        # Manually set attributes that are typically managed by the database
+        self.request.id = 1
+        self.request.created_at = datetime(2023, 1, 1, 8, 0, 0)  # Set created_at
+        self.request.approved_at = None
+        self.request.rejected_at = None
+
+    def test_approve(self):
+        self.request.approve()
+        self.assertEqual(self.request.status, "APPROVED")
+        self.assertIsInstance(self.request.approved_at, datetime)
+        self.assertAlmostEqual(self.request.approved_at, datetime.utcnow(), delta=timedelta(seconds=1))
+
+    def test_reject(self):
+        self.request.reject()
+        self.assertEqual(self.request.status, "REJECTED")
+        self.assertIsInstance(self.request.rejected_at, datetime)
+        self.assertAlmostEqual(self.request.rejected_at, datetime.utcnow(), delta=timedelta(seconds=1))
+
+    def test_cancel_pending_request(self):
+        result = self.request.cancel()
+        self.assertTrue(result)
+        self.assertEqual(self.request.status, "CANCELLED")
+
+    def test_cancel_non_pending_request(self):
+        self.request.status = "APPROVED"
+        result = self.request.cancel()
+        self.assertFalse(result)
+        self.assertEqual(self.request.status, "APPROVED")
+
+    def test_get_json(self):
+        self.request.created_at = datetime(2023, 1, 1, 8, 0, 0)  # Ensure created_at is set
+        self.request.approve()  # Approve the request to set `approved_at`
+        expected_json = {
+            'id': 1,
+            'username': "student_user",
+            'shift_id': 101,
+            'date': "2023-01-01",
+            'time_slot': "09:00-12:00",
+            'reason': "Personal",
+            'replacement': None,
+            'status': "APPROVED",
+            'created_at': "2023-01-01 08:00:00",  # Include created_at in expected JSON
+            'approved_at': self.request.approved_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'rejected_at': None
+        }
+        self.assertEqual(self.request.get_json(), expected_json)
+
 
 '''
     Integration Tests
