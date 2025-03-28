@@ -470,6 +470,36 @@ class SemesterUnitTests(unittest.TestCase):
         }
         self.assertEqual(semester.get_json(), expected_json)
 
+class ShiftCourseDemandUnitTests(unittest.TestCase):
+    def test_initialization_with_all_parameters(self):
+        demand = ShiftCourseDemand(shift_id=101, course_code="CS101", tutors_required=3, weight=5)
+        
+        self.assertEqual(demand.shift_id, 101)
+        self.assertEqual(demand.course_code, "CS101")
+        self.assertEqual(demand.tutors_required, 3)
+        self.assertEqual(demand.weight, 5)
+
+    def test_initialization_with_defaults(self):
+        demand = ShiftCourseDemand(shift_id=102, course_code="CS102")
+        
+        self.assertEqual(demand.shift_id, 102)
+        self.assertEqual(demand.course_code, "CS102")
+        self.assertEqual(demand.tutors_required, 2)  # Default value
+        self.assertEqual(demand.weight, 2)  # Default weight matches tutors_required
+
+    def test_get_json(self):
+        demand = ShiftCourseDemand(shift_id=101, course_code="CS101", tutors_required=3, weight=5)
+        demand.id = 1  # Manually set the ID for testing
+        
+        expected_json = {
+            'ID': 1,
+            'Shift ID': 101,
+            'Course Code': "CS101",
+            'Tutors Required': 3,
+            'Weight': 5
+        }
+        self.assertEqual(demand.get_json(), expected_json)
+
 '''
     Integration Tests
 '''
