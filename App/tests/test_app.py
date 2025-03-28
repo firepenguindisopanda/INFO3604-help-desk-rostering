@@ -119,6 +119,28 @@ class AdminUnitTests(unittest.TestCase):
         }
         self.assertEqual(admin.get_json(), expected_json)
 
+class AllocationUnitTests(unittest.TestCase):
+    def test_allocation_initialization(self):
+        allocation = Allocation(username="student_user", shift_id=1, schedule_id=2)
+        allocation.created_at = datetime.utcnow()  # Explicitly set created_at for testing
+        self.assertEqual(allocation.username, "student_user")
+        self.assertEqual(allocation.shift_id, 1)
+        self.assertEqual(allocation.schedule_id, 2)
+        self.assertIsInstance(allocation.created_at, datetime)
+
+    def test_get_json(self):
+        allocation = Allocation(username="student_user", shift_id=1, schedule_id=2)
+        allocation.id = 100  # Simulate database-assigned ID
+        allocation.created_at = datetime(2023, 1, 1, 12, 0, 0)  # Set a fixed datetime for testing
+        expected_json = {
+            'Allocation ID': 100,
+            'Student ID': "student_user",
+            'Shift ID': 1,
+            'Schedule ID': 2,
+            'Created At': "2023-01-01 12:00:00"
+        }
+        self.assertEqual(allocation.get_json(), expected_json)
+
 
 '''
     Integration Tests
