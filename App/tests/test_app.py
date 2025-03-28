@@ -500,6 +500,66 @@ class ShiftCourseDemandUnitTests(unittest.TestCase):
         }
         self.assertEqual(demand.get_json(), expected_json)
 
+class ShiftUnitTests(unittest.TestCase):
+    def setUp(self):
+        # Create a sample shift object for testing
+        self.shift = Shift(
+            date=datetime(2023, 1, 1),
+            start_time=datetime(2023, 1, 1, 9, 0),
+            end_time=datetime(2023, 1, 1, 12, 0),
+            schedule_id=101
+        )
+        self.shift.id = 1  # Manually set the ID for testing
+
+    def test_shift_initialization(self):
+        self.assertEqual(self.shift.date, datetime(2023, 1, 1))
+        self.assertEqual(self.shift.start_time, datetime(2023, 1, 1, 9, 0))
+        self.assertEqual(self.shift.end_time, datetime(2023, 1, 1, 12, 0))
+        self.assertEqual(self.shift.schedule_id, 101)
+
+    def test_get_json(self):
+        # Add real course demands
+        self.shift.course_demands = [
+            ShiftCourseDemand(shift_id=self.shift.id, course_code="CS101", tutors_required=2, weight=3),
+            ShiftCourseDemand(shift_id=self.shift.id, course_code="CS102", tutors_required=3, weight=4)
+        ]
+        expected_json = {
+            'Shift ID': 1,
+            'Date': "2023-01-01",
+            'Start Time': "09:00",
+            'End Time': "12:00",
+            'Schedule ID': 101,
+            'Course Demands': [
+                {
+                    'ID': None,  # ID is not set because it's managed by the database
+                    'Shift ID': 1,
+                    'Course Code': "CS101",
+                    'Tutors Required': 2,
+                    'Weight': 3
+                },
+                {
+                    'ID': None,
+                    'Shift ID': 1,
+                    'Course Code': "CS102",
+                    'Tutors Required': 3,
+                    'Weight': 4
+                }
+            ]
+        }
+        self.assertEqual(self.shift.get_json(), expected_json)
+
+    def test_formatted_time(self):
+        self.assertEqual(self.shift.formatted_time(), "09:00 AM to 12:00 PM")
+
+    def test_add_course_demand(self):
+        # Initialize course demands list
+        self.shift.course_demands = []
+        self.shift.add_course_demand(course_code="CS101", tutors_required=3, weight=5)
+        self.assertEqual(len(self.shift.course_demands), 1)
+        self.assertEqual(self.shift.course_demands[0].course_code, "CS101")
+        self.assertEqual(self.shift.course_demands[0].tutors_required, 3)
+        self.assertEqual(self.shift.course_demands[0].weight, 5)
+
 '''
     Integration Tests
 '''
