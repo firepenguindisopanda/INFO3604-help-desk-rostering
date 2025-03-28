@@ -141,6 +141,46 @@ class AllocationUnitTests(unittest.TestCase):
         }
         self.assertEqual(allocation.get_json(), expected_json)
 
+   
+class MockShift:
+    """Mock Shift class for testing is_available_for_shift"""
+    def __init__(self, date, start_time, end_time):
+        self.date = date
+        self.start_time = start_time
+        self.end_time = end_time
+
+class AvailabilityUnitTests(unittest.TestCase):
+    def test_availability_initialization(self):
+        availability = Availability(username="student_user", day_of_week=0, start_time=time(9, 0), end_time=time(17, 0))
+        self.assertEqual(availability.username, "student_user")
+        self.assertEqual(availability.day_of_week, 0)
+        self.assertEqual(availability.start_time, time(9, 0))
+        self.assertEqual(availability.end_time, time(17, 0))
+
+    def test_get_json(self):
+        availability = Availability(username="student_user", day_of_week=0, start_time=time(9, 0), end_time=time(17, 0))
+        availability.id = 100  # Simulate database-assigned ID
+        expected_json = {
+            'Availability ID': 100,
+            'Student ID': "student_user",
+            'Day': "Monday",
+            'Start Time': "09:00",
+            'End Time': "17:00"
+        }
+        self.assertEqual(availability.get_json(), expected_json)
+
+    def test_is_available_for_shift(self):
+        availability = Availability(username="student_user", day_of_week=0, start_time=time(9, 0), end_time=time(17, 0))
+        shift = MockShift(date=datetime(2023, 1, 2), start_time=datetime(2023, 1, 2, 10, 0), end_time=datetime(2023, 1, 2, 12, 0))  # Monday
+        self.assertTrue(availability.is_available_for_shift(shift))
+
+        shift = MockShift(date=datetime(2023, 1, 2), start_time=datetime(2023, 1, 2, 8, 0), end_time=datetime(2023, 1, 2, 10, 0))  # Outside availability
+        self.assertFalse(availability.is_available_for_shift(shift))
+
+        shift = MockShift(date=datetime(2023, 1, 3), start_time=datetime(2023, 1, 3, 10, 0), end_time=datetime(2023, 1, 3, 12, 0))  # Wrong day
+        self.assertFalse(availability.is_available_for_shift(shift))
+
+
 
 '''
     Integration Tests
