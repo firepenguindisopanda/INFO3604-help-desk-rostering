@@ -720,6 +720,52 @@ class NotificationModelTests(unittest.TestCase):
         db.session.query(Notification).delete()
         db.session.commit()
 
+class SemesterModelTests(unittest.TestCase):
+
+    def test_create_semester_first_semester(self):
+        start_date = datetime(2025, 9, 1)  # September 1, 2025
+        end_date = datetime(2025, 12, 15)  # December 15, 2025
+        semester = Semester(start=start_date, end=end_date)
+
+        self.assertEqual(semester.academic_year, "2025/2026")
+        self.assertEqual(semester.semester, 1)
+        self.assertEqual(semester.start, start_date)
+        self.assertEqual(semester.end, end_date)
+
+    def test_create_semester_second_semester(self):
+        start_date = datetime(2025, 1, 15)  # January 15, 2025
+        end_date = datetime(2025, 5, 30)   # May 30, 2025
+        semester = Semester(start=start_date, end=end_date)
+
+        self.assertEqual(semester.academic_year, "2024/2025")
+        self.assertEqual(semester.semester, 2)
+        self.assertEqual(semester.start, start_date)
+        self.assertEqual(semester.end, end_date)
+
+    def test_create_semester_third_semester(self):
+        start_date = datetime(2025, 5, 15)  # May 15, 2025
+        end_date = datetime(2025, 8, 15)   # August 15, 2025
+        semester = Semester(start=start_date, end=end_date)
+
+        self.assertEqual(semester.academic_year, "2024/2025")
+        self.assertEqual(semester.semester, 3)
+        self.assertEqual(semester.start, start_date)
+        self.assertEqual(semester.end, end_date)
+
+    def test_get_json(self):
+        start_date = datetime(2025, 9, 1)  # September 1, 2025
+        end_date = datetime(2025, 12, 15)  # December 15, 2025
+        semester = Semester(start=start_date, end=end_date)
+
+        expected_json = {
+            'Semester ID': None,  # ID is None because it's not saved to the database
+            'Academic Year': "2025/2026",
+            'Semester': 1,
+            'Start Date': start_date.date(),
+            'End Date': end_date.date()
+        }
+        self.assertDictEqual(semester.get_json(), expected_json)
+
 '''
     Integration Tests
 '''
