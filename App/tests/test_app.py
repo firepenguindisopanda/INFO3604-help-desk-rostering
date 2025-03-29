@@ -1,7 +1,7 @@
 import os, tempfile, pytest, logging, unittest
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from datetime import time, datetime, timedelta
 from App.main import create_app
 from App.database import db, create_db
@@ -559,6 +559,93 @@ class ShiftUnitTests(unittest.TestCase):
         self.assertEqual(self.shift.course_demands[0].course_code, "CS101")
         self.assertEqual(self.shift.course_demands[0].tutors_required, 3)
         self.assertEqual(self.shift.course_demands[0].weight, 5)
+
+class HelpDeskAssistantModelUnitTests(unittest.TestCase):
+
+    def test_create_help_desk_assistant_default_values(self):
+        # Mock the Student.query.get method to return None
+        Student.query = MagicMock()
+        Student.query.get.return_value = None
+
+        assistant = HelpDeskAssistant("student1")
+        self.assertEqual(assistant.username, "student1")
+        self.assertEqual(assistant.rate, 20.00)  # Default rate
+        self.assertTrue(assistant.active)  # Default active state
+        self.assertEqual(assistant.hours_worked, 0)  # Default hours worked
+        self.assertEqual(assistant.hours_minimum, 4)  # Default minimum hours
+
+    def test_create_help_desk_assistant_with_student(self):
+        # Mock the Student object with a degree
+        mock_student = MagicMock()
+        mock_student.degree = "MSc"
+        Student.query = MagicMock()
+        Student.query.get.return_value = mock_student
+
+        assistant = HelpDeskAssistant("student1")
+        self.assertEqual(assistant.username, "student1")
+        self.assertEqual(assistant.rate, 35.00)  # MSc rate
+        self.assertTrue(assistant.active)
+
+    def test_get_json(self):
+        # Mock the Student.query.get method to return None
+        Student.query = MagicMock()
+        Student.query.get.return_value = None
+
+        assistant = HelpDeskAssistant("student1")
+        assistant.hours_worked = 10
+        assistant.hours_minimum = 5
+        assistant.active = False
+        assistant.course_capabilities = [MagicMock(course_code="INFO3604"), MagicMock(course_code="COMP1601")]
+
+        expected_json = {
+            'Student ID': "student1",
+            'Rate': "$20.0",
+            'Account State': "Inactive",
+            'Hours Worked': 10,
+            'Minimum Hours': 5,
+            'Course Capabilities': ["INFO3604", "COMP1601"]
+        }
+        self.assertDictEqual(assistant.get_json(), expected_json)
+
+    def test_activate(self):
+        assistant = HelpDeskAssistant("student1")
+        assistant.active = False
+        assistant.activate()
+        self.assertTrue(assistant.active)
+
+    def test_deactivate(self):
+        assistant = HelpDeskAssistant("student1")
+        assistant.active = True
+        assistant.deactivate()
+        self.assertFalse(assistant.active)
+
+    def test_set_minimum_hours(self):
+        assistant = HelpDeskAssistant("student1")
+        assistant.set_minimum_hours(10)
+        self.assertEqual(assistant.hours_minimum, 10)
+
+    def test_update_hours_worked(self):
+        assistant = HelpDeskAssistant("student1")
+        assistant.hours_worked = 5
+        assistant.update_hours_worked(3)
+        self.assertEqual(assistant.hours_worked, 8)
+
+    def test_add_course_capability(self):
+        # Mock the CourseCapability class
+        from App.models.course_capability import CourseCapability
+        mock_capability = MagicMock(course_code="INFO3604")
+
+        # Create a HelpDeskAssistant instance
+        assistant = HelpDeskAssistant("student1")
+
+        # Manually append the mocked capability to the course_capabilities relationship
+        assistant.course_capabilities.append(mock_capability)
+
+        # Ensure the capability was added
+        self.assertIn(mock_capability, assistant.course_capabilities)
+        self.assertEqual(assistant.course_capabilities[0].course_code, "INFO3604")
+    
+
 
 '''
     Integration Tests
