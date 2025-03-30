@@ -1,48 +1,16 @@
 import os, tempfile, pytest, logging, unittest
+from unittest.mock import MagicMock
 from werkzeug.security import check_password_hash, generate_password_hash
+from flask import Flask, jsonify
+from flask_jwt_extended import JWTManager, create_access_token
 
 from App.main import create_app
 from App.database import db, create_db
-from App.models import User
-from App.controllers import (
-    create_user,
-    get_all_users_json,
-    login,
-    get_user,
-    update_user
-)
+from App.models import *
+from App.controllers import *
 
 
 LOGGER = logging.getLogger(__name__)
-
-'''
-   Unit Tests
-'''
-
-'''
-class UserUnitTests(unittest.TestCase):
-
-    def test_new_user(self):
-        user = User("bob", "bobpass")
-        assert user.username == "bob"
-
-    # pure function no side effects or integrations called
-    def test_get_json(self):
-        user = User("bob", "bobpass", "admin")
-        user_json = user.get_json()
-        self.assertDictEqual(user_json, {"Username":"bob", "Type":"admin"})
-    
-    def test_hashed_password(self):
-        password = "mypass"
-        hashed = generate_password_hash(password, method='sha256')
-        user = User("bob", password)
-        assert user.password != password
-
-    def test_check_password(self):
-        password = "mypass"
-        user = User("bob", password)
-        assert user.check_password(password)
-'''
 
 '''
     Integration Tests
@@ -62,7 +30,7 @@ def test_authenticate():
     user = create_user("bob", "bobpass", "admin")
     assert login("bob", "bobpass") != None
 
-'''
+
 class UsersIntegrationTests(unittest.TestCase):
 
     def test_create_user(self):
@@ -79,4 +47,51 @@ class UsersIntegrationTests(unittest.TestCase):
         user = get_user("ronnie")
         assert user.username == "ronnie"
         
-'''
+import unittest
+from flask import Flask, jsonify
+from flask_jwt_extended import JWTManager, create_access_token
+from App.controllers.auth import login, setup_jwt, add_auth_context
+from App.models import User
+from unittest.mock import MagicMock
+
+class AuthIntegrationTests(unittest.TestCase):
+
+    def setUp(self):
+        # Set up a Flask app and configure JWT
+        self.app = Flask(__name__)
+        self.app.config['JWT_SECRET_KEY'] = 'test-secret-key'
+        self.app.config['TESTING'] = True
+        self.client = self.app.test_client()
+
+        # Set up JWT
+        self.jwt = setup_jwt(self.app)
+
+        # Mock the User model
+        self.mock_user = MagicMock()
+        self.mock_user.username = "testuser"
+        self.mock_user.type = "admin"
+        self.mock_user.check_password = MagicMock(return_value=True)
+
+    def test_login_success(self):
+        # Mock User.query.filter_by to return the mock user
+        User.query = MagicMock()
+        User.query.filter_by.return_value.first.return_value = self.mock_user
+
+        with self.app.app_context():
+            token, user_type = login("testuser", "password")
+            self.assertIsNotNone(token)
+            self.assertEqual(user_type, "admin")
+
+    def test_login_failure(self):
+        # Mock User.query.filter_by to return None (user not found)
+        User.query = MagicMock()
+        User.query.filter_by.return_value.first.return_value = None
+
+        with self.app.app_context():
+            token, user_type = login("wronguser", "wrongpassword")
+            self.assertIsNone(token)
+            self.assertIsNone(user_type)
+
+
+if __name__ == '__main__':
+    unittest.main()
