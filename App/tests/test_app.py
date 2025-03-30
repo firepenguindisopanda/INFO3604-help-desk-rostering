@@ -69,7 +69,7 @@ class AuthIntegrationTests(unittest.TestCase):
         self.jwt = setup_jwt(self.app)
 
         self.mock_user = MagicMock()
-        self.mock_user.username = "testuser"
+        self.mock_user.username = "a"
         self.mock_user.type = "admin"
         self.mock_user.check_password = MagicMock(return_value=True)
 
@@ -79,7 +79,7 @@ class AuthIntegrationTests(unittest.TestCase):
         User.query.filter_by.return_value.first.return_value = self.mock_user
 
         with self.app.app_context():
-            token, user_type = login("testuser", "password")
+            token, user_type = login("a", "password")
             self.assertIsNotNone(token)
             self.assertEqual(user_type, "admin")
 
@@ -101,7 +101,7 @@ class DashboardIntegrationTests(unittest.TestCase):
 
         # Mock the Student model
         self.mock_student = MagicMock()
-        self.mock_student.username = "testuser"
+        self.mock_student.username = "a"
         self.mock_student.name = "Test User"
 
         # Mock the Shift model
@@ -113,7 +113,7 @@ class DashboardIntegrationTests(unittest.TestCase):
 
         # Mock the Allocation model
         self.mock_allocation = MagicMock()
-        self.mock_allocation.username = "testuser"
+        self.mock_allocation.username = "a"
         self.mock_allocation.shift_id = 1
 
     def tearDown(self):
@@ -125,10 +125,10 @@ class DashboardIntegrationTests(unittest.TestCase):
         with patch('App.controllers.dashboard.get_next_shift', return_value={"date": "29 March, 2025", "time": "9:00 AM to 5:00 PM"}):
             with patch('App.controllers.dashboard.get_my_upcoming_shifts', return_value=[{"date": "29 Mar", "time": "9:00 AM to 5:00 PM"}]):
                 with patch('App.controllers.schedule.get_current_schedule', return_value={"days": []}):
-                    dashboard_data = get_dashboard_data("testuser")
+                    dashboard_data = get_dashboard_data("a")
 
         self.assertIsNotNone(dashboard_data)
-        self.assertEqual(dashboard_data['student'].username, "testuser")
+        self.assertEqual(dashboard_data['student'].username, "a")
         self.assertEqual(dashboard_data['next_shift']['date'], "29 March, 2025")
         self.assertEqual(len(dashboard_data['my_shifts']), 1)
 
@@ -136,7 +136,7 @@ class DashboardIntegrationTests(unittest.TestCase):
         self.mock_db_session.query.return_value.join.return_value.filter.return_value.first.return_value = (self.mock_allocation, self.mock_shift)
 
         now = datetime(2025, 3, 29, 10, 0, 0)
-        next_shift = get_next_shift("testuser", now)
+        next_shift = get_next_shift("a", now)
 
         self.assertEqual(next_shift['date'], "29 March, 2025")
         self.assertTrue(next_shift['starts_now'])
@@ -145,7 +145,7 @@ class DashboardIntegrationTests(unittest.TestCase):
         self.mock_db_session.query.return_value.join.return_value.filter.return_value.first.return_value = None
 
         now = datetime(2025, 3, 29, 10, 0, 0)
-        next_shift = get_next_shift("testuser", now)
+        next_shift = get_next_shift("a", now)
 
         self.assertEqual(next_shift['date'], "No upcoming shifts")
         self.assertFalse(next_shift['starts_now'])
@@ -154,7 +154,7 @@ class DashboardIntegrationTests(unittest.TestCase):
         self.mock_db_session.query.return_value.join.return_value.filter.return_value.order_by.return_value.all.return_value = [(self.mock_allocation, self.mock_shift)]
 
         today = datetime(2025, 3, 29)
-        my_shifts = get_my_upcoming_shifts("testuser", today)
+        my_shifts = get_my_upcoming_shifts("a", today)
 
         self.assertEqual(len(my_shifts), 1)
         self.assertEqual(my_shifts[0]['date'], "29 Mar")
@@ -173,6 +173,69 @@ class DashboardIntegrationTests(unittest.TestCase):
         self.assertIn('staff_schedule', full_schedule)
         self.assertEqual(len(full_schedule['staff_schedule']), 8)
 
+class InitializeIntegrationTests(unittest.TestCase):
+
+    def setUp(self):
+        # Set up an in-memory SQLite database for testing
+        self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+        create_db()
+
+    def tearDown(self):
+        db.session.remove()
+        db.drop_all()
+        if self.app_context is not None:
+            self.app_context.pop()
+
+    def test_initialize_creates_admin_account(self):
+        initialize()
+        admin = User.query.filter_by(username='a').first()
+        self.assertIsNotNone(admin)
+        self.assertEqual(admin.username, 'a')
+        self.assertTrue(admin.check_password('123'))
+        self.assertEqual(admin.type, 'admin')
+
+    def test_initialize_creates_standard_courses(self):
+        initialize()
+        courses = Course.query.all()
+        self.assertGreater(len(courses), 0)
+        self.assertTrue(any(course.code == 'COMP3602' for course in courses))
+
+    '''
+    def test_initialize_creates_student_assistants(self):
+        initialize()
+        students = Student.query.all()
+        self.assertGreater(len(students), 0)
+        self.assertTrue(any(student.username == '816031001' for student in students))
+    ''' 
+
+    def test_initialize_creates_availabilities(self):
+        initialize()
+        availabilities = Availability.query.all()
+        self.assertGreater(len(availabilities), 0)
+        # Update the attribute name to match the actual model definition
+        self.assertTrue(any(avail.username == '816031001' for avail in availabilities))
+
+    def test_initialize_creates_course_capabilities(self):
+        initialize()
+        capabilities = CourseCapability.query.all()
+        self.assertGreater(len(capabilities), 0)
+        self.assertTrue(any(capability.assistant_username == '816031001' for capability in capabilities))
+
+    def test_create_standard_courses_skips_existing_courses(self):
+        course = Course(code='COMP3602', name='Advanced Algorithms')
+        db.session.add(course)
+        db.session.commit()
+        create_standard_courses()
+        courses = Course.query.filter_by(code='COMP3602').all()
+        self.assertEqual(len(courses), 1)
+
+    def test_create_student_assistants_handles_errors(self):
+        with patch('App.database.db.session.add', side_effect=Exception("Database error")):
+            with self.assertLogs('App.controllers.initialize', level='ERROR') as log:
+                create_student_assistants()
+            self.assertTrue(any("Error creating student" in message for message in log.output))
 
 if __name__ == '__main__':
     unittest.main()
