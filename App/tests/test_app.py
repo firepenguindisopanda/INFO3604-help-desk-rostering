@@ -347,5 +347,134 @@ class NotificationIntegrationTests(unittest.TestCase):
         self.assertTrue(any(n.username == 'admin1' for n in notifications))
         self.assertTrue(any(n.username == 'admin2' for n in notifications))'''
 
+class RegistrationIntegrationTests(unittest.TestCase):
+
+    def setUp(self):
+        # Set up an in-memory SQLite database for testing
+        self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+        create_db()
+
+        # Create a test admin user
+        self.admin_user = User(username='admin', password='adminpass', type='admin')
+        db.session.add(self.admin_user)
+        db.session.commit()
+
+    def tearDown(self):
+        db.session.remove()
+        db.drop_all()
+        if self.app_context is not None:
+            self.app_context.pop()
+
+    '''def test_create_registration_request(self):
+        result, message = create_registration_request(
+            username="student1",
+            name="John Doe",
+            email="johndoe@example.com",
+            degree="BSc",
+            reason="Enrollment",
+            phone="1234567890",
+            courses=["CS101", "CS102"],
+            password="securepassword"
+        )
+        self.assertTrue(result)
+        self.assertEqual(message, "Registration request submitted successfully")
+
+        registration = RegistrationRequest.query.filter_by(username="student1").first()
+        self.assertIsNotNone(registration)
+        self.assertEqual(registration.name, "John Doe")
+        self.assertEqual(registration.degree, "BSc")
+
+        courses = RegistrationCourse.query.filter_by(registration_id=registration.id).all()
+        self.assertEqual(len(courses), 2)
+        self.assertTrue(any(course.course_code == "CS101" for course in courses))
+        self.assertTrue(any(course.course_code == "CS102" for course in courses))
+
+        notification = Notification.query.filter_by(username="admin").first()
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.message, "New registration request from John Doe (student1).")'''
+
+    '''def test_approve_registration(self):
+        # Create a registration request
+        registration = RegistrationRequest(
+            username="student1",
+            name="John Doe",
+            email="johndoe@example.com",
+            degree="BSc"
+        )
+        registration.status = "PENDING"
+        db.session.add(registration)
+        db.session.commit()
+    
+        result, message = approve_registration(registration.id, "admin")
+        self.assertTrue(result)
+        self.assertEqual(message, "Registration approved successfully")
+    
+        updated_registration = RegistrationRequest.query.get(registration.id)
+        self.assertEqual(updated_registration.status, "APPROVED")
+        self.assertEqual(updated_registration.processed_by, "admin")
+    
+        user = User.query.filter_by(username="student1").first()
+        self.assertIsNotNone(user)
+        self.assertEqual(user.username, "student1")'''
+
+    def test_reject_registration(self):
+        # Create a registration request
+        registration = RegistrationRequest(
+            username="student1",
+            name="John Doe",
+            email="johndoe@example.com",
+            degree="BSc",
+        )
+        registration.status = "PENDING"        
+        db.session.add(registration)
+        db.session.commit()
+
+        # Reject the registration
+        result, message = reject_registration(registration.id, "admin")
+        self.assertTrue(result)
+        self.assertEqual(message, "Registration rejected successfully")
+
+        # Verify the registration status
+        updated_registration = RegistrationRequest.query.get(registration.id)
+        self.assertEqual(updated_registration.status, "REJECTED")
+        self.assertEqual(updated_registration.processed_by, "admin")
+
+    def test_get_all_registration_requests(self):
+        pending_request = RegistrationRequest(username="student1", name="John Doe", email="johndoe@example.com", degree="BSc")
+        pending_request.status = "PENDING"
+    
+        approved_request = RegistrationRequest(username="student2", name="Jane Doe", email="janedoe@example.com", degree="BSc")
+        approved_request.status = "APPROVED"
+    
+        rejected_request = RegistrationRequest(username="student3", name="Jim Doe", email="jimdoe@example.com", degree="BSc")
+        rejected_request.status = "REJECTED"
+    
+        db.session.add_all([pending_request, approved_request, rejected_request])
+        db.session.commit()
+    
+        requests = get_all_registration_requests()
+        self.assertEqual(len(requests['pending']), 1)
+        self.assertEqual(len(requests['approved']), 1)
+        self.assertEqual(len(requests['rejected']), 1)
+
+    def test_get_registration_request(self):
+        registration = RegistrationRequest(username="student1", name="John Doe", email="johndoe@example.com", degree="BSc")
+        registration.status = "PENDING"
+        db.session.add(registration)
+        db.session.flush()  # Get the ID without committing
+    
+        course1 = RegistrationCourse(registration_id=registration.id, course_code="CS101")
+        course2 = RegistrationCourse(registration_id=registration.id, course_code="CS102")
+        db.session.add_all([course1, course2])
+        db.session.commit()
+    
+        registration_data = get_registration_request(registration.id)
+        self.assertIsNotNone(registration_data)
+        self.assertEqual(registration_data['username'], "student1")
+        self.assertEqual(len(registration_data['course_codes']), 2)
+        self.assertIn("CS101", registration_data['course_codes'])
+        self.assertIn("CS102", registration_data['course_codes'])
 if __name__ == '__main__':
     unittest.main()
