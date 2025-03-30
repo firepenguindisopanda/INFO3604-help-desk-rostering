@@ -476,5 +476,185 @@ class RegistrationIntegrationTests(unittest.TestCase):
         self.assertEqual(len(registration_data['course_codes']), 2)
         self.assertIn("CS101", registration_data['course_codes'])
         self.assertIn("CS102", registration_data['course_codes'])
+
+class RequestIntegrationTests(unittest.TestCase):
+
+    def setUp(self):
+        # Set up an in-memory SQLite database for testing
+        self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+        create_db()
+
+        # Create test data
+        self.student = Student(username="student1", name="John Doe", password="securepassword")
+        self.admin = User(username="admin", password="adminpass", type="admin")
+        db.session.add(self.student)
+        db.session.add(self.admin)
+        db.session.commit()
+
+    def tearDown(self):
+        db.session.remove()
+        db.drop_all()
+        if self.app_context is not None:
+            self.app_context.pop()
+
+    def test_create_student_request(self):
+        # Create a shift
+        shift = Shift(
+            date=datetime.utcnow() + timedelta(days=1),
+            start_time=datetime.strptime("08:00", "%H:%M"),
+            end_time=datetime.strptime("12:00", "%H:%M")
+        )
+        shift.id=1
+        db.session.add(shift)
+        db.session.commit()
+
+        # Create a request
+        result, message = create_student_request(
+            username="student1",
+            shift_id=1,
+            reason="Personal reasons"
+        )
+        self.assertTrue(result)
+        self.assertEqual(message, "Request submitted successfully")
+
+        # Verify the request
+        request = Request.query.filter_by(username="student1", shift_id=1).first()
+        self.assertIsNotNone(request)
+        self.assertEqual(request.reason, "Personal reasons")
+        self.assertEqual(request.status, "PENDING")
+
+    def test_approve_request(self):
+        # Create a request
+        request = Request(
+            username="student1",
+            shift_id=None,
+            date=datetime.utcnow(),
+            time_slot="08:00 to 12:00",
+            reason="Personal reasons",
+            status="PENDING"
+        )
+        db.session.add(request)
+        db.session.commit()
+
+        # Approve the request
+        result, message = approve_request(request.id)
+        self.assertTrue(result)
+        self.assertEqual(message, "Request approved successfully")
+
+        # Verify the request status
+        updated_request = Request.query.get(request.id)
+        self.assertEqual(updated_request.status, "APPROVED")
+        self.assertIsNotNone(updated_request.approved_at)
+
+    def test_reject_request(self):
+        # Create a request
+        request = Request(
+            username="student1",
+            shift_id=None,
+            date=datetime.utcnow(),
+            time_slot="08:00 to 12:00",
+            reason="Personal reasons",
+            status="PENDING"
+        )
+        db.session.add(request)
+        db.session.commit()
+
+        # Reject the request
+        result, message = reject_request(request.id)
+        self.assertTrue(result)
+        self.assertEqual(message, "Request rejected successfully")
+
+        # Verify the request status
+        updated_request = Request.query.get(request.id)
+        self.assertEqual(updated_request.status, "REJECTED")
+        self.assertIsNotNone(updated_request.rejected_at)
+
+    def test_cancel_request(self):
+        # Create a request
+        request = Request(
+            username="student1",
+            shift_id=None,
+            date=datetime.utcnow(),
+            time_slot="08:00 to 12:00",
+            reason="Personal reasons",
+            status="PENDING"
+        )
+        db.session.add(request)
+        db.session.commit()
+
+        # Cancel the request
+        result, message = cancel_request(request.id, "student1")
+        self.assertTrue(result)
+        self.assertEqual(message, "Request cancelled successfully")
+
+        # Verify the request was deleted
+        deleted_request = Request.query.get(request.id)
+        self.assertIsNone(deleted_request)
+
+    def test_get_all_requests(self):
+        # Create multiple requests
+        request1 = Request(username="student1", date=datetime.utcnow(), time_slot="08:00 to 12:00", reason="Reason 1", status="PENDING")
+        request2 = Request(username="student1", date=datetime.utcnow(), time_slot="01:00 to 05:00", reason="Reason 2", status="APPROVED")
+        db.session.add_all([request1, request2])
+        db.session.commit()
+
+        requests = get_all_requests()
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(len(requests[0]["requests"]), 2)
+
+    def test_get_student_requests(self):
+
+        request1 = Request(username="student1", date=datetime.utcnow(), time_slot="08:00 to 12:00", reason="Reason 1", status="PENDING")
+        request2 = Request(username="student1", date=datetime.utcnow(), time_slot="01:00 to 05:00", reason="Reason 2", status="APPROVED")
+        db.session.add_all([request1, request2])
+        db.session.commit()
+
+        requests = get_student_requests("student1")
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(requests[0]["reason"], "Reason 1") 
+        self.assertEqual(requests[1]["reason"], "Reason 2")
+
+    def test_get_available_shifts_for_student(self):
+        # Create a shift and allocation
+        shift = Shift(
+            date=datetime.utcnow() + timedelta(days=1),
+            start_time=datetime.strptime("08:00", "%H:%M"),
+            end_time=datetime.strptime("12:00", "%H:%M")
+        )
+        allocation = Allocation(username="student1", shift_id=1, schedule_id=1)
+        db.session.add_all([shift, allocation])
+        db.session.commit()
+    
+        # Get available shifts
+        shifts = get_available_shifts_for_student("student1")
+        self.assertEqual(len(shifts), 1)
+        self.assertEqual(shifts[0]["id"], 1)
+
+    '''def test_get_available_replacements(self):
+        # Create another student assistant
+        student2 = Student(username="student2", name="Jane Doe", password="securepassword")
+        db.session.add(student2)
+        db.session.commit()
+    
+        shift = Shift(
+            date=datetime.utcnow() + timedelta(days=1),
+            start_time=datetime.strptime("08:00", "%H:%M"),
+            end_time=datetime.strptime("12:00", "%H:%M")
+        )
+        db.session.add(shift)
+        db.session.commit()
+    
+        allocation = Allocation(username="student1", shift_id=shift.id, schedule_id=1)
+        db.session.add(allocation)
+        db.session.commit()
+    
+        # Get available replacements
+        replacements = get_available_replacements("student1")
+        self.assertEqual(len(replacements), 1)
+        self.assertEqual(replacements[0]["id"], "student2")
+        self.assertEqual(replacements[0]["name"], "Jane Doe")'''
+
 if __name__ == '__main__':
     unittest.main()
