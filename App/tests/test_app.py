@@ -20,42 +20,48 @@ LOGGER = logging.getLogger(__name__)
 
 # This fixture creates an empty database for the test and deletes it after the test
 # scope="class" would execute the fixture once and resued for all methods in the class
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(scope="module")
 def empty_db():
     app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
     with app.app_context():
         create_db()
-        yield app.test_client()
-        db.drop_all()
+        yield app
+        with app.app_context():
+            db.session.remove()
+            db.drop_all()
 
 
-def test_authenticate():
+def test_authenticate(empty_db):
     user = create_user("bob", "bobpass", "admin")
-    assert login("bob", "bobpass") != None
+    assert login("bob", "bobpass") is not None
 
 
+@pytest.mark.usefixtures("empty_db")
 class UsersIntegrationTests(unittest.TestCase):
+
+    def setUp(self):
+        self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+        create_db()
+
+    def tearDown(self):
+        db.session.remove()
+        db.drop_all()
+        if self.app_context is not None:
+            self.app_context.pop()
 
     def test_create_user(self):
         user = create_user("rick", "bobpass")
         assert user.username == "rick"
 
-    # def test_get_all_users_json(self):
-    #     users_json = get_all_users_json()
-    #     self.assertListEqual([{"Username":"bob", "Type":"admin"}, {"Username":"rick", "Type":"student"}], users_json)
-
-    # Tests data changes in the database
     def test_update_user(self):
+        create_user("bob", "bobpass")
         update_user("bob", "ronnie")
         user = get_user("ronnie")
+        assert user is not None
         assert user.username == "ronnie"
         
-import unittest
-from flask import Flask, jsonify
-from flask_jwt_extended import JWTManager, create_access_token
-from App.controllers.auth import login, setup_jwt, add_auth_context
-from App.models import User
-from unittest.mock import MagicMock
 
 class AuthIntegrationTests(unittest.TestCase):
 
@@ -236,6 +242,110 @@ class InitializeIntegrationTests(unittest.TestCase):
             with self.assertLogs('App.controllers.initialize', level='ERROR') as log:
                 create_student_assistants()
             self.assertTrue(any("Error creating student" in message for message in log.output))
+    
+@pytest.mark.usefixtures("empty_db")
+class NotificationIntegrationTests(unittest.TestCase):
+
+    def setUp(self):
+        # Set up an in-memory SQLite database for testing
+        self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+        create_db()
+
+        # Create a test user with a password
+        self.test_user = User(username='testuser', password='testpass', type='user')
+        db.session.add(self.test_user)
+        db.session.commit()
+
+    def tearDown(self):
+        db.session.remove()
+        db.drop_all()
+        if self.app_context is not None:
+            self.app_context.pop()
+
+    def test_create_notification(self):
+        notification = create_notification('testuser', 'Test message', Notification.TYPE_REMINDER)
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.username, 'testuser')
+        self.assertEqual(notification.message, 'Test message')
+        self.assertEqual(notification.notification_type, Notification.TYPE_REMINDER)
+
+    '''def test_get_user_notifications(self):
+        create_notification('testuser', 'Message 1', Notification.TYPE_REMINDER)
+        create_notification('testuser', 'Message 2', Notification.TYPE_REMINDER)
+        create_notification('testuser', 'Message 3', Notification.TYPE_REMINDER)
+
+        notifications = get_user_notifications('testuser', limit=2)
+        self.assertEqual(len(notifications), 2)
+        self.assertEqual(notifications[0].message, 'Message 3')  # Newest first
+        self.assertEqual(notifications[1].message, 'Message 2')'''
+
+    def test_get_notification(self):
+        notification = create_notification('testuser', 'Test message', Notification.TYPE_REMINDER)
+        fetched_notification = get_notification(notification.id)
+        self.assertIsNotNone(fetched_notification)
+        self.assertEqual(fetched_notification.message, 'Test message')
+
+    def test_mark_notification_as_read(self):
+        notification = create_notification('testuser', 'Test message', Notification.TYPE_REMINDER)
+        self.assertFalse(notification.is_read)
+
+        result = mark_notification_as_read(notification.id)
+        self.assertTrue(result)
+
+        updated_notification = get_notification(notification.id)
+        self.assertTrue(updated_notification.is_read)
+
+    def test_mark_all_notifications_as_read(self):
+        create_notification('testuser', 'Message 1', Notification.TYPE_REMINDER)
+        create_notification('testuser', 'Message 2', Notification.TYPE_REMINDER)
+        create_notification('testuser', 'Message 3', Notification.TYPE_REMINDER)
+
+        unread_count = len(get_user_notifications('testuser', include_read=False))
+        self.assertEqual(unread_count, 3)
+
+        mark_all_notifications_as_read('testuser')
+
+        unread_count_after = len(get_user_notifications('testuser', include_read=False))
+        self.assertEqual(unread_count_after, 0)
+
+    def test_delete_notification(self):
+        notification = create_notification('testuser', 'Test message', Notification.TYPE_REMINDER)
+        self.assertIsNotNone(get_notification(notification.id))
+
+        result = delete_notification(notification.id)
+        self.assertTrue(result)
+        self.assertIsNone(get_notification(notification.id))
+
+    def test_count_unread_notifications(self):
+        notification1 = create_notification('testuser', 'Message 1', Notification.TYPE_REMINDER)
+        notification2 = create_notification('testuser', 'Message 2', Notification.TYPE_REMINDER)
+        notification2.is_read = True
+        db.session.add(notification2)
+        db.session.commit()
+        create_notification('testuser', 'Message 3', Notification.TYPE_REMINDER)
+
+        unread_count = len(get_user_notifications('testuser', include_read=False))
+        self.assertEqual(unread_count, 2)
+
+    def test_notify_shift_approval(self):
+        notification = notify_shift_approval('testuser', 'Shift on March 30, 2025')
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.message, 'Your shift change request for Shift on March 30, 2025 was approved.')
+
+    '''def test_notify_all_admins(self):
+        # Create admin users
+        admin1 = User(username='admin1', password='adminpass1', type='admin')
+        admin2 = User(username='admin2', password='adminpass2', type='admin')
+        db.session.add(admin1)
+        db.session.add(admin2)
+        db.session.commit()
+
+        notifications = notify_all_admins('System maintenance scheduled', Notification.TYPE_UPDATE)
+        self.assertEqual(len(notifications), 2)
+        self.assertTrue(any(n.username == 'admin1' for n in notifications))
+        self.assertTrue(any(n.username == 'admin2' for n in notifications))'''
 
 if __name__ == '__main__':
     unittest.main()
