@@ -24,8 +24,8 @@ def update_user(username, new_username):
     user = get_user(username)
     if user:
         user.username = new_username
-        db.session.add(user)
-        return db.session.commit()
+        db.session.commit()  # Commit the changes to the database
+        return user
     return None
 
 def get_user_profile(username):

@@ -867,5 +867,104 @@ class TrackingIntegrationTests(unittest.TestCase):
         self.assertEqual(report['report']['students'][0]['student_id'], "student1")
         self.assertEqual(report['report']['students'][0]['total_hours'], 8.0)'''    
 
+class UserIntegrationTests(unittest.TestCase):
+
+    def setUp(self):
+        # Set up an in-memory SQLite database for testing
+        self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+        create_db()
+
+    def tearDown(self):
+        db.session.remove()
+        db.drop_all()
+        if self.app_context is not None:
+            self.app_context.pop()
+
+    def test_create_user(self):
+        user = create_user("a", "testpassword", "student")
+        self.assertIsNotNone(user)
+        self.assertEqual(user.username, "a")
+        self.assertEqual(user.type, "student")
+
+        # Verify user exists in the database
+        db_user = User.query.filter_by(username="a").first()
+        self.assertIsNotNone(db_user)
+        self.assertEqual(db_user.username, "a")
+
+    def test_get_user(self):
+        create_user("a", "testpassword", "student")
+        user = get_user("a")
+        self.assertIsNotNone(user)
+        self.assertEqual(user.username, "a")
+
+    '''def test_get_all_users(self):
+        create_user("user1", "password1", "student")
+        create_user("user2", "password2", "admin")
+        users = get_all_users()
+        self.assertEqual(len(users), 2)
+        self.assertTrue(any(user.username == "user1" for user in users))
+        self.assertTrue(any(user.username == "user2" for user in users))
+
+    def test_get_all_users_json(self):
+        create_user("user1", "password1", "student")
+        create_user("user2", "password2", "admin")
+        users_json = get_all_users_json()
+        self.assertEqual(len(users_json), 2)
+        self.assertTrue(any(user["Username"] == "user1" for user in users_json))
+        self.assertTrue(any(user["Username"] == "user2" for user in users_json))'''
+
+    def test_update_user(self):
+        create_user("a", "testpassword", "student")
+        result = update_user("a", "updateduser")
+        self.assertIsNotNone(result)
+
+        # Verify the username was updated
+        updated_user = User.query.filter_by(username="updateduser").first()
+        self.assertIsNotNone(updated_user)
+        self.assertEqual(updated_user.username, "updateduser")
+
+    '''def test_get_user_profile(self):
+        # Create a student user
+        student = Student(username="student1", password="securepassword", name="John Doe", degree="MSc")
+        db.session.add(student)
+
+        # Create a help desk assistant
+        assistant = HelpDeskAssistant(username="student1")
+        assistant.rate = 25.0  # Set rate directly
+        assistant.active = True
+        assistant.hours_worked = 10
+        assistant.hours_minimum = 5
+        db.session.add(assistant)
+
+        # Add course capabilities
+        capability1 = CourseCapability(assistant_username="student1", course_code="CS101")
+        capability2 = CourseCapability(assistant_username="student1", course_code="CS102")
+        db.session.add_all([capability1, capability2])
+
+        # Add availabilities using `datetime.time` objects
+        availability1 = Availability(username="student1", day_of_week=0, start_time=time(9, 0), end_time=time(17, 0))
+        availability2 = Availability(username="student1", day_of_week=1, start_time=time(10, 0), end_time=time(18, 0))
+        db.session.add_all([availability1, availability2])
+
+        db.session.commit()
+
+        # Get the user profile
+        profile = get_user_profile("student1")
+        self.assertIsNotNone(profile)
+        self.assertEqual(profile["username"], "student1")
+        self.assertEqual(profile["type"], "student")
+        self.assertEqual(profile["name"], "John Doe")
+        self.assertEqual(profile["degree"], "MSc")
+        self.assertEqual(profile["rate"], 25.0)
+        self.assertTrue(profile["active"])
+        self.assertEqual(profile["hours_worked"], 10)
+        self.assertEqual(profile["hours_minimum"], 5)
+        self.assertEqual(len(profile["courses"]), 2)
+        self.assertIn("CS101", profile["courses"])
+        self.assertIn("CS102", profile["courses"])
+        self.assertEqual(len(profile["availabilities"]), 2)'''
+
 if __name__ == '__main__':
     unittest.main()
