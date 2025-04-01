@@ -655,6 +655,104 @@ class RequestIntegrationTests(unittest.TestCase):
         self.assertEqual(len(replacements), 1)
         self.assertEqual(replacements[0]["id"], "student2")
         self.assertEqual(replacements[0]["name"], "Jane Doe")'''
+    
+class ScheduleIntegrationTests(unittest.TestCase):
+
+    def setUp(self):
+        # Set up an in-memory SQLite database for testing
+        self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+        create_db()
+
+        # Create test data
+        self.assistant = HelpDeskAssistant(username="assistant1")
+        self.assistant.active = True
+        self.assistant.hours_minimum = 4
+
+        self.course = Course(code="CS101", name="Introduction to Computer Science")
+        self.availability = Availability(
+            username="assistant1",
+            day_of_week=0,
+            start_time=datetime.strptime("09:00", "%H:%M").time(),
+            end_time=datetime.strptime("17:00", "%H:%M").time()
+        )
+        self.capability = CourseCapability(assistant_username="assistant1", course_code="CS101")
+
+        db.session.add_all([self.assistant, self.course, self.availability, self.capability])
+        db.session.commit()
+
+    def tearDown(self):
+        db.session.remove()
+        db.drop_all()
+        if self.app_context is not None:
+            self.app_context.pop()
+
+    '''def test_check_scheduling_feasibility(self):
+        result = check_scheduling_feasibility()
+        self.assertTrue(result["feasible"])
+        self.assertEqual(result["stats"]["assistant_count"], 1)
+        self.assertEqual(result["stats"]["assistants_with_availability"], 1)
+        self.assertEqual(result["stats"]["assistants_with_capabilities"], 1)
+
+    def test_generate_schedule(self):
+        start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + timedelta(days=4)  # Full week
+        result = generate_schedule(start_date=start_date, end_date=end_date)
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["details"]["shifts_created"], 32)  
+        self.assertEqual(result["details"]["is_full_week"], True)
+
+        # Verify shifts and allocations
+        shifts = Shift.query.all()
+        self.assertEqual(len(shifts), 32)
+
+        allocations = Allocation.query.all()
+        self.assertGreater(len(allocations), 0)'''
+
+    def test_get_current_schedule(self):
+        # Generate a schedule
+        start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + timedelta(days=4)
+        generate_schedule(start_date=start_date, end_date=end_date)
+
+        # Fetch the current schedule
+        schedule = get_current_schedule()
+        self.assertIsNotNone(schedule)
+        self.assertEqual(schedule["is_published"], False)
+        self.assertEqual(len(schedule["days"]), 5)  # Monday to Friday
+
+    def test_publish_schedule(self):
+        # Generate a schedule
+        start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + timedelta(days=4)
+        generate_schedule(start_date=start_date, end_date=end_date)
+
+        # Publish the schedule
+        schedule = Schedule.query.first()
+        result = publish_schedule(schedule.id)
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["message"], "Schedule published and notifications sent")
+
+        # Verify the schedule is published
+        updated_schedule = Schedule.query.get(schedule.id)
+        self.assertTrue(updated_schedule.is_published)
+
+    def test_clear_schedule(self):
+        # Generate a schedule
+        start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + timedelta(days=4)
+        generate_schedule(start_date=start_date, end_date=end_date)
+
+        # Clear the schedule
+        result = clear_schedule()
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["details"]["shifts_removed"], 32)
+
+        # Verify the schedule is cleared
+        shifts = Shift.query.all()
+        self.assertEqual(len(shifts), 0)    
 
 if __name__ == '__main__':
     unittest.main()
