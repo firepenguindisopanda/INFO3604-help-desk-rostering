@@ -752,7 +752,120 @@ class ScheduleIntegrationTests(unittest.TestCase):
 
         # Verify the schedule is cleared
         shifts = Shift.query.all()
-        self.assertEqual(len(shifts), 0)    
+        self.assertEqual(len(shifts), 0)
+
+class TrackingIntegrationTests(unittest.TestCase):
+
+    def setUp(self):
+        # Set up an in-memory SQLite database for testing
+        self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+        create_db()
+
+        # Create test data
+        self.student = Student(username="student1", name="John Doe", password="securepassword")
+        self.assistant = HelpDeskAssistant(username="student1")
+        self.assistant.active = True  # Set active directly
+        self.assistant.hours_minimum = 4  # Set hours_minimum directly
+
+        # Use datetime.datetime for start_time and end_time
+        now = datetime.utcnow()
+        self.shift = Shift(
+            date=now.date(),
+            start_time=now.replace(hour=9, minute=0, second=0, microsecond=0),
+            end_time=now.replace(hour=17, minute=0, second=0, microsecond=0)
+        )
+        db.session.add_all([self.student, self.assistant, self.shift])
+        db.session.commit()
+
+        self.allocation = Allocation(username="student1", shift_id=self.shift.id, schedule_id=1)
+        db.session.add(self.allocation)
+        db.session.commit()
+
+    def tearDown(self):
+        db.session.remove()
+        db.drop_all()
+        if self.app_context is not None:
+            self.app_context.pop()
+
+    def test_get_student_stats(self):
+        # Create a completed time entry
+        clock_in_time = datetime.utcnow().replace(hour=9, minute=0, second=0, microsecond=0)
+        clock_out_time = datetime.utcnow().replace(hour=17, minute=0, second=0, microsecond=0)
+        time_entry = TimeEntry(username="student1", clock_in=clock_in_time, shift_id=self.shift.id, status="completed")
+        time_entry.clock_out = clock_out_time  # Set clock_out directly
+        db.session.add(time_entry)
+        db.session.commit()
+
+        stats = get_student_stats("student1")
+        self.assertIsNotNone(stats)
+        self.assertEqual(stats['daily']['hours'], 8.0)
+        self.assertEqual(stats['weekly']['hours'], 8.0)
+        self.assertEqual(stats['monthly']['hours'], 8.0)
+        self.assertEqual(stats['semester']['hours'], 8.0)
+        self.assertEqual(stats['absences'], 0)
+
+    def test_get_all_assistant_stats(self):
+        stats = get_all_assistant_stats()
+        self.assertEqual(len(stats), 1)
+        self.assertEqual(stats[0]['id'], "student1")
+        self.assertEqual(stats[0]['semester_attendance'], "0.0")
+        self.assertEqual(stats[0]['week_attendance'], "0.0")
+
+    def test_get_today_shift(self):
+        shift_details = get_today_shift("student1")
+        self.assertIsNotNone(shift_details)
+        self.assertEqual(shift_details['status'], "future")
+        self.assertEqual(shift_details['shift_id'], self.shift.id)
+
+    '''def test_clock_in(self):
+        result = clock_in("student1", self.shift.id)
+        self.assertTrue(result['success'])
+        self.assertEqual(result['message'], "Clocked in successfully")
+
+        # Verify the time entry
+        time_entry = TimeEntry.query.filter_by(username="student1", status="active").first()
+        self.assertIsNotNone(time_entry)
+        self.assertEqual(time_entry.shift_id, self.shift.id)
+
+    def test_clock_out(self):
+        # Clock in first
+        clock_in("student1", self.shift.id)
+
+        # Clock out
+        result = clock_out("student1")
+        self.assertTrue(result['success'])
+        self.assertEqual(result['message'], "Clocked out successfully")
+
+        # Verify the time entry
+        time_entry = TimeEntry.query.filter_by(username="student1", status="completed").first()
+        self.assertIsNotNone(time_entry)
+        self.assertEqual(time_entry.shift_id, self.shift.id)'''
+
+    def test_mark_missed_shift(self):
+        result = mark_missed_shift("student1", self.shift.id)
+        self.assertTrue(result['success'])
+        self.assertEqual(result['message'], "Shift marked as missed")
+
+        # Verify the time entry
+        time_entry = TimeEntry.query.filter_by(username="student1", shift_id=self.shift.id, status="absent").first()
+        self.assertIsNotNone(time_entry)
+
+    '''def test_generate_attendance_report(self):
+        # Create a completed time entry
+        clock_in_time = datetime.utcnow().replace(hour=9, minute=0, second=0, microsecond=0)
+        clock_out_time = datetime.utcnow().replace(hour=17, minute=0, second=0, microsecond=0)
+        time_entry = TimeEntry(username="student1", clock_in=clock_in_time, shift_id=self.shift.id, status="completed")
+        time_entry.clock_out = clock_out_time  # Set clock_out directly
+        db.session.add(time_entry)
+        db.session.commit()
+
+        report = generate_attendance_report(username="student1")
+        self.assertTrue(report['success'])
+        self.assertEqual(len(report['report']['students']), 1)
+        self.assertEqual(report['report']['students'][0]['student_id'], "student1")
+        self.assertEqual(report['report']['students'][0]['total_hours'], 8.0)'''    
 
 if __name__ == '__main__':
     unittest.main()
