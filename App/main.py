@@ -48,9 +48,5 @@ def create_app(overrides={}):
     def expired_token_callback(jwt_header, jwt_data):
         return redirect(url_for('auth_views.login_page'))
     
-    @app.route('/lab')
-    def lab_interface():
-        return render_template('lab.html')
-    
     app.app_context().push()
     return app
