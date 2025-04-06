@@ -1,195 +1,324 @@
 /* Time Tracking specific styles */
 
+/* Section Spacing */
 .today-shift-section, 
 .shift-history-section, 
 .summary-section, 
 .hours-worked-section {
-    margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
 }
 
+/* Section Headers - Match Dashboard Style */
 .section-title {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 1rem;
-    color: #333;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+  color: #0f2a52;
+  position: relative;
+  display: flex;
+  align-items: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  background: linear-gradient(to right, #0066cc, rgba(0, 102, 204, 0.1));
+  margin-left: 1rem;
 }
 
 /* Today's Shift Card */
 .shift-info-card {
-    background-color: #f5f9ff;
-    border-radius: 8px;
-    padding: 1.5rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  background-color: #ebf5ff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+  border-left: 4px solid #0066cc;
+  transition: all 0.2s ease;
 }
 
 .shift-details p {
-    margin: 0.5rem 0;
-    font-size: 15px;
+  margin: 0.75rem 0;
+  font-size: 1rem;
+  color: #1e3a5f;
+  display: flex;
+  align-items: center;
+}
+
+.shift-details p strong {
+  min-width: 120px;
+  display: inline-block;
 }
 
 .action-button {
-    padding: 10px 24px;
-    border-radius: 4px;
-    font-weight: 600;
-    font-size: 14px;
-    cursor: pointer;
-    border: none;
-    text-transform: uppercase;
-    color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: none;
+  text-transform: uppercase;
+  color: white;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.action-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+}
+
+.action-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .clock-in {
-    background-color: #2563eb;
+  background-color: #0066cc;
+}
+
+.clock-in:hover:not(:disabled) {
+  background-color: #0052a3;
 }
 
 .clock-out {
-    background-color: #2563eb;
+  background-color: #ef4444;
+}
+
+.clock-out:hover:not(:disabled) {
+  background-color: #dc2626;
 }
 
 /* Two Column Layout */
 .two-column-layout {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-}
-
-@media (max-width: 768px) {
-    .two-column-layout {
-        grid-template-columns: 1fr;
-    }
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 /* Shift History Table */
 .shift-history-table {
-    width: 100%;
-    border-collapse: collapse;
-    background-color: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.08);
 }
 
 .shift-history-table th,
 .shift-history-table td {
-    padding: 12px 16px;
-    text-align: left;
-    border-bottom: 1px solid #eee;
+  padding: 0.85rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e9eef6;
 }
 
 .shift-history-table th {
-    background-color: #f8f9fa;
-    font-weight: 500;
-    color: #555;
+  background-color: #e9eef6;
+  font-weight: 600;
+  color: #334155;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+}
+
+.shift-history-table tr:hover td {
+  background-color: #f8fafc;
 }
 
 .shift-history-table tr:last-child td {
-    border-bottom: none;
+  border-bottom: none;
 }
 
 /* Time Distribution Chart */
 .time-distribution {
-    background-color: white;
-    border-radius: 8px;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+  height: 100%;
 }
 
 .time-distribution h3 {
-    margin-top: 0;
-    margin-bottom: 1rem;
-    font-size: 16px;
-    font-weight: 500;
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f2a52;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: relative;
+}
+
+.time-distribution h3::after {
+  content: '';
+  position: absolute;
+  bottom: -0.5rem;
+  left: 0;
+  width: 3rem;
+  height: 2px;
+  background-color: #0066cc;
 }
 
 .chart-container {
-    display: flex;
-    height: 200px;
-    margin-top: 1rem;
+  display: flex;
+  height: 200px;
+  margin-top: 1.5rem;
 }
 
 .chart-y-labels {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    margin-right: 10px;
-    color: #777;
-    font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  margin-right: 15px;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .chart {
-    display: flex;
-    flex-grow: 1;
-    align-items: flex-end;
-    justify-content: space-around;
-    height: 100%;
+  display: flex;
+  flex-grow: 1;
+  align-items: flex-end;
+  justify-content: space-around;
+  height: 100%;
 }
 
 .chart-bar {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    max-width: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 40px;
 }
 
 .bar-value {
-    width: 25px;
-    background-color: #2563eb;
-    border-radius: 4px 4px 0 0;
-    transition: height 0.3s ease;
+  width: 25px;
+  background: linear-gradient(to top, #0066cc, #2563eb);
+  border-radius: 4px 4px 0 0;
+  transition: height 0.5s ease;
+  box-shadow: 0 2px 4px rgba(0, 102, 204, 0.2);
 }
 
 .bar-label {
-    margin-top: 8px;
-    font-size: 12px;
-    color: #555;
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: #334155;
+  font-weight: 500;
+  text-align: center;
 }
 
 /* Hours Worked Section */
 .hours-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-}
-
-@media (max-width: 992px) {
-    .hours-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 576px) {
-    .hours-grid {
-        grid-template-columns: 1fr;
-    }
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
 }
 
 .hours-card {
-    background-color: #2563eb;
-    color: white;
-    border-radius: 8px;
-    padding: 1.5rem;
-    display: flex;
-    flex-direction: column;
+  background: linear-gradient(135deg, #0066cc, #2563eb);
+  color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 6px rgba(0, 102, 204, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.hours-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0, 102, 204, 0.25);
 }
 
 .hours-card h3 {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  letter-spacing: 1px;
 }
 
 .date-range {
-    font-size: 12px;
-    margin-bottom: 1rem;
-    opacity: 0.8;
+  font-size: 0.75rem;
+  margin-bottom: 1rem;
+  opacity: 0.8;
 }
 
 .hours-value {
-    font-size: 24px;
-    font-weight: 700;
-    margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Empty State Styling */
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 0.9rem;
+  border: 1px dashed #cbd5e1;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 992px) {
+  .hours-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .two-column-layout {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  
+  .shift-info-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .action-button {
+    margin-top: 1rem;
+    align-self: flex-end;
+  }
+  
+  .chart-container {
+    height: 180px;
+  }
+}
+
+@media (max-width: 576px) {
+  .hours-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .shift-history-table th,
+  .shift-history-table td {
+    padding: 0.65rem 0.5rem;
+    font-size: 0.85rem;
+  }
+  
+  .chart-y-labels {
+    margin-right: 10px;
+    font-size: 0.7rem;
+  }
+  
+  .bar-value {
+    width: 20px;
+  }
+  
+  .bar-label {
+    font-size: 0.7rem;
+  }
 }

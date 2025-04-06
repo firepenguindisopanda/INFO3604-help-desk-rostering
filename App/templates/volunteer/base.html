@@ -6,7 +6,6 @@
     <title>{% block title %}Student Assistant Dashboard{% endblock %}</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteer/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
@@ -15,7 +14,7 @@
         <div class="nav-links">
             <a href="{{ url_for('volunteer_views.dashboard') }}" class="nav-link {% if request.endpoint == 'volunteer_views.dashboard' %}active{% endif %}">Dashboard</a>
             <a href="{{ url_for('volunteer_views.time_tracking') }}" class="nav-link {% if request.endpoint == 'volunteer_views.time_tracking' %}active{% endif %}">Time Tracking</a>
-            <a href="{{ url_for('volunteer_views.requests') }}" class="nav-link {% if request.endpoint == 'volunteer_views.requests' %}active{% endif %}">Requests</a>
+            <a href="{{ url_for('volunteer_views.requests') }}" class="nav-link {% if request.endpoint == 'volunteer_views.requests' or request.endpoint == 'volunteer_views.submit_request' or request.endpoint == 'volunteer_views.cancel_request_endpoint' %}active{% endif %}">Requests</a>
             <a href="{{ url_for('volunteer_views.profile') }}" class="nav-link {% if request.endpoint == 'volunteer_views.profile' %}active{% endif %}">Profile</a>
             <div class="notification-badge" id="notificationBadge">
                 <span class="material-icons">notifications</span>
@@ -51,23 +50,6 @@
     </div>
     
     <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
-    
-    <script>
-        // Handle flash messages
-        document.addEventListener('DOMContentLoaded', function() {
-            const flashMessages = document.querySelectorAll('.flash-message');
-            
-            flashMessages.forEach(message => {
-                // Auto-remove flash messages after 5 seconds
-                setTimeout(() => {
-                    message.style.opacity = '0';
-                    setTimeout(() => {
-                        message.remove();
-                    }, 500);
-                }, 5000);
-            });
-        });
-    </script>
     
     {% block scripts %}{% endblock %}
 </body>

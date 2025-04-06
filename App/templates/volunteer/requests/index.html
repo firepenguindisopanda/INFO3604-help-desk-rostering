@@ -4,47 +4,6 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteer/requests.css') }}">
-<style>
-    .no-requests {
-        padding: 2rem;
-        text-align: center;
-        background-color: #f9f9fa;
-        border-radius: 8px;
-        margin-bottom: 1.5rem;
-    }
-    
-    .form-error {
-        color: #ef4444;
-        font-size: 0.85rem;
-        margin-top: 0.25rem;
-        display: none;
-    }
-    
-    .flash-message {
-        position: fixed;
-        top: 1rem;
-        right: 1rem;
-        z-index: 100;
-        padding: 0.75rem 1.5rem;
-        border-radius: 4px;
-        color: white;
-        animation: fadeOut 5s forwards;
-    }
-    
-    .flash-message.success {
-        background-color: #10b981;
-    }
-    
-    .flash-message.error {
-        background-color: #ef4444;
-    }
-    
-    @keyframes fadeOut {
-        0% { opacity: 1; }
-        70% { opacity: 1; }
-        100% { opacity: 0; display: none; }
-    }
-</style>
 {% endblock %}
 
 {% block content %}
@@ -59,94 +18,94 @@
     {% endwith %}
 
     <!-- Request Cards Section -->
-    <div class="request-cards">
-        {% if pending_requests %}
-            {% for req in pending_requests %}
-            <div class="request-card">
-                <div class="requested-shift">
-                    <div class="date-label">Requested Shift</div>
-                    <div class="shift-date">{{ req.shift_date }}</div>
-                    <div class="shift-time">{{ req.shift_time }}</div>
+    {% if pending_requests or approved_requests or rejected_requests %}
+        <div class="request-cards">
+            {% if pending_requests %}
+                {% for req in pending_requests %}
+                <div class="request-card">
+                    <div class="requested-shift">
+                        <div class="date-label">Requested Shift</div>
+                        <div class="shift-date">{{ req.shift_date }}</div>
+                        <div class="shift-time">{{ req.shift_time }}</div>
+                    </div>
+                    <div class="request-details">
+                        <div class="submission-date">
+                            <div class="label">Submission Date</div>
+                            <div class="value">{{ req.submission_date }}</div>
+                        </div>
+                        <div class="status pending">
+                            <div class="label">Status</div>
+                            <div class="value">{{ req.status }}</div>
+                        </div>
+                        <div class="reason">
+                            <div class="label">Reason</div>
+                            <div class="value">{{ req.reason }}</div>
+                        </div>
+                        <form action="{{ url_for('requests_views.cancel_request_endpoint', request_id=req.id) }}" method="POST">
+                            <button type="submit" class="cancel-btn">Cancel</button>
+                        </form>
+                    </div>
                 </div>
-                <div class="request-details">
-                    <div class="submission-date">
-                        <div class="label">Submission Date</div>
-                        <div class="value">{{ req.submission_date }}</div>
-                    </div>
-                    <div class="status pending">
-                        <div class="label">Status</div>
-                        <div class="value">{{ req.status }}</div>
-                    </div>
-                    <div class="reason">
-                        <div class="label">Reason</div>
-                        <div class="value">{{ req.reason }}</div>
-                    </div>
-                </div>
-                <form action="{{ url_for('requests_views.cancel_request_endpoint', request_id=req.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to cancel this request?');">
-                    <button type="submit" class="cancel-btn">Cancel</button>
-                </form>
-            </div>
-            {% endfor %}
-        {% endif %}
+                {% endfor %}
+            {% endif %}
 
-        {% if approved_requests %}
-            {% for req in approved_requests %}
-            <div class="request-card">
-                <div class="requested-shift">
-                    <div class="date-label">Requested Shift</div>
-                    <div class="shift-date">{{ req.shift_date }}</div>
-                    <div class="shift-time">{{ req.shift_time }}</div>
+            {% if approved_requests %}
+                {% for req in approved_requests %}
+                <div class="request-card">
+                    <div class="requested-shift">
+                        <div class="date-label">Requested Shift</div>
+                        <div class="shift-date">{{ req.shift_date }}</div>
+                        <div class="shift-time">{{ req.shift_time }}</div>
+                    </div>
+                    <div class="request-details">
+                        <div class="submission-date">
+                            <div class="label">Submission Date</div>
+                            <div class="value">{{ req.submission_date }}</div>
+                        </div>
+                        <div class="status approved">
+                            <div class="label">Status</div>
+                            <div class="value">{{ req.status }}</div>
+                        </div>
+                        <div class="reason">
+                            <div class="label">Reason</div>
+                            <div class="value">{{ req.reason }}</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="request-details">
-                    <div class="submission-date">
-                        <div class="label">Submission Date</div>
-                        <div class="value">{{ req.submission_date }}</div>
-                    </div>
-                    <div class="status approved">
-                        <div class="label">Status</div>
-                        <div class="value">{{ req.status }}</div>
-                    </div>
-                    <div class="reason">
-                        <div class="label">Reason</div>
-                        <div class="value">{{ req.reason }}</div>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        {% endif %}
+                {% endfor %}
+            {% endif %}
 
-        {% if rejected_requests %}
-            {% for req in rejected_requests %}
-            <div class="request-card">
-                <div class="requested-shift">
-                    <div class="date-label">Requested Shift</div>
-                    <div class="shift-date">{{ req.shift_date }}</div>
-                    <div class="shift-time">{{ req.shift_time }}</div>
+            {% if rejected_requests %}
+                {% for req in rejected_requests %}
+                <div class="request-card">
+                    <div class="requested-shift">
+                        <div class="date-label">Requested Shift</div>
+                        <div class="shift-date">{{ req.shift_date }}</div>
+                        <div class="shift-time">{{ req.shift_time }}</div>
+                    </div>
+                    <div class="request-details">
+                        <div class="submission-date">
+                            <div class="label">Submission Date</div>
+                            <div class="value">{{ req.submission_date }}</div>
+                        </div>
+                        <div class="status rejected">
+                            <div class="label">Status</div>
+                            <div class="value">{{ req.status }}</div>
+                        </div>
+                        <div class="reason">
+                            <div class="label">Reason</div>
+                            <div class="value">{{ req.reason }}</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="request-details">
-                    <div class="submission-date">
-                        <div class="label">Submission Date</div>
-                        <div class="value">{{ req.submission_date }}</div>
-                    </div>
-                    <div class="status rejected">
-                        <div class="label">Status</div>
-                        <div class="value">{{ req.status }}</div>
-                    </div>
-                    <div class="reason">
-                        <div class="label">Reason</div>
-                        <div class="value">{{ req.reason }}</div>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        {% endif %}
-
-        {% if not pending_requests and not approved_requests and not rejected_requests %}
-            <div class="no-requests">
-                <p>You don't have any requests yet. Use the form below to submit a new request.</p>
-            </div>
-        {% endif %}
-    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="no-requests">
+            <p>You don't have any requests yet. Use the form below to submit a new request.</p>
+        </div>
+    {% endif %}
 
     <!-- New Request Form Section -->
     <div class="request-form-section">
@@ -199,65 +158,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Handle form validation
-        const requestForm = document.getElementById('requestForm');
-        
-        if (requestForm) {
-            requestForm.addEventListener('submit', function(e) {
-                let isValid = true;
-                
-                // Validate shift selection
-                const shiftSelect = document.getElementById('shiftToChange');
-                const shiftError = document.getElementById('shiftError');
-                
-                if (shiftSelect.value === '') {
-                    shiftError.style.display = 'block';
-                    isValid = false;
-                } else {
-                    shiftError.style.display = 'none';
-                }
-                
-                // Validate reason
-                const reasonInput = document.getElementById('reasonForChange');
-                const reasonError = document.getElementById('reasonError');
-                
-                if (reasonInput.value.trim() === '') {
-                    reasonError.style.display = 'block';
-                    isValid = false;
-                } else {
-                    reasonError.style.display = 'none';
-                }
-                
-                if (!isValid) {
-                    e.preventDefault();
-                }
-            });
-            
-            // Clear errors on input
-            const shiftSelect = document.getElementById('shiftToChange');
-            const reasonInput = document.getElementById('reasonForChange');
-            
-            shiftSelect.addEventListener('change', function() {
-                document.getElementById('shiftError').style.display = 'none';
-            });
-            
-            reasonInput.addEventListener('input', function() {
-                document.getElementById('reasonError').style.display = 'none';
-            });
-        }
-        
-        // Hide flash messages after 5 seconds
-        const flashMessages = document.querySelectorAll('.flash-message');
-        flashMessages.forEach(message => {
-            setTimeout(() => {
-                message.style.opacity = '0';
-                setTimeout(() => {
-                    message.style.display = 'none';
-                }, 500);
-            }, 5000);
-        });
-    });
-</script>
+<script src="{{ url_for('static', filename='js/volunteer/requests.js') }}"></script>
 {% endblock %}
