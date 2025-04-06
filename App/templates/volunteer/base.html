@@ -8,14 +8,23 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}">
     {% block extra_css %}{% endblock %}
+    <style>
+        /* Ensure the active nav link is properly highlighted */
+        .nav-link.active {
+            background-color: #ebf5ff;
+            color: #0066cc;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0, 102, 204, 0.1);
+        }
+    </style>
 </head>
 <body>
     <nav class="nav-container">
         <div class="nav-links">
-            <a href="{{ url_for('volunteer_views.dashboard') }}" class="nav-link {% if request.endpoint == 'volunteer_views.dashboard' %}active{% endif %}">Dashboard</a>
-            <a href="{{ url_for('volunteer_views.time_tracking') }}" class="nav-link {% if request.endpoint == 'volunteer_views.time_tracking' %}active{% endif %}">Time Tracking</a>
-            <a href="{{ url_for('volunteer_views.requests') }}" class="nav-link {% if request.endpoint == 'volunteer_views.requests' or request.endpoint == 'volunteer_views.submit_request' or request.endpoint == 'volunteer_views.cancel_request_endpoint' %}active{% endif %}">Requests</a>
-            <a href="{{ url_for('volunteer_views.profile') }}" class="nav-link {% if request.endpoint == 'volunteer_views.profile' %}active{% endif %}">Profile</a>
+            <a href="{{ url_for('volunteer_views.dashboard') }}" class="nav-link {% if request.path == url_for('volunteer_views.dashboard') %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('volunteer_views.time_tracking') }}" class="nav-link {% if request.path == url_for('volunteer_views.time_tracking') %}active{% endif %}">Time Tracking</a>
+            <a href="{{ url_for('volunteer_views.requests') }}" class="nav-link {% if request.path == url_for('volunteer_views.requests') %}active{% endif %}">Requests</a>
+            <a href="{{ url_for('volunteer_views.profile') }}" class="nav-link {% if request.path == url_for('volunteer_views.profile') %}active{% endif %}">Profile</a>
             <div class="notification-badge" id="notificationBadge">
                 <span class="material-icons">notifications</span>
             </div>
@@ -50,6 +59,38 @@
     </div>
     
     <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    
+    <!-- JavaScript to force navigation highlighting if Jinja2 conditions aren't working -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Current path
+        const currentPath = window.location.pathname;
+        
+        // Highlight the active navigation link
+        const navLinks = document.querySelectorAll('.nav-links .nav-link');
+        
+        // First, try direct URL comparison
+        navLinks.forEach(link => {
+            const href = link.getAttribute('href');
+            if (href === currentPath) {
+                link.classList.add('active');
+            }
+        });
+        
+        // If no match, try a more flexible approach for specific pages
+        if (!document.querySelector('.nav-link.active')) {
+            if (currentPath.includes('/requests')) {
+                document.querySelector('.nav-link[href*="requests"]').classList.add('active');
+            } else if (currentPath.includes('/time_tracking')) {
+                document.querySelector('.nav-link[href*="time_tracking"]').classList.add('active');
+            } else if (currentPath.includes('/profile')) {
+                document.querySelector('.nav-link[href*="profile"]').classList.add('active');
+            } else if (currentPath === '/' || currentPath.includes('/dashboard')) {
+                document.querySelector('.nav-link[href*="dashboard"]').classList.add('active');
+            }
+        }
+    });
+    </script>
     
     {% block scripts %}{% endblock %}
 </body>
