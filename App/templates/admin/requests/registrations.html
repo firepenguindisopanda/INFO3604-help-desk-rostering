@@ -3,402 +3,205 @@
 {% block title %}Registration Requests - Help Desk System{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/request.css') }}">
-<style>
-    .tabs {
-        display: flex;
-        border-bottom: 1px solid #eee;
-        margin-bottom: 1.5rem;
-    }
-    
-    .tab {
-        padding: 0.75rem 1.5rem;
-        cursor: pointer;
-        border-bottom: 2px solid transparent;
-        font-weight: 500;
-        color: #666;
-        transition: all 0.2s ease;
-    }
-    
-    .tab.active {
-        color: #0066cc;
-        border-bottom-color: #0066cc;
-    }
-    
-    .tab-content {
-        display: none;
-    }
-    
-    .tab-content.active {
-        display: block;
-    }
-    
-    .registration-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-    }
-    
-    .registration-card {
-        background-color: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    
-    .registration-card.pending {
-        border-left: 4px solid #f59e0b;
-    }
-    
-    .registration-card.approved {
-        border-left: 4px solid #10b981;
-    }
-    
-    .registration-card.rejected {
-        border-left: 4px solid #ef4444;
-    }
-    
-    .registration-top {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 1rem;
-    }
-    
-    .registration-name {
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: #333;
-    }
-    
-    .registration-id {
-        color: #666;
-        font-size: 0.9rem;
-    }
-    
-    .registration-status {
-        font-weight: 600;
-        padding: 0.2rem 0.6rem;
-        border-radius: 4px;
-        font-size: 0.8rem;
-    }
-    
-    .registration-card.pending .registration-status {
-        background-color: #fef3c7;
-        color: #d97706;
-    }
-    
-    .registration-card.approved .registration-status {
-        background-color: #d1fae5;
-        color: #059669;
-    }
-    
-    .registration-card.rejected .registration-status {
-        background-color: #fee2e2;
-        color: #dc2626;
-    }
-    
-    .registration-detail-row {
-        display: flex;
-        margin-bottom: 0.5rem;
-    }
-    
-    .registration-label {
-        width: 120px;
-        font-weight: 500;
-        color: #666;
-    }
-    
-    .registration-value {
-        flex: 1;
-    }
-    
-    .course-tag {
-        display: inline-block;
-        background-color: #e6f0ff;
-        color: #0066cc;
-        font-size: 0.8rem;
-        padding: 0.2rem 0.5rem;
-        border-radius: 4px;
-        margin-right: 0.5rem;
-        margin-bottom: 0.5rem;
-    }
-    
-    .file-download {
-        display: inline-block;
-        color: #0066cc;
-        text-decoration: none;
-        font-size: 0.9rem;
-        margin-top: 0.5rem;
-    }
-    
-    .file-download i {
-        vertical-align: middle;
-        margin-right: 0.25rem;
-    }
-    
-    .registration-reason {
-        padding: 0.75rem;
-        background-color: #f9f9fa;
-        border-radius: 4px;
-        margin: 0.5rem 0 1rem 0;
-        font-size: 0.9rem;
-        color: #444;
-    }
-    
-    .registration-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 0.75rem;
-        margin-top: 1rem;
-    }
-    
-    .no-registrations {
-        text-align: center;
-        padding: 2rem;
-        background-color: #f9f9fa;
-        border-radius: 8px;
-        color: #666;
-    }
-    
-    /* Modal for viewing transcript */
-    .modal {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0,0,0,0.5);
-        z-index: 1000;
-    }
-    
-    .modal-content {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background-color: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        width: 90%;
-        max-width: 800px;
-        max-height: 90vh;
-        overflow-y: auto;
-    }
-    
-    .modal-close {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        font-size: 1.5rem;
-        font-weight: bold;
-        color: #666;
-        cursor: pointer;
-    }
-    
-    .empty-message {
-        text-align: center;
-        padding: 2rem;
-        background-color: #f9f9fa;
-        border-radius: 8px;
-        color: #666;
-        margin-top: 1rem;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/registrations.css') }}">
 {% endblock %}
 
 {% block content %}
-<h4>Registration Management</h4>
+<div class="registrations-container">
+    <div class="registrations-header">
+        <h4>Registration Management</h4>
+    </div>
 
-<div class="tabs">
-    <div class="tab" onclick="window.location.href='{{ url_for('requests_views.requests') }}'">Shift Requests</div>
-    <div class="tab active">Registration Requests</div>
-</div>
+    <div class="tabs">
+        <div class="tab" onclick="window.location.href='{{ url_for('requests_views.requests') }}'">Shift Requests</div>
+        <div class="tab active">Registration Requests</div>
+    </div>
 
-<div class="search-container">
-    <i class="material-icons">search</i>
-    <input type="text" id="registrationSearchInput" placeholder="Search by name or ID" class="search-input">
-</div>
+    <div class="search-container">
+        <i class="material-icons">search</i>
+        <input type="text" id="registrationSearchInput" placeholder="Search by name or ID" class="search-input">
+    </div>
 
-<!-- Pending Registrations -->
-<div class="registration-header">
-    <h5>Pending Registrations</h5>
-</div>
+    <!-- Pending Registrations -->
+    <div class="section-header">
+        <h5>Pending Registrations</h5>
+    </div>
 
-<div id="pendingRegistrations">
-    {% if pending_registrations %}
-        {% for registration in pending_registrations %}
-            <div class="registration-card pending" data-name="{{ registration.name }}" data-id="{{ registration.username }}">
-                <div class="registration-top">
-                    <div>
-                        <div class="registration-name">{{ registration.name }}</div>
-                        <div class="registration-id">ID: {{ registration.username }}</div>
+    <div id="pendingRegistrations" class="registrations-section">
+        {% if pending_registrations %}
+            {% for registration in pending_registrations %}
+                <div class="registration-card pending" data-name="{{ registration.name }}" data-id="{{ registration.username }}">
+                    <div class="registration-top">
+                        <div>
+                            <div class="registration-name">{{ registration.name }}</div>
+                            <div class="registration-id">ID: {{ registration.username }}</div>
+                        </div>
+                        <div class="registration-status">PENDING</div>
                     </div>
-                    <div class="registration-status">PENDING</div>
-                </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Email:</div>
-                    <div class="registration-value">{{ registration.email }}</div>
-                </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Phone:</div>
-                    <div class="registration-value">{{ registration.phone if registration.phone else "Not provided" }}</div>
-                </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Degree:</div>
-                    <div class="registration-value">{{ registration.degree }}</div>
-                </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Date:</div>
-                    <div class="registration-value">{{ registration.created_at|datetime }}</div>
-                </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Courses:</div>
-                    <div class="registration-value">
-                        {% for course in registration.courses %}
-                            <span class="course-tag">{{ course.course_code }}</span>
-                        {% endfor %}
-                    </div>
-                </div>
-                
-                {% if registration.transcript_path %}
+                    
                     <div class="registration-detail-row">
-                        <div class="registration-label">Transcript:</div>
+                        <div class="registration-label">Email:</div>
+                        <div class="registration-value">{{ registration.email }}</div>
+                    </div>
+                    
+                    <div class="registration-detail-row">
+                        <div class="registration-label">Phone:</div>
+                        <div class="registration-value">{{ registration.phone if registration.phone else "Not provided" }}</div>
+                    </div>
+                    
+                    <div class="registration-detail-row">
+                        <div class="registration-label">Degree:</div>
+                        <div class="registration-value">{{ registration.degree }}</div>
+                    </div>
+                    
+                    <div class="registration-detail-row">
+                        <div class="registration-label">Date:</div>
+                        <div class="registration-value">{{ registration.created_at|datetime }}</div>
+                    </div>
+                    
+                    <div class="registration-detail-row">
+                        <div class="registration-label">Courses:</div>
                         <div class="registration-value">
-                            <a href="{{ url_for('requests_views.download_transcript', registration_id=registration.id) }}" class="file-download">
-                                <i class="material-icons">file_download</i> Download Transcript
-                            </a>
+                            <div class="course-tags">
+                                {% for course in registration.courses %}
+                                    <span class="course-tag">{{ course.course_code }}</span>
+                                {% endfor %}
+                            </div>
                         </div>
                     </div>
-                {% endif %}
-                
-                {% if registration.reason %}
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Reason:</div>
-                        <div class="registration-value">
-                            <div class="registration-reason">{{ registration.reason }}</div>
+                    
+                    {% if registration.transcript_path %}
+                        <div class="registration-detail-row">
+                            <div class="registration-label">Transcript:</div>
+                            <div class="registration-value">
+                                <a href="{{ url_for('requests_views.download_transcript', registration_id=registration.id) }}" class="file-download">
+                                    <i class="material-icons">file_download</i> Download Transcript
+                                </a>
+                            </div>
                         </div>
+                    {% endif %}
+                    
+                    {% if registration.reason %}
+                        <div class="registration-detail-row">
+                            <div class="registration-label">Reason:</div>
+                            <div class="registration-value">
+                                <div class="registration-reason">{{ registration.reason }}</div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="registration-actions">
+                        <button class="btn-reject" onclick="rejectRegistration({{ registration.id }})">Reject</button>
+                        <button class="btn-approve" onclick="approveRegistration({{ registration.id }})">Approve</button>
                     </div>
-                {% endif %}
-                
-                <div class="registration-actions">
-                    <button class="btn btn-reject" onclick="rejectRegistration({{ registration.id }})">Reject</button>
-                    <button class="btn btn-approve" onclick="approveRegistration({{ registration.id }})">Approve</button>
                 </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-registrations">
+                <p>No pending registration requests.</p>
             </div>
-        {% endfor %}
-    {% else %}
-        <div class="no-registrations">
-            <p>No pending registration requests.</p>
-        </div>
-    {% endif %}
-</div>
+        {% endif %}
+    </div>
 
-<!-- Approved Registrations -->
-<div class="registration-header">
-    <h5>Approved Registrations</h5>
-</div>
+    <!-- Approved Registrations -->
+    <div class="section-header">
+        <h5>Approved Registrations</h5>
+    </div>
 
-<div id="approvedRegistrations">
-    {% if approved_registrations %}
-        {% for registration in approved_registrations %}
-            <div class="registration-card approved" data-name="{{ registration.name }}" data-id="{{ registration.username }}">
-                <div class="registration-top">
-                    <div>
-                        <div class="registration-name">{{ registration.name }}</div>
-                        <div class="registration-id">ID: {{ registration.username }}</div>
+    <div id="approvedRegistrations" class="registrations-section">
+        {% if approved_registrations %}
+            {% for registration in approved_registrations %}
+                <div class="registration-card approved" data-name="{{ registration.name }}" data-id="{{ registration.username }}">
+                    <div class="registration-top">
+                        <div>
+                            <div class="registration-name">{{ registration.name }}</div>
+                            <div class="registration-id">ID: {{ registration.username }}</div>
+                        </div>
+                        <div class="registration-status">APPROVED</div>
                     </div>
-                    <div class="registration-status">APPROVED</div>
-                </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Email:</div>
-                    <div class="registration-value">{{ registration.email }}</div>
-                </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Degree:</div>
-                    <div class="registration-value">{{ registration.degree }}</div>
-                </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Date:</div>
-                    <div class="registration-value">{{ registration.created_at|datetime }}</div>
-                </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Approved at:</div>
-                    <div class="registration-value">{{ registration.processed_at|datetime }}</div>
-                </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Approved by:</div>
-                    <div class="registration-value">{{ registration.processed_by }}</div>
-                </div>
-            </div>
-        {% endfor %}
-    {% else %}
-        <div class="no-registrations">
-            <p>No approved registration requests.</p>
-        </div>
-    {% endif %}
-</div>
-
-<!-- Rejected Registrations -->
-<div class="registration-header">
-    <h5>Rejected Registrations</h5>
-</div>
-
-<div id="rejectedRegistrations">
-    {% if rejected_registrations %}
-        {% for registration in rejected_registrations %}
-            <div class="registration-card rejected" data-name="{{ registration.name }}" data-id="{{ registration.username }}">
-                <div class="registration-top">
-                    <div>
-                        <div class="registration-name">{{ registration.name }}</div>
-                        <div class="registration-id">ID: {{ registration.username }}</div>
+                    
+                    <div class="registration-detail-row">
+                        <div class="registration-label">Email:</div>
+                        <div class="registration-value">{{ registration.email }}</div>
                     </div>
-                    <div class="registration-status">REJECTED</div>
+                    
+                    <div class="registration-detail-row">
+                        <div class="registration-label">Degree:</div>
+                        <div class="registration-value">{{ registration.degree }}</div>
+                    </div>
+                    
+                    <div class="registration-detail-row">
+                        <div class="registration-label">Date:</div>
+                        <div class="registration-value">{{ registration.created_at|datetime }}</div>
+                    </div>
+                    
+                    <div class="registration-detail-row">
+                        <div class="registration-label">Approved at:</div>
+                        <div class="registration-value">{{ registration.processed_at|datetime }}</div>
+                    </div>
+                    
+                    <div class="registration-detail-row">
+                        <div class="registration-label">Approved by:</div>
+                        <div class="registration-value">{{ registration.processed_by }}</div>
+                    </div>
                 </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Email:</div>
-                    <div class="registration-value">{{ registration.email }}</div>
-                </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Degree:</div>
-                    <div class="registration-value">{{ registration.degree }}</div>
-                </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Date:</div>
-                    <div class="registration-value">{{ registration.created_at|datetime }}</div>
-                </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Rejected at:</div>
-                    <div class="registration-value">{{ registration.processed_at|datetime }}</div>
-                </div>
-                
-                <div class="registration-detail-row">
-                    <div class="registration-label">Rejected by:</div>
-                    <div class="registration-value">{{ registration.processed_by }}</div>
-                </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-registrations">
+                <p>No approved registration requests.</p>
             </div>
-        {% endfor %}
-    {% else %}
-        <div class="no-registrations">
-            <p>No rejected registration requests.</p>
-        </div>
-    {% endif %}
+        {% endif %}
+    </div>
+
+    <!-- Rejected Registrations -->
+    <div class="section-header">
+        <h5>Rejected Registrations</h5>
+    </div>
+
+    <div id="rejectedRegistrations" class="registrations-section">
+        {% if rejected_registrations %}
+            {% for registration in rejected_registrations %}
+                <div class="registration-card rejected" data-name="{{ registration.name }}" data-id="{{ registration.username }}">
+                    <div class="registration-top">
+                        <div>
+                            <div class="registration-name">{{ registration.name }}</div>
+                            <div class="registration-id">ID: {{ registration.username }}</div>
+                        </div>
+                        <div class="registration-status">REJECTED</div>
+                    </div>
+                    
+                    <div class="registration-detail-row">
+                        <div class="registration-label">Email:</div>
+                        <div class="registration-value">{{ registration.email }}</div>
+                    </div>
+                    
+                    <div class="registration-detail-row">
+                        <div class="registration-label">Degree:</div>
+                        <div class="registration-value">{{ registration.degree }}</div>
+                    </div>
+                    
+                    <div class="registration-detail-row">
+                        <div class="registration-label">Date:</div>
+                        <div class="registration-value">{{ registration.created_at|datetime }}</div>
+                    </div>
+                    
+                    <div class="registration-detail-row">
+                        <div class="registration-label">Rejected at:</div>
+                        <div class="registration-value">{{ registration.processed_at|datetime }}</div>
+                    </div>
+                    
+                    <div class="registration-detail-row">
+                        <div class="registration-label">Rejected by:</div>
+                        <div class="registration-value">{{ registration.processed_by }}</div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-registrations">
+                <p>No rejected registration requests.</p>
+            </div>
+        {% endif %}
+    </div>
 </div>
 
 <!-- Loading overlay (hidden by default) -->
@@ -408,190 +211,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize search functionality
-    initializeSearch();
-    
-    // Hide flash messages after 5 seconds
-    const flashMessages = document.querySelectorAll('.flash-message');
-    flashMessages.forEach(message => {
-        setTimeout(() => {
-            message.style.opacity = '0';
-            setTimeout(() => {
-                message.style.display = 'none';
-            }, 500);
-        }, 5000);
-    });
-});
-
-function initializeSearch() {
-    const searchInput = document.getElementById('registrationSearchInput');
-    if (!searchInput) return;
-    
-    searchInput.addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase();
-        
-        // Search in all registration cards (pending, approved, and rejected)
-        const registrationCards = document.querySelectorAll('.registration-card');
-        
-        registrationCards.forEach(card => {
-            const name = card.getAttribute('data-name').toLowerCase();
-            const id = card.getAttribute('data-id').toLowerCase();
-            
-            if (name.includes(searchTerm) || id.includes(searchTerm)) {
-                card.style.display = 'block';
-            } else {
-                card.style.display = 'none';
-            }
-        });
-        
-        // Check if each section is now empty after filtering
-        checkEmptySections();
-    });
-}
-
-function checkEmptySections() {
-    // Check for each section (pending, approved, rejected)
-    const sections = [
-        { containerId: 'pendingRegistrations', message: 'No pending registration requests matching your search.' },
-        { containerId: 'approvedRegistrations', message: 'No approved registration requests matching your search.' },
-        { containerId: 'rejectedRegistrations', message: 'No rejected registration requests matching your search.' }
-    ];
-    
-    sections.forEach(section => {
-        const container = document.getElementById(section.containerId);
-        if (!container) return;
-        
-        // Check if container has any visible registration cards
-        const visibleCards = container.querySelectorAll('.registration-card[style="display: block;"]');
-        const noRegistrationsMessage = container.querySelector('.no-registrations');
-        
-        // Remove existing "no results" message
-        if (noRegistrationsMessage) {
-            noRegistrationsMessage.remove();
-        }
-        
-        // If no visible cards and no original "no registrations" message, add a search-specific message
-        if (visibleCards.length === 0 && container.querySelectorAll('.registration-card').length > 0) {
-            const noResults = document.createElement('div');
-            noResults.className = 'no-registrations';
-            noResults.innerHTML = `<p>${section.message}</p>`;
-            container.appendChild(noResults);
-        }
-    });
-}
-
-function approveRegistration(registrationId) {
-    // Show confirmation dialog
-    if (!confirm('Are you sure you want to approve this registration request?')) {
-        return;
-    }
-    
-    // Show loading overlay
-    showLoading();
-    
-    // Make API call to approve the registration
-    fetch(`/api/registrations/${registrationId}/approve`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Hide loading overlay
-        hideLoading();
-        
-        if (data.success) {
-            // Show success message
-            showNotification('Registration approved successfully', 'success');
-            
-            // Reload the page after a short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1500);
-        } else {
-            showNotification(`Error: ${data.message}`, 'error');
-        }
-    })
-    .catch(error => {
-        // Hide loading overlay
-        hideLoading();
-        
-        console.error('Error:', error);
-        showNotification('An error occurred while approving the registration', 'error');
-    });
-}
-
-function rejectRegistration(registrationId) {
-    // Show confirmation dialog
-    if (!confirm('Are you sure you want to reject this registration request?')) {
-        return;
-    }
-    
-    // Show loading overlay
-    showLoading();
-    
-    // Make API call to reject the registration
-    fetch(`/api/registrations/${registrationId}/reject`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Hide loading overlay
-        hideLoading();
-        
-        if (data.success) {
-            // Show success message
-            showNotification('Registration rejected successfully', 'success');
-            
-            // Reload the page after a short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1500);
-        } else {
-            showNotification(`Error: ${data.message}`, 'error');
-        }
-    })
-    .catch(error => {
-        // Hide loading overlay
-        hideLoading();
-        
-        console.error('Error:', error);
-        showNotification('An error occurred while rejecting the registration', 'error');
-    });
-}
-
-function showLoading() {
-    document.getElementById('loadingOverlay').style.display = 'flex';
-}
-
-function hideLoading() {
-    document.getElementById('loadingOverlay').style.display = 'none';
-}
-
-function showNotification(message, type = 'info') {
-    // Create a notification element
-    const notification = document.createElement('div');
-    notification.className = `flash-message ${type}`;
-    notification.textContent = message;
-    
-    // Add the notification to the page
-    document.body.appendChild(notification);
-    
-    // Remove the notification after a delay
-    setTimeout(() => {
-        notification.style.opacity = '0';
-        setTimeout(() => {
-            if (document.body.contains(notification)) {
-                document.body.removeChild(notification);
-            }
-        }, 500);
-    }, 5000);
-}
-</script>
+<script src="{{ url_for('static', filename='js/admin/registrations.js') }}"></script>
 {% endblock %}

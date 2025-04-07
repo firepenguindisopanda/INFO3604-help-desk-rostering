@@ -14,8 +14,11 @@ document.addEventListener('DOMContentLoaded', function() {
     flashMessages.forEach(message => {
         setTimeout(() => {
             message.style.opacity = '0';
+            message.style.transform = 'translateY(-10px)';
             setTimeout(() => {
-                message.remove();
+                if (message.parentNode) {
+                    message.parentNode.removeChild(message);
+                }
             }, 500);
         }, 5000);
     });
@@ -72,7 +75,10 @@ function initializeUserCards() {
             // First, collapse all cards
             document.querySelectorAll('.user-card').forEach(c => {
                 c.classList.remove('expanded');
-                c.querySelector('.expand-icon').textContent = 'expand_more';
+                const icon = c.querySelector('.expand-icon');
+                if (icon) {
+                    icon.textContent = 'expand_more';
+                }
             });
             
             document.querySelectorAll('.request-details').forEach(details => {
@@ -82,8 +88,15 @@ function initializeUserCards() {
             // Then, expand this card if it wasn't already expanded
             if (!isExpanded) {
                 this.classList.add('expanded');
-                expandIcon.textContent = 'expand_less';
-                detailsElement.style.display = 'block';
+                if (expandIcon) {
+                    expandIcon.textContent = 'expand_less';
+                }
+                
+                // Apply smooth display transition for details
+                if (detailsElement) {
+                    detailsElement.style.display = 'block';
+                    detailsElement.style.animation = 'fadeIn 0.3s ease';
+                }
             }
         });
     });
@@ -95,6 +108,7 @@ function initializeSearch() {
     
     searchInput.addEventListener('input', function() {
         const searchTerm = this.value.toLowerCase();
+        let foundResults = false;
         
         document.querySelectorAll('.user-card').forEach(card => {
             const name = card.querySelector('.user-name').textContent.toLowerCase();
@@ -103,6 +117,14 @@ function initializeSearch() {
             
             if (name.includes(searchTerm) || id.includes(searchTerm) || role.includes(searchTerm)) {
                 card.style.display = 'flex';
+                foundResults = true;
+                
+                // Optional: Highlight the matching text for better UX
+                if (searchTerm.length > 1) {
+                    highlightMatch(card.querySelector('.user-name'), name, searchTerm);
+                    highlightMatch(card.querySelector('.user-id'), id, searchTerm);
+                    highlightMatch(card.querySelector('.user-role'), role, searchTerm);
+                }
             } else {
                 card.style.display = 'none';
                 
@@ -114,7 +136,43 @@ function initializeSearch() {
                 }
             }
         });
+        
+        // Show/hide "no results" message
+        const emptyMessage = document.querySelector('.empty-message');
+        if (emptyMessage) {
+            if (searchTerm.length > 0 && !foundResults) {
+                emptyMessage.style.display = 'block';
+                emptyMessage.querySelector('p').textContent = `No results found for "${searchTerm}"`;
+            } else if (document.querySelectorAll('.user-card').length === 0) {
+                emptyMessage.style.display = 'block';
+                emptyMessage.querySelector('p').textContent = 'No requests found in the system.';
+            } else {
+                emptyMessage.style.display = 'none';
+            }
+        }
     });
+}
+
+// Optional helper function to highlight matching text in search results
+function highlightMatch(element, text, searchTerm) {
+    // Skip if element doesn't exist
+    if (!element) return;
+    
+    // Reset the element text first
+    element.innerHTML = text;
+    
+    // Find the match location
+    const matchIndex = text.toLowerCase().indexOf(searchTerm.toLowerCase());
+    if (matchIndex >= 0) {
+        const prefix = text.substring(0, matchIndex);
+        const match = text.substring(matchIndex, matchIndex + searchTerm.length);
+        const suffix = text.substring(matchIndex + searchTerm.length);
+        
+        // Create highlighted text
+        element.innerHTML = prefix + 
+            `<span style="background-color: rgba(255, 243, 160, 0.5); padding: 0 2px; border-radius: 2px;">${match}</span>` + 
+            suffix;
+    }
 }
 
 function approveRequest(requestId) {
@@ -253,15 +311,31 @@ function showLoading() {
 function hideLoading() {
     const loadingOverlay = document.getElementById('loadingOverlay');
     if (loadingOverlay) {
-        loadingOverlay.style.display = 'none';
+        // Add slight delay to make it look more natural
+        setTimeout(() => {
+            loadingOverlay.style.display = 'none';
+        }, 300);
     }
 }
 
 function showNotification(message, type = 'info') {
+    // Remove any existing notifications first
+    document.querySelectorAll('.flash-message').forEach(el => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+    });
+    
     // Create a notification element
     const notification = document.createElement('div');
     notification.className = `flash-message ${type}`;
-    notification.textContent = message;
+    
+    // Add icon based on notification type
+    if (type === 'success') {
+        notification.innerHTML = `<span style="margin-right: 8px;">✓</span>${message}`;
+    } else if (type === 'error') {
+        notification.innerHTML = `<span style="margin-right: 8px;">⚠️</span>${message}`;
+    } else {
+        notification.textContent = message;
+    }
     
     // Add the notification to the page
     document.body.appendChild(notification);
@@ -269,6 +343,7 @@ function showNotification(message, type = 'info') {
     // Remove the notification after a delay
     setTimeout(() => {
         notification.style.opacity = '0';
+        notification.style.transform = 'translateY(-10px)';
         setTimeout(() => {
             if (document.body.contains(notification)) {
                 document.body.removeChild(notification);
