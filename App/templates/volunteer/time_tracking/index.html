@@ -3,7 +3,34 @@
 {% block title %}Time Tracking - Help Desk System{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/volunteer/time_tracking.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/volunteer/tracking.css') }}">
+<style>
+  /* Additional notification styling for messages */
+  .notification-message {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    padding: 1rem 1.5rem;
+    border-radius: 4px;
+    font-weight: 500;
+    color: white;
+    z-index: 2000;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    transition: opacity 0.3s ease;
+  }
+  
+  .notification-message.success {
+    background-color: #10b981;
+  }
+  
+  .notification-message.error {
+    background-color: #ef4444;
+  }
+  
+  .notification-message.fade-out {
+    opacity: 0;
+  }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -59,7 +86,7 @@
             {% endfor %}
           {% else %}
             <tr>
-              <td colspan="3" style="text-align: center;">No recent shifts</td>
+              <td colspan="3" class="empty-state">No recent shifts</td>
             </tr>
           {% endif %}
         </tbody>
@@ -119,85 +146,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const clockInBtn = document.getElementById('clockInBtn');
-  const clockOutBtn = document.getElementById('clockOutBtn');
-  
-  if (clockInBtn) {
-    clockInBtn.addEventListener('click', function() {
-      // Disable the button to prevent multiple clicks
-      this.disabled = true;
-      this.textContent = 'Processing...';
-      
-      // Make the API call to clock in
-      fetch('/volunteer/time_tracking/clock_in', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          alert('Clocked in successfully!');
-          // Reload the page to update status
-          window.location.reload();
-        } else {
-          alert('Error clocking in: ' + data.message);
-          // Re-enable the button if there was an error
-          this.disabled = false;
-          this.textContent = 'Clock In';
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred while clocking in. Please try again.');
-        this.disabled = false;
-        this.textContent = 'Clock In';
-      });
-    });
-  }
-  
-  if (clockOutBtn) {
-    clockOutBtn.addEventListener('click', function() {
-      // Confirm before clocking out
-      if (!confirm('Are you sure you want to clock out?')) {
-        return;
-      }
-      
-      // Disable the button to prevent multiple clicks
-      this.disabled = true;
-      this.textContent = 'Processing...';
-      
-      // Make the API call to clock out
-      fetch('/volunteer/time_tracking/clock_out', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          alert('Clocked out successfully! Hours worked: ' + data.hours_worked);
-          // Reload the page to update status
-          window.location.reload();
-        } else {
-          alert('Error clocking out: ' + data.message);
-          // Re-enable the button if there was an error
-          this.disabled = false;
-          this.textContent = 'Clock Out';
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred while clocking out. Please try again.');
-        this.disabled = false;
-        this.textContent = 'Clock Out';
-      });
-    });
-  }
-});
-</script>
+<script src="{{ url_for('static', filename='js/volunteer/tracking.js') }}"></script>
 {% endblock %}

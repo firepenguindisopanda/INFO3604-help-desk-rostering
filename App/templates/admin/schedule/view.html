@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/schedule.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}">
 <style>
     .date-controls {
         margin-bottom: 20px;
@@ -116,7 +117,7 @@
     }
     
     .btn-danger {
-        background-color: #ef4444;
+        background-color:rgb(211, 29, 29);
         color: white;
     }
     
@@ -235,6 +236,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/admin-schedule.js') }}"></script>
-
+<script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin/schedule.js') }}"></script>
 {% endblock %}

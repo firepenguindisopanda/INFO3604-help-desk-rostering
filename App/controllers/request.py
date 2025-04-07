@@ -9,6 +9,7 @@ from App.controllers.notification import (
     notify_admin_new_request,
     Notification
 )
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 def get_all_requests():
     """Get all requests grouped by student"""
@@ -79,7 +80,7 @@ def approve_request(request_id):
         return False, "Request not found"
     
     request.status = "APPROVED"
-    request.approved_at = datetime.utcnow()
+    request.approved_at = trinidad_now()
     db.session.add(request)
     
     # Create notification for the student
@@ -99,7 +100,7 @@ def reject_request(request_id):
         return False, "Request not found"
     
     request.status = "REJECTED"
-    request.rejected_at = datetime.utcnow()
+    request.rejected_at = trinidad_now()
     db.session.add(request)
     
     # Create notification for the student
@@ -193,7 +194,7 @@ def get_available_shifts_for_student(username):
     from datetime import datetime, timedelta
     
     # Get future allocations for this student (next 2 weeks)
-    now = datetime.utcnow()
+    now = trinidad_now()
     two_weeks_later = now + timedelta(days=14)
     
     allocations = db.session.query(Allocation, Shift).join(

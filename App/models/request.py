@@ -1,6 +1,7 @@
 from App.database import db
 from datetime import datetime
 from sqlalchemy.sql import func
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 class Request(db.Model):
     __tablename__ = 'request'
@@ -36,13 +37,13 @@ class Request(db.Model):
     def approve(self):
         """Approve this request"""
         self.status = 'APPROVED'
-        self.approved_at = datetime.utcnow()
+        self.approved_at = trinidad_now()
         return self
     
     def reject(self):
         """Reject this request"""
         self.status = 'REJECTED' 
-        self.rejected_at = datetime.utcnow()
+        self.rejected_at = trinidad_now()
         return self
     
     def cancel(self):

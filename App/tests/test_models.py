@@ -20,6 +20,7 @@ from App.models.course_constants import (
     get_courses_dict,
     is_valid_course
 )
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 LOGGER = logging.getLogger(__name__)
 
@@ -122,7 +123,7 @@ class AdminUnitTests(unittest.TestCase):
 class AllocationUnitTests(unittest.TestCase):
     def test_allocation_initialization(self):
         allocation = Allocation(username="student_user", shift_id=1, schedule_id=2)
-        allocation.created_at = datetime.utcnow()  # Explicitly set created_at for testing
+        allocation.created_at = trinidad_now()  # Explicitly set created_at for testing
         self.assertEqual(allocation.username, "student_user")
         self.assertEqual(allocation.shift_id, 1)
         self.assertEqual(allocation.schedule_id, 2)
@@ -286,13 +287,13 @@ class RequestUnitTests(unittest.TestCase):
         self.request.approve()
         self.assertEqual(self.request.status, "APPROVED")
         self.assertIsInstance(self.request.approved_at, datetime)
-        self.assertAlmostEqual(self.request.approved_at, datetime.utcnow(), delta=timedelta(seconds=1))
+        self.assertAlmostEqual(self.request.approved_at, trinidad_now(), delta=timedelta(seconds=1))
 
     def test_reject(self):
         self.request.reject()
         self.assertEqual(self.request.status, "REJECTED")
         self.assertIsInstance(self.request.rejected_at, datetime)
-        self.assertAlmostEqual(self.request.rejected_at, datetime.utcnow(), delta=timedelta(seconds=1))
+        self.assertAlmostEqual(self.request.rejected_at, trinidad_now(), delta=timedelta(seconds=1))
 
     def test_cancel_pending_request(self):
         result = self.request.cancel()
@@ -346,14 +347,14 @@ class RegistrationRequestUnitTests(unittest.TestCase):
         self.registration_request.approve(admin_username="admin_user")
         self.assertEqual(self.registration_request.status, "APPROVED")
         self.assertIsInstance(self.registration_request.processed_at, datetime)
-        self.assertAlmostEqual(self.registration_request.processed_at, datetime.utcnow(), delta=timedelta(seconds=1))
+        self.assertAlmostEqual(self.registration_request.processed_at, trinidad_now(), delta=timedelta(seconds=1))
         self.assertEqual(self.registration_request.processed_by, "admin_user")
 
     def test_reject(self):
         self.registration_request.reject(admin_username="admin_user")
         self.assertEqual(self.registration_request.status, "REJECTED")
         self.assertIsInstance(self.registration_request.processed_at, datetime)
-        self.assertAlmostEqual(self.registration_request.processed_at, datetime.utcnow(), delta=timedelta(seconds=1))
+        self.assertAlmostEqual(self.registration_request.processed_at, trinidad_now(), delta=timedelta(seconds=1))
         self.assertEqual(self.registration_request.processed_by, "admin_user")
 
     def test_get_json(self):
@@ -678,25 +679,25 @@ class NotificationUnitTests(unittest.TestCase):
 
     def test_get_friendly_time_today(self):
         notification = Notification(username="john_doe", message="Test message", notification_type=Notification.TYPE_REMINDER)
-        notification.created_at = datetime.utcnow()
+        notification.created_at = trinidad_now()
         friendly_time = notification.get_friendly_time()
         self.assertTrue(friendly_time.startswith("Today at"))
 
     def test_get_friendly_time_yesterday(self):
         notification = Notification(username="john_doe", message="Test message", notification_type=Notification.TYPE_REMINDER)
-        notification.created_at = datetime.utcnow() - timedelta(days=1)
+        notification.created_at = trinidad_now() - timedelta(days=1)
         friendly_time = notification.get_friendly_time()
         self.assertTrue(friendly_time.startswith("Yesterday at"))
 
     def test_get_friendly_time_this_week(self):
         notification = Notification(username="john_doe", message="Test message", notification_type=Notification.TYPE_REMINDER)
-        notification.created_at = datetime.utcnow() - timedelta(days=3)
+        notification.created_at = trinidad_now() - timedelta(days=3)
         friendly_time = notification.get_friendly_time()
         self.assertIn("at", friendly_time)
 
     def test_get_friendly_time_older(self):
         notification = Notification(username="john_doe", message="Test message", notification_type=Notification.TYPE_REMINDER)
-        notification.created_at = datetime.utcnow() - timedelta(days=10)
+        notification.created_at = trinidad_now() - timedelta(days=10)
         friendly_time = notification.get_friendly_time()
         expected_year = notification.created_at.year 
         self.assertIn(str(expected_year), friendly_time)

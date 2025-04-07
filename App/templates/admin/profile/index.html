@@ -4,90 +4,6 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/profile.css') }}">
-<style>
-    .edit-modal {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0,0,0,0.5);
-        z-index: 1000;
-    }
-    
-    .edit-modal-content {
-        background-color: white;
-        margin: 10% auto;
-        padding: 2rem;
-        width: 80%;
-        max-width: 600px;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    
-    .edit-form-group {
-        margin-bottom: 1rem;
-    }
-    
-    .edit-form-group label {
-        display: block;
-        margin-bottom: 0.5rem;
-        font-weight: 500;
-    }
-    
-    .edit-form-group input {
-        width: 100%;
-        padding: 0.5rem;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-    }
-    
-    .edit-form-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 1rem;
-        margin-top: 1.5rem;
-    }
-    
-    .staff-list {
-        margin-top: 1.5rem;
-    }
-    
-    .staff-search {
-        margin-bottom: 1rem;
-        width: 100%;
-        padding: 0.5rem;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-    }
-    
-    .loading-spinner {
-        border: 3px solid #f3f3f3;
-        border-top: 3px solid #3498db;
-        border-radius: 50%;
-        width: 20px;
-        height: 20px;
-        animation: spin 2s linear infinite;
-        margin-right: 10px;
-        display: none;
-    }
-    
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    
-    .close-btn {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        cursor: pointer;
-        font-size: 1.5rem;
-        background: none;
-        border: none;
-    }
-</style>
 {% endblock %}
 
 {% block content %}
@@ -96,28 +12,65 @@
 <div class="profile-card">
     <h2>Your Profile</h2>
     <div class="profile-info">
-        <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="{{ admin_profile.name }}" class="avatar avatar-lg">
+        <div class="profile-avatar">
+            <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="{{ admin_profile.name }}" class="avatar avatar-lg">
+            <div class="avatar-overlay">
+                <span class="material-icons">photo_camera</span>
+            </div>
+        </div>
         <div class="profile-details">
             <h3 class="profile-name">{{ admin_profile.name }}</h3>
             <p class="profile-id">{{ admin_profile.username }}</p>
             <p class="profile-email">{{ admin_profile.email }}</p>
+            <div class="profile-status">
+                <span class="status-indicator active"></span>
+                <span class="status-text">Administrator</span>
+            </div>
         </div>
-        <button class="btn btn-primary" id="editAdminProfileBtn">Edit</button>
+        <button class="btn btn-primary edit-profile-btn" id="editAdminProfileBtn">
+            <span class="material-icons">edit</span>
+            Edit Profile
+        </button>
     </div>
 </div>
 
 <div class="staff-card">
-    <h2>Student Assistant Profiles</h2>
-    <input type="text" id="staffSearch" class="staff-search" placeholder="Search by name or ID...">
+    <div class="card-header">
+        <h2>Student Assistant Profiles</h2>
+        <div class="search-wrapper">
+            <span class="material-icons search-icon">search</span>
+            <input type="text" id="staffSearch" class="staff-search" placeholder="Search by name or ID...">
+        </div>
+    </div>
+    
+    <div id="noResultsMessage" class="no-results-message" style="display: none;">
+        No staff found matching your search.
+    </div>
+    
     <div class="staff-grid" id="staffGrid">
         {% for student in students %}
         <div class="staff-item" data-username="{{ student.username }}">
-            <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="{{ student.name }}" class="avatar avatar-sm">
+            <div class="staff-avatar">
+                <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="{{ student.name }}" class="avatar avatar-sm">
+            </div>
             <div class="staff-info">
                 <h4 class="staff-name">{{ student.name }}</h4>
                 <p class="staff-id">{{ student.username }}</p>
+                <div class="staff-stats">
+                    <span class="staff-stat">
+                        <span class="material-icons">schedule</span>
+                        {{ student.hours_worked|default(0) }} hrs
+                    </span>
+                    <span class="staff-stat">
+                        <span class="material-icons">school</span>
+                        {{ student.degree }}
+                    </span>
+                </div>
             </div>
-            <button class="btn btn-primary manage-btn" data-username="{{ student.username }}">Manage</button>
+            <button class="btn btn-secondary manage-btn" data-username="{{ student.username }}">
+                <span class="material-icons">manage_accounts</span>
+                Manage
+            </button>
         </div>
         {% endfor %}
     </div>
@@ -173,6 +126,19 @@
                 <label for="studentMinHours">Minimum Hours</label>
                 <input type="number" id="studentMinHours" name="hours_minimum" min="0">
             </div>
+            <div class="edit-form-group">
+                <label>Status</label>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" id="activeStatus" name="active" value="true">
+                        <label for="activeStatus">Active</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" id="inactiveStatus" name="active" value="false">
+                        <label for="inactiveStatus">Inactive</label>
+                    </div>
+                </div>
+            </div>
             <div class="edit-form-actions">
                 <span class="loading-spinner" id="studentSpinner"></span>
                 <button type="button" class="btn btn-secondary" id="studentCancelBtn">Cancel</button>
@@ -184,235 +150,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Admin profile edit
-        const editAdminProfileBtn = document.getElementById('editAdminProfileBtn');
-        const adminEditModal = document.getElementById('adminEditModal');
-        const adminCancelBtn = document.getElementById('adminCancelBtn');
-        const adminEditForm = document.getElementById('adminEditForm');
-        const adminSpinner = document.getElementById('adminSpinner');
-        
-        // Student profile edit
-        const manageBtns = document.querySelectorAll('.manage-btn');
-        const studentEditModal = document.getElementById('studentEditModal');
-        const studentCancelBtn = document.getElementById('studentCancelBtn');
-        const studentEditForm = document.getElementById('studentEditForm');
-        const studentSpinner = document.getElementById('studentSpinner');
-        
-        // Search functionality
-        const staffSearch = document.getElementById('staffSearch');
-        const staffGrid = document.getElementById('staffGrid');
-        
-        // Close buttons
-        const closeButtons = document.querySelectorAll('.close-btn');
-        
-        // Open admin edit modal
-        if (editAdminProfileBtn) {
-            editAdminProfileBtn.addEventListener('click', function() {
-                adminEditModal.style.display = 'block';
-            });
-        }
-        
-        // Open student edit modal
-        if (manageBtns) {
-            manageBtns.forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const username = this.getAttribute('data-username');
-                    // Redirect to the staff profile page instead of loading the edit modal
-                    window.location.href = `/admin/staff/${username}/profile`;
-                });
-            });
-        }
-        
-        // Close modals with cancel buttons
-        if (adminCancelBtn) {
-            adminCancelBtn.addEventListener('click', function() {
-                adminEditModal.style.display = 'none';
-            });
-        }
-        
-        if (studentCancelBtn) {
-            studentCancelBtn.addEventListener('click', function() {
-                studentEditModal.style.display = 'none';
-            });
-        }
-        
-        // Close modals with X buttons
-        if (closeButtons) {
-            closeButtons.forEach(btn => {
-                btn.addEventListener('click', function() {
-                    adminEditModal.style.display = 'none';
-                    studentEditModal.style.display = 'none';
-                });
-            });
-        }
-        
-        // Close modals when clicking outside
-        window.addEventListener('click', function(event) {
-            if (event.target === adminEditModal) {
-                adminEditModal.style.display = 'none';
-            }
-            if (event.target === studentEditModal) {
-                studentEditModal.style.display = 'none';
-            }
-        });
-        
-        // Admin form submit
-        if (adminEditForm) {
-            adminEditForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                adminSpinner.style.display = 'inline-block';
-                
-                const formData = {
-                    name: document.getElementById('adminName').value,
-                    email: document.getElementById('adminEmail').value
-                };
-                
-                console.log("Sending admin update data:", formData);
-                
-                fetch('/api/admin/profile', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Server responded with status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    adminSpinner.style.display = 'none';
-                    
-                    if (data.success) {
-                        alert('Profile updated successfully!');
-                        adminEditModal.style.display = 'none';
-                        // Reload page to show updated info
-                        window.location.reload();
-                    } else {
-                        alert('Error: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    adminSpinner.style.display = 'none';
-                    console.error('Error:', error);
-                    alert('An error occurred while updating the profile: ' + error.message);
-                });
-            });
-        }
-        
-        // Student form submit
-        if (studentEditForm) {
-            studentEditForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                console.log('Submitting student profile form');
-                studentSpinner.style.display = 'inline-block';
-                
-                const username = document.getElementById('studentUsername').value;
-                
-                // Create the payload with proper type conversion
-                const formData = {
-                    username: username,
-                    name: document.getElementById('studentName').value,
-                    degree: document.getElementById('studentDegree').value,
-                    rate: parseFloat(document.getElementById('studentRate').value || 0),
-                    hours_minimum: parseInt(document.getElementById('studentMinHours').value || 0),
-                    active: document.querySelector('input[name="active"]:checked').value === 'true'
-                };
-                
-                // Log the data being sent
-                console.log("Sending student update data:", formData);
-                
-                fetch('/api/student/profile', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Server responded with status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    studentSpinner.style.display = 'none';
-                    
-                    if (data.success) {
-                        alert('Student profile updated successfully!');
-                        studentEditModal.style.display = 'none';
-                        // Reload page to show updated info
-                        window.location.reload();
-                    } else {
-                        alert('Error: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    studentSpinner.style.display = 'none';
-                    console.error('Error:', error);
-                    alert('An error occurred while updating the student profile: ' + error.message);
-                });
-            });
-        }
-        
-        // Load student data
-        function loadStudentData(username) {
-            studentSpinner.style.display = 'inline-block';
-            
-            fetch(`/api/staff/${username}/profile`)
-            .then(response => response.json())
-            .then(data => {
-                studentSpinner.style.display = 'none';
-                
-                if (data.success) {
-                    const profile = data.profile;
-                    
-                    // Fill the form with student data
-                    document.getElementById('studentUsername').value = profile.username;
-                    document.getElementById('studentName').value = profile.name;
-                    document.getElementById('studentDegree').value = profile.degree;
-                    document.getElementById('studentRate').value = profile.rate;
-                    document.getElementById('studentMinHours').value = profile.hours_minimum;
-                    
-                    // Set active status radio buttons
-                    if (profile.active) {
-                        document.getElementById('activeStatus').checked = true;
-                    } else {
-                        document.getElementById('inactiveStatus').checked = true;
-                    }
-                    
-                    // Display the modal
-                    studentEditModal.style.display = 'block';
-                } else {
-                    alert('Error loading student data: ' + data.message);
-                }
-            })
-            .catch(error => {
-                studentSpinner.style.display = 'none';
-                console.error('Error:', error);
-                alert('An error occurred while loading student data: ' + error.message);
-            });
-        }
-        
-        // Staff search
-        if (staffSearch) {
-            staffSearch.addEventListener('input', function() {
-                const searchTerm = this.value.toLowerCase();
-                const staffItems = staffGrid.querySelectorAll('.staff-item');
-                
-                staffItems.forEach(item => {
-                    const name = item.querySelector('.staff-name').textContent.toLowerCase();
-                    const id = item.querySelector('.staff-id').textContent.toLowerCase();
-                    
-                    if (name.includes(searchTerm) || id.includes(searchTerm)) {
-                        item.style.display = 'flex';
-                    } else {
-                        item.style.display = 'none';
-                    }
-                });
-            });
-        }
-    });
-</script>
+<script src="{{ url_for('static', filename='js/admin/profile.js') }}"></script>
 {% endblock %}

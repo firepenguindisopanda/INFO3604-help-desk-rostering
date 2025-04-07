@@ -1,82 +1,13 @@
 document.addEventListener('DOMContentLoaded', function() {
-  // Store current filter values
-  let currentWeek = document.querySelector('.filter-group:nth-child(2) .dropdown-btn').textContent.trim().split(' ')[0];
-  let currentMonth = document.querySelector('.filter-group:nth-child(1) .dropdown-btn').textContent.trim().split(' ')[0];
-  
-  // Initialize dropdowns
-  initializeDropdowns();
-  
-  // Handle staff card selection
+  // Initialize staff card selection
   initializeStaffCards();
-  
-  // Handle pagination
-  initializePagination();
   
   // Set up button handlers
   initializeButtons();
-});
-
-function initializeDropdowns() {
-  const dropdownBtns = document.querySelectorAll('.dropdown-btn');
   
-  dropdownBtns.forEach(btn => {
-    // Create dropdown menu
-    const dropdown = document.createElement('div');
-    dropdown.className = 'dropdown-menu';
-    dropdown.style.display = 'none';
-    btn.parentNode.appendChild(dropdown);
-    
-    // Fill with options
-    if (btn.textContent.includes('Week')) {
-      for (let i = 1; i <= 52; i++) { // Show all weeks in the year
-        addDropdownOption(dropdown, i.toString(), btn);
-      }
-    } else if (btn.textContent.includes('Month')) {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      months.forEach(month => {
-        addDropdownOption(dropdown, month, btn);
-      });
-    }
-    
-    // Toggle dropdown on button click
-    btn.addEventListener('click', function() {
-      const isVisible = dropdown.style.display === 'block';
-      dropdown.style.display = isVisible ? 'none' : 'block';
-    });
-    
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!btn.contains(event.target) && !dropdown.contains(event.target)) {
-        dropdown.style.display = 'none';
-      }
-    });
-  });
-}
-
-function addDropdownOption(dropdown, value, button) {
-  const option = document.createElement('div');
-  option.className = 'dropdown-option';
-  option.textContent = value;
-  option.addEventListener('click', function() {
-    button.textContent = value + ' ▼';
-    dropdown.style.display = 'none';
-    
-    // Update current filters
-    if (button.textContent.includes('Week')) {
-      currentWeek = value;
-    } else {
-      currentMonth = value;
-    }
-    
-    // Refresh data with new filters
-    const selectedCard = document.querySelector('.staff-card.selected');
-    if (selectedCard) {
-      const staffId = selectedCard.getAttribute('data-staff-id');
-      fetchStaffAttendance(staffId);
-    }
-  });
-  dropdown.appendChild(option);
-}
+  // Initialize pagination
+  initializePagination();
+});
 
 function initializeStaffCards() {
   const staffCards = document.querySelectorAll('.staff-card');
@@ -120,7 +51,7 @@ function fetchStaffAttendance(staffId) {
   tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading...</td></tr>';
   
   // Make a real fetch call to the backend API
-  fetch(`/api/staff/${staffId}/attendance?week=${currentWeek}&month=${currentMonth}`)
+  fetch(`/api/staff/${staffId}/attendance`)
     .then(response => {
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -131,7 +62,7 @@ function fetchStaffAttendance(staffId) {
     .catch(error => {
       console.error('Error fetching attendance data:', error);
       // Show a user-friendly error message
-      tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Failed to load attendance data. Please try again.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="5" class="empty-message">Failed to load attendance data. Please try again.</td></tr>`;
     });
 }
 
@@ -140,7 +71,7 @@ function updateAttendanceTable(records) {
   tableBody.innerHTML = '';
   
   if (!records || records.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No attendance records found for this period.</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="5" class="empty-message">No attendance records found for this period.</td></tr>';
     return;
   }
   
@@ -162,6 +93,36 @@ function updateAttendanceTable(records) {
     `;
     
     tableBody.appendChild(row);
+  });
+}
+
+function initializeButtons() {
+  // Generate Report button handler
+  const reportButton = document.querySelector('.generate-report-btn');
+  if (reportButton) {
+    reportButton.addEventListener('click', function() {
+      const selectedCard = document.querySelector('.staff-card.selected');
+      const staffId = selectedCard ? selectedCard.getAttribute('data-staff-id') : null;
+      const staffName = selectedCard ? selectedCard.querySelector('h3').textContent : 'All Staff';
+      
+      generateAttendanceReport(staffId, staffName);
+    });
+  }
+  
+  // Profile Details button handlers
+  const profileButtons = document.querySelectorAll('.staff-card .profile-details-btn');
+  profileButtons.forEach(button => {
+    button.addEventListener('click', function(e) {
+      // Stop the event from bubbling up to the card
+      e.stopPropagation();
+      
+      // Get the staff info from the parent card
+      const card = this.closest('.staff-card');
+      const staffId = card.getAttribute('data-staff-id');
+      const staffName = card.querySelector('h3').textContent;
+      
+      viewProfileDetails(staffId, staffName);
+    });
   });
 }
 
@@ -202,52 +163,8 @@ function initializePagination() {
       // Add active class to clicked button
       this.classList.add('active');
       
-      // Get the selected staff
-      const selectedCard = document.querySelector('.staff-card.selected');
-      const staffId = selectedCard ? selectedCard.getAttribute('data-staff-id') : null;
-      
-      // If we have a staff ID, fetch attendance for this page
-      if (staffId) {
-        const page = parseInt(this.textContent);
-        fetchStaffAttendancePage(staffId, page);
-      }
-    });
-  });
-}
-
-function fetchStaffAttendancePage(staffId, page) {
-  // In a real app, this would make a paginated request
-  // For now, it just re-requests the same data
-  console.log(`Loading page ${page} for staff ${staffId}`);
-  fetchStaffAttendance(staffId);
-}
-
-function initializeButtons() {
-  // Generate Report button handler
-  const reportButton = document.querySelector('.attendance-list-header .btn-primary');
-  if (reportButton) {
-    reportButton.addEventListener('click', function() {
-      const selectedCard = document.querySelector('.staff-card.selected');
-      const staffId = selectedCard ? selectedCard.getAttribute('data-staff-id') : null;
-      const staffName = selectedCard ? selectedCard.querySelector('h3').textContent : 'All Staff';
-      
-      generateAttendanceReport(staffId, staffName);
-    });
-  }
-  
-  // Profile Details button handlers
-  const profileButtons = document.querySelectorAll('.staff-card .btn-secondary');
-  profileButtons.forEach(button => {
-    button.addEventListener('click', function(e) {
-      // Stop the event from bubbling up to the card
-      e.stopPropagation();
-      
-      // Get the staff info from the parent card
-      const card = this.closest('.staff-card');
-      const staffId = card.getAttribute('data-staff-id');
-      const staffName = card.querySelector('h3').textContent;
-      
-      viewProfileDetails(staffId, staffName);
+      // Currently pagination doesn't actually fetch different pages
+      // This is where you would add code to fetch a specific page of data if needed
     });
   });
 }

@@ -1,6 +1,7 @@
 from App.database import db
 from datetime import datetime
 from werkzeug.security import generate_password_hash
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 class RegistrationRequest(db.Model):
     __tablename__ = 'registration_request'
@@ -58,14 +59,14 @@ class RegistrationRequest(db.Model):
     def approve(self, admin_username):
         """Approve this registration request"""
         self.status = 'APPROVED'
-        self.processed_at = datetime.utcnow()
+        self.processed_at = trinidad_now()
         self.processed_by = admin_username
         return self
     
     def reject(self, admin_username):
         """Reject this registration request"""
         self.status = 'REJECTED'
-        self.processed_at = datetime.utcnow()
+        self.processed_at = trinidad_now()
         self.processed_by = admin_username
         return self
 

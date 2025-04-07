@@ -6,7 +6,6 @@ from .schedule import schedule_views
 from .tracking import tracking_views
 from .requests import requests_views
 from .profile import profile_views
-from .lab import lab_views
 from .volunteer import volunteer_views 
 from .notification import notification_views
 

@@ -264,3 +264,131 @@ function loadNotifications() {
               '<div class="error-state">Failed to load notifications. Please try again.</div>';
       });
 }
+
+// Enhanced notification system for Help Desk application
+// Place this in App/static/js/notifications.js to provide consistent notifications across all pages
+
+/**
+ * Display a notification message to the user
+ * @param {string} message - Message to display
+ * @param {string} type - Message type: 'success', 'error', 'info' or 'warning'
+ * @param {number} duration - How long to display the message (in ms)
+ */
+function showNotification(message, type = 'info', duration = 5000) {
+    // Remove any existing notifications
+    const existingNotifications = document.querySelectorAll('.notification-message');
+    existingNotifications.forEach(notification => {
+      notification.remove();
+    });
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification-message ${type}`;
+    
+    // Add icon based on type
+    let icon = '';
+    if (type === 'success') {
+      icon = '<span class="notification-icon">✓</span>';
+    } else if (type === 'error') {
+      icon = '<span class="notification-icon">⚠️</span>';
+    } else if (type === 'warning') {
+      icon = '<span class="notification-icon">⚠</span>';
+    } else {
+      icon = '<span class="notification-icon">ℹ</span>';
+    }
+    
+    notification.innerHTML = icon + message;
+    
+    // Add notification to the DOM
+    document.body.appendChild(notification);
+    
+    // Style the notification
+    Object.assign(notification.style, {
+      position: 'fixed',
+      top: '1.5rem',
+      left: '50%',
+      transform: 'translateX(-50%) translateY(-20px)',
+      padding: '0.8rem 1.2rem',
+      borderRadius: '6px',
+      color: 'white',
+      zIndex: '9999',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+      display: 'flex',
+      alignItems: 'center',
+      opacity: '0',
+      transition: 'all 0.3s ease',
+      maxWidth: '90%',
+      fontSize: '0.95rem',
+      fontWeight: '500'
+    });
+    
+    // Set type-specific styles
+    if (type === 'success') {
+      notification.style.backgroundColor = '#10b981';
+    } else if (type === 'error') {
+      notification.style.backgroundColor = '#ef4444';
+    } else if (type === 'warning') {
+      notification.style.backgroundColor = '#f59e0b';
+    } else {
+      notification.style.backgroundColor = '#3b82f6';
+    }
+    
+    // Animate in
+    setTimeout(() => {
+      notification.style.opacity = '1';
+      notification.style.transform = 'translateX(-50%) translateY(0)';
+    }, 10);
+    
+    // Remove after a delay
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      notification.style.transform = 'translateX(-50%) translateY(-20px)';
+      
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }, duration);
+  }
+  
+  /**
+   * Converts Flask flash messages to notifications
+   * Call this on page load to convert any Flask flash messages to our custom notifications
+   */
+  function handleFlashMessages() {
+    const flashMessages = document.querySelectorAll('.flash-message');
+    if (flashMessages.length === 0) return;
+    
+    // Process each flash message
+    flashMessages.forEach((message, index) => {
+      // Allow slight delay between messages if there are multiple
+      setTimeout(() => {
+        // Determine the type of message
+        let type = 'info';
+        if (message.classList.contains('success')) {
+          type = 'success';
+        } else if (message.classList.contains('error')) {
+          type = 'error';
+        } else if (message.classList.contains('warning')) {
+          type = 'warning';
+        }
+        
+        // Show the notification and hide the original flash message
+        showNotification(message.textContent.trim(), type);
+        
+        // Hide the original message
+        message.style.display = 'none';
+      }, index * 300); // Stagger multiple notifications
+    });
+  }
+  
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    // Convert any existing flash messages to notifications
+    handleFlashMessages();
+  });
+  
+  // Export functions for use in other scripts
+  window.showNotification = showNotification;
+  window.handleFlashMessages = handleFlashMessages;

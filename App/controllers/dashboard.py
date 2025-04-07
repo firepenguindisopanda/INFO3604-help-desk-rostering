@@ -4,6 +4,7 @@ from App.middleware import volunteer_required
 from App.models import Student, HelpDeskAssistant, Shift, Allocation, TimeEntry
 from App.database import db
 from datetime import datetime, timedelta
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 def get_dashboard_data(username):
     """Get all required data for the volunteer dashboard"""
@@ -11,7 +12,7 @@ def get_dashboard_data(username):
         print(f"Fetching dashboard data for user: {username}")
         
         # Get current date and time
-        now = datetime.utcnow()
+        now = trinidad_now()
         today = now.replace(hour=0, minute=0, second=0, microsecond=0)
         
         # Get student info

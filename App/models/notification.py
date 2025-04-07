@@ -1,5 +1,6 @@
 from datetime import datetime
 from App.database import db
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -38,7 +39,7 @@ class Notification(db.Model):
     
     def get_friendly_time(self):
         """Return a human-friendly time format like 'Monday at 3:00 PM'"""
-        now = datetime.utcnow()
+        now = trinidad_now()
         diff = now - self.created_at
         
         if diff.days == 0:

@@ -13,6 +13,7 @@ from App.controllers.tracking import (
 from App.middleware import admin_required
 from App.models import TimeEntry, Student, HelpDeskAssistant
 import json
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 tracking_views = Blueprint('tracking_views', __name__, template_folder='../templates')
 
@@ -32,7 +33,7 @@ def time_tracking():
         staff_data[0]['selected'] = True
     
     # Get current date for display
-    now = datetime.utcnow()
+    now = trinidad_now()
     current_week = now.isocalendar()[1]
     current_month = now.strftime('%b')
     
@@ -69,31 +70,18 @@ def time_tracking():
 @admin_required
 def get_staff_attendance(staff_id):
     """API endpoint to get attendance records for a specific staff member"""
-    # Get week and month from query parameters, or use defaults
-    week = request.args.get('week', datetime.utcnow().isocalendar()[1])
-    month = request.args.get('month', datetime.utcnow().strftime('%b'))
-    
-    # Calculate date range based on week number
-    now = datetime.utcnow()
-    year = now.year
-    
+    # Get most recent attendance records for this staff member
     try:
-        # Convert to integers
-        week_number = int(week)
+        # Get current date for calculation
+        now = trinidad_now()
         
-        # Calculate the first day of the specified week
-        first_day = datetime(year, 1, 1)
-        if first_day.weekday() > 0:
-            # If the first day is not Monday, adjust to previous Monday
-            first_day = first_day - timedelta(days=first_day.weekday())
-        
-        # Calculate week start and end
-        week_start = first_day + timedelta(weeks=week_number-1)
-        week_end = week_start + timedelta(days=6)
+        # Default to showing the last 14 days of attendance
+        start_date = now - timedelta(days=14)
+        end_date = now
         
         # Get attendance records
         attendance_records = get_shift_attendance_records(
-            date_range=(week_start, week_end)
+            date_range=(start_date, end_date)
         )
         
         # Filter for just this staff member
@@ -101,16 +89,12 @@ def get_staff_attendance(staff_id):
         
         return jsonify({
             "staff_id": staff_id,
-            "week": week,
-            "month": month,
             "attendance_records": staff_records
         })
     except Exception as e:
         print(f"Error fetching staff attendance: {e}")
         return jsonify({
             "staff_id": staff_id,
-            "week": week,
-            "month": month,
             "error": str(e),
             "attendance_records": []
         })
@@ -148,7 +132,7 @@ def generate_attendance_report_endpoint():
                 json.dumps(report, indent=2),
                 mimetype='application/json',
                 headers={
-                    'Content-Disposition': f'attachment;filename=attendance_report_{datetime.utcnow().strftime("%Y%m%d")}.json'
+                    'Content-Disposition': f'attachment;filename=attendance_report_{trinidad_now().strftime("%Y%m%d")}.json'
                 }
             )
             return response

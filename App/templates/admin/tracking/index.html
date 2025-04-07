@@ -9,20 +9,6 @@
 {% block content %}
 <div class="header">
     <h2>Attendance</h2>
-    <div class="filters">
-        <div class="filter-group">
-            <span>Month</span>
-            <div class="dropdown">
-                <button class="dropdown-btn">{{ current_month }} ▼</button>
-            </div>
-        </div>
-        <div class="filter-group">
-            <span>Week</span>
-            <div class="dropdown">
-                <button class="dropdown-btn">{{ current_week }} ▼</button>
-            </div>
-        </div>
-    </div>
 </div>
 
 <div class="attendance-cards">
@@ -45,7 +31,7 @@
                 <div class="stat-label">Week</div>
             </div>
         </div>
-        <button class="btn btn-secondary">Profile Details</button>
+        <button class="profile-details-btn">Profile Details</button>
     </div>
     {% endfor %}
 </div>
@@ -53,7 +39,7 @@
 <div class="attendance-list-container">
     <div class="attendance-list-header">
         <h3>Weekly Attendance List</h3>
-        <button class="btn btn-primary">Generate Report</button>
+        <button class="generate-report-btn">Generate Report</button>
     </div>
     
     <table class="attendance-list">
@@ -84,7 +70,7 @@
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td colspan="5">No attendance records found for this period.</td>
+                    <td colspan="5" class="empty-message">No attendance records found for this period.</td>
                 </tr>
             {% endif %}
         </tbody>
@@ -101,5 +87,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/admin-tracking.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin/tracking.js') }}"></script>
 {% endblock %}

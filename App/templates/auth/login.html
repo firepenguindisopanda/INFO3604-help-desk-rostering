@@ -5,6 +5,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/auth/auth.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}">
 <style>
     .error-message {
         color: #dc3545;
@@ -64,7 +65,7 @@
 {% block content %}
 <div class="login-container">
     <div class="left-side">
-        <h1>Help Desk Rostering and Claiming System</h1>
+        <h1>Help Desk Rostering System</h1>
         <img src="{{ url_for('static', filename='images/UwiFrontPage.jpg') }}" alt="UWI Front Page" class="front-page-image">
     </div>
     <div class="right-side">
@@ -74,11 +75,13 @@
                 
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ category }}" style="color: {% if category == 'error' %}#dc3545{% else %}#28a745{% endif %}; margin-bottom: 1rem; padding: 0.75rem; background-color: {% if category == 'error' %}#f8d7da{% else %}#d4edda{% endif %}; border-radius: 4px;">
-                                {{ message }}
-                            </div>
-                        {% endfor %}
+                        <div id="flash-container">
+                            {% for category, message in messages %}
+                                <div class="flash-message {{ category }}">
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
+                        </div>
                     {% endif %}
                 {% endwith %}
                 
@@ -113,8 +116,12 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Initialize notifications
+        handleFlashMessages();
+        
         const loginForm = document.getElementById('loginForm');
         const idInput = document.getElementById('id');
         const passwordInput = document.getElementById('password');
