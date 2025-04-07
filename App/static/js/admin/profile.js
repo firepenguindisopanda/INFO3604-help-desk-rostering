@@ -27,9 +27,27 @@ document.addEventListener('DOMContentLoaded', function() {
     // Open admin edit modal with animation
     if (editAdminProfileBtn) {
       editAdminProfileBtn.addEventListener('click', function() {
+        // Make sure the modal content is visible
+        const modalContent = adminEditModal.querySelector('.edit-modal-content');
+        if (modalContent) {
+          modalContent.style.opacity = '1';
+          modalContent.style.transform = 'translateY(0)';
+          modalContent.style.display = 'block';
+        }
+        
+        // Display the modal
         adminEditModal.style.display = 'block';
+        adminEditModal.classList.add('visible');
+        
+        // Force a repaint to ensure transitions work properly
+        void adminEditModal.offsetWidth;
+        
+        // Add visible class for animation
         setTimeout(() => {
-          adminEditModal.style.opacity = '1';
+          if (modalContent) {
+            modalContent.style.opacity = '1';
+            modalContent.style.transform = 'translateY(0)';
+          }
         }, 10);
       });
     }
@@ -262,9 +280,7 @@ document.addEventListener('DOMContentLoaded', function() {
           
           // Display the modal with animation
           studentEditModal.style.display = 'block';
-          setTimeout(() => {
-            studentEditModal.style.opacity = '1';
-          }, 10);
+          studentEditModal.classList.add('visible');
         } else {
           showNotification('Error loading student data: ' + data.message, 'error');
         }
@@ -371,10 +387,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function fadeOutModal(modal) {
       if (!modal) return;
       
-      modal.style.opacity = '0';
+      // Remove visible class to trigger CSS transition
+      modal.classList.remove('visible');
+      
+      // Hide the modal after transition completes
       setTimeout(() => {
         modal.style.display = 'none';
-        modal.style.opacity = '1'; // Reset for next time
       }, 300);
     }
     
@@ -468,4 +486,4 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 300);
       }, 5000);
     }
-  });
+});
