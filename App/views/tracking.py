@@ -13,6 +13,7 @@ from App.controllers.tracking import (
 from App.middleware import admin_required
 from App.models import TimeEntry, Student, HelpDeskAssistant
 import json
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 tracking_views = Blueprint('tracking_views', __name__, template_folder='../templates')
 
@@ -32,7 +33,7 @@ def time_tracking():
         staff_data[0]['selected'] = True
     
     # Get current date for display
-    now = datetime.utcnow()
+    now = trinidad_now()
     current_week = now.isocalendar()[1]
     current_month = now.strftime('%b')
     
@@ -72,7 +73,7 @@ def get_staff_attendance(staff_id):
     # Get most recent attendance records for this staff member
     try:
         # Get current date for calculation
-        now = datetime.utcnow()
+        now = trinidad_now()
         
         # Default to showing the last 14 days of attendance
         start_date = now - timedelta(days=14)
@@ -131,7 +132,7 @@ def generate_attendance_report_endpoint():
                 json.dumps(report, indent=2),
                 mimetype='application/json',
                 headers={
-                    'Content-Disposition': f'attachment;filename=attendance_report_{datetime.utcnow().strftime("%Y%m%d")}.json'
+                    'Content-Disposition': f'attachment;filename=attendance_report_{trinidad_now().strftime("%Y%m%d")}.json'
                 }
             )
             return response

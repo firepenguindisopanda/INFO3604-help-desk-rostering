@@ -16,7 +16,7 @@ from App.controllers.notification import notify_availability_updated
 import datetime
 import os
 import json
-
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 from datetime import datetime, timedelta, time
 
 volunteer_views = Blueprint('volunteer_views', __name__, template_folder='../templates')
@@ -245,9 +245,9 @@ def profile():
     # Get stats
     from App.controllers.tracking import get_student_stats
     stats = get_student_stats(username) or {
-        'daily': {'hours': 0, 'date': datetime.utcnow().strftime('%Y-%m-%d')},
-        'weekly': {'hours': 0, 'start_date': (datetime.utcnow() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.utcnow().strftime('%Y-%m-%d')},
-        'monthly': {'hours': 0, 'month': datetime.utcnow().strftime('%B %Y')},
+        'daily': {'hours': 0, 'date': trinidad_now().strftime('%Y-%m-%d')},
+        'weekly': {'hours': 0, 'start_date': (trinidad_now() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': trinidad_now().strftime('%Y-%m-%d')},
+        'monthly': {'hours': 0, 'month': trinidad_now().strftime('%B %Y')},
         'semester': {'hours': 0},
         'absences': 0
     }
@@ -276,7 +276,7 @@ def profile():
         "availability": availability_by_day,
         "stats": {
             "weekly": {
-                "date_range": f"Week {datetime.utcnow().isocalendar()[1]}, {datetime.strptime(stats['weekly']['start_date'], '%Y-%m-%d').strftime('%b %d')} - {datetime.strptime(stats['weekly']['end_date'], '%Y-%m-%d').strftime('%b %d')}",
+                "date_range": f"Week {trinidad_now().isocalendar()[1]}, {datetime.strptime(stats['weekly']['start_date'], '%Y-%m-%d').strftime('%b %d')} - {datetime.strptime(stats['weekly']['end_date'], '%Y-%m-%d').strftime('%b %d')}",
                 "hours": f"{stats['weekly']['hours']:.1f}"
             },
             "monthly": {

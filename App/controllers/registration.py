@@ -6,6 +6,7 @@ from App.controllers.user import create_user
 from App.controllers.notification import create_notification, Notification
 import os
 from datetime import datetime, time
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 def create_registration_request(username, name, email, degree, reason=None, phone=None, transcript_file=None, courses=None, password=None):
     """Create a new registration request with password"""
@@ -25,7 +26,7 @@ def create_registration_request(username, name, email, degree, reason=None, phon
         if transcript_file and transcript_file.filename:
             from werkzeug.utils import secure_filename
             filename = secure_filename(transcript_file.filename)
-            timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+            timestamp = trinidad_now().strftime('%Y%m%d%H%M%S')
             filename = f"{username}_{timestamp}_{filename}"
             
             # Ensure uploads directory exists
@@ -149,7 +150,7 @@ def approve_registration(request_id, admin_username):
             )
         
         # Mark registration as approved
-        now = datetime.utcnow()
+        now = trinidad_now()
         connection.execute(
             text("UPDATE registration_request SET status = 'APPROVED', processed_at = :now, processed_by = :admin WHERE id = :id"),
             {"now": now, "admin": admin_username, "id": request_id}
@@ -198,7 +199,7 @@ def reject_registration(request_id, admin_username):
         
         # Simply mark as rejected - no user accounts are created
         registration.status = 'REJECTED'
-        registration.processed_at = datetime.utcnow()
+        registration.processed_at = trinidad_now()
         registration.processed_by = admin_username
         db.session.add(registration)
         db.session.commit()

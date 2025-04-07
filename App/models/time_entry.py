@@ -1,5 +1,6 @@
 from App.database import db
 from datetime import datetime, timedelta
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 class TimeEntry(db.Model):
     __tablename__ = 'time_entry'
@@ -40,7 +41,7 @@ class TimeEntry(db.Model):
     def complete(self, clock_out=None):
         """Mark this time entry as completed"""
         if not clock_out:
-            clock_out = datetime.utcnow()
+            clock_out = trinidad_now()
         self.clock_out = clock_out
         self.status = 'completed'
         

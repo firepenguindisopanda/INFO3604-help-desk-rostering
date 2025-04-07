@@ -12,6 +12,7 @@ from App.models import (
 )
 from App.database import db
 from App.controllers.notification import notify_schedule_published
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -96,7 +97,7 @@ def generate_schedule(start_date=None, end_date=None):
     try:
         # If start_date is not provided, use the current date
         if start_date is None:
-            start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            start_date = trinidad_now().replace(hour=0, minute=0, second=0, microsecond=0)
         
         # If end_date is not provided, set it to the end of the week (Friday)
         if end_date is None:
@@ -759,7 +760,7 @@ def get_current_schedule():
         # Format into days array with shifts
         days = []
         for day_idx in range(5):  # Monday to Friday
-            day_date = schedule.start_date + timedelta(days=day_idx) if schedule.start_date else datetime.utcnow()
+            day_date = schedule.start_date + timedelta(days=day_idx) if schedule.start_date else trinidad_now()
             day_shifts = []
             
             if day_idx in shifts_by_day:
@@ -830,7 +831,7 @@ def get_current_schedule():
     # Format into days array with shifts
     days = []
     for day_idx in range(5):  # Monday to Friday
-        day_date = schedule.start_date + timedelta(days=day_idx) if schedule.start_date else datetime.utcnow()
+        day_date = schedule.start_date + timedelta(days=day_idx) if schedule.start_date else trinidad_now()
         day_shifts = []
         
         if day_idx in shifts_by_day:

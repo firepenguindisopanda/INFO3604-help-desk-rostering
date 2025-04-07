@@ -6,6 +6,7 @@ from App.controllers.notification import (
     notify_clock_out,
     notify_missed_shift
 )
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 def get_student_stats(username):
     """Get attendance statistics for a student"""
@@ -18,7 +19,7 @@ def get_student_stats(username):
     time_entries = TimeEntry.query.filter_by(username=username).all()
     
     # Calculate stats
-    now = datetime.utcnow()
+    now = trinidad_now()
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     
     # Daily stats (today)
@@ -89,7 +90,7 @@ def get_today_shift(username):
     Get the current or next shift for today for this user
     Returns a dict with shift details including current status
     """
-    now = datetime.utcnow()
+    now = trinidad_now()
     today_start = datetime.combine(now.date(), datetime.min.time())
     today_end = datetime.combine(now.date(), datetime.max.time())
     
@@ -239,7 +240,7 @@ def clock_in(username, shift_id=None):
     Only allows clocking in for assigned shifts.
     """
     try:
-        now = datetime.utcnow()
+        now = trinidad_now()
         
         # Check if there's already an active entry
         active_entry = TimeEntry.query.filter_by(username=username, status='active').first()
@@ -326,7 +327,7 @@ def clock_in(username, shift_id=None):
 def clock_out(username):
     """Record a clock-out event for a student"""
     try:
-        now = datetime.utcnow()
+        now = trinidad_now()
         
         # Find the active time entry
         time_entry = TimeEntry.query.filter_by(username=username, status='active').first()
@@ -462,7 +463,7 @@ def get_shift_history(username, limit=5):
 def get_time_distribution(username):
     """Calculate time distribution for the week"""
     # Get the start of the current week (Monday)
-    now = datetime.utcnow()
+    now = trinidad_now()
     week_start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now.weekday())
     week_end = week_start + timedelta(days=7)
     
@@ -510,12 +511,12 @@ def generate_attendance_report(username=None, start_date=None, end_date=None, fo
         # Set default date range if not provided
         if not start_date:
             # Default to start of current month
-            now = datetime.utcnow()
+            now = trinidad_now()
             start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         
         if not end_date:
             # Default to now
-            end_date = datetime.utcnow()
+            end_date = trinidad_now()
         
         # Query time entries
         query = TimeEntry.query
@@ -562,7 +563,7 @@ def generate_attendance_report(username=None, start_date=None, end_date=None, fo
                 'report': {
                     'start_date': start_date.strftime('%Y-%m-%d'),
                     'end_date': end_date.strftime('%Y-%m-%d'),
-                    'generated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                    'generated_at': trinidad_now().strftime('%Y-%m-%d %H:%M:%S'),
                     'students': list(student_entries.values())
                 }
             }

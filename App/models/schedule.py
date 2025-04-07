@@ -1,5 +1,6 @@
 from App.database import db
 from datetime import datetime, timedelta
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 class Schedule(db.Model):
     __tablename__ = 'schedule'
@@ -19,7 +20,7 @@ class Schedule(db.Model):
         if id is not None:
             self.id = id
             
-        self.start_date = start_date or datetime.utcnow()
+        self.start_date = start_date or trinidad_now()
         
         # If end_date not provided, set it to 6 days after start_date (for a 7-day week)
         if end_date is None:

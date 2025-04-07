@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, jsonify, request, abort, flash, redirect, url_for
 from flask_jwt_extended import jwt_required, current_user
 from App.controllers.user import get_user_profile
-from App.models import Student, HelpDeskAssistant, CourseCapability, Availability, User
+from App.models import Student, HelpDeskAssistant, CourseCapability, Availability, User, Course
 from App.database import db
 from App.middleware import admin_required
 from datetime import time
