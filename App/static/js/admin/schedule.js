@@ -39,7 +39,87 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(preloadAvailabilityData, 1000);
 });
 
+// ==============================
+// UPDATED NOTIFICATION SYSTEM
+// ==============================
 
+function showNotification(message, type = 'info') {
+    // Remove any existing notifications
+    const existingNotifications = document.querySelectorAll('.notification-message');
+    existingNotifications.forEach(notification => {
+      notification.remove();
+    });
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification-message ${type}`;
+    
+    // Add icon based on type
+    let icon = '';
+    if (type === 'success') {
+      icon = '<span style="margin-right: 8px;">✓</span>';
+    } else if (type === 'error') {
+      icon = '<span style="margin-right: 8px;">⚠️</span>';
+    } else if (type === 'warning') {
+      icon = '<span style="margin-right: 8px;">⚠</span>';
+    } else {
+      icon = '<span style="margin-right: 8px;">ℹ</span>';
+    }
+    
+    notification.innerHTML = icon + message;
+    
+    // Add notification to the DOM
+    document.body.appendChild(notification);
+    
+    // Style the notification for top-center positioning
+    Object.assign(notification.style, {
+      position: 'fixed',
+      top: '1.5rem',
+      left: '50%',
+      transform: 'translateX(-50%) translateY(-20px)',
+      padding: '0.8rem 1.2rem',
+      borderRadius: '6px',
+      color: 'white',
+      zIndex: '9999',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+      display: 'flex',
+      alignItems: 'center',
+      opacity: '0',
+      transition: 'all 0.3s ease',
+      maxWidth: '90%',
+      fontSize: '0.95rem',
+      fontWeight: '500'
+    });
+    
+    // Set type-specific styles
+    if (type === 'success') {
+      notification.style.backgroundColor = '#10b981';
+    } else if (type === 'error') {
+      notification.style.backgroundColor = '#ef4444';
+    } else if (type === 'warning') {
+      notification.style.backgroundColor = '#f59e0b';
+    } else {
+      notification.style.backgroundColor = '#3b82f6';
+    }
+    
+    // Animate in
+    setTimeout(() => {
+      notification.style.opacity = '1';
+      notification.style.transform = 'translateX(-50%) translateY(0)';
+    }, 10);
+    
+    // Remove after a delay
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      notification.style.transform = 'translateX(-50%) translateY(-20px)';
+      
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }, 5000);
+  }
 
 function addAvailabilityStyles() {
     const style = document.createElement('style');
@@ -1252,27 +1332,4 @@ function initializeClearScheduleButton() {
         clearSchedule();
         confirmModal.style.display = 'none';
     });
-}
-
-
-// ==============================
-// UTILITY FUNCTIONS
-// ==============================
-
-function showNotification(message, type = 'info') {
-    // Create a notification element
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.textContent = message;
-    
-    // Add the notification to the page
-    document.body.appendChild(notification);
-    
-    // Remove the notification after a delay
-    setTimeout(() => {
-        notification.classList.add('hiding');
-        setTimeout(() => {
-            notification.remove();
-        }, 500);
-    }, 3000);
 }

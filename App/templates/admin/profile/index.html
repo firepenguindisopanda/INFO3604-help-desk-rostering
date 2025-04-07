@@ -12,28 +12,65 @@
 <div class="profile-card">
     <h2>Your Profile</h2>
     <div class="profile-info">
-        <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="{{ admin_profile.name }}" class="avatar avatar-lg">
+        <div class="profile-avatar">
+            <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="{{ admin_profile.name }}" class="avatar avatar-lg">
+            <div class="avatar-overlay">
+                <span class="material-icons">photo_camera</span>
+            </div>
+        </div>
         <div class="profile-details">
             <h3 class="profile-name">{{ admin_profile.name }}</h3>
             <p class="profile-id">{{ admin_profile.username }}</p>
             <p class="profile-email">{{ admin_profile.email }}</p>
+            <div class="profile-status">
+                <span class="status-indicator active"></span>
+                <span class="status-text">Administrator</span>
+            </div>
         </div>
-        <button class="btn btn-primary" id="editAdminProfileBtn">Edit</button>
+        <button class="btn btn-primary edit-profile-btn" id="editAdminProfileBtn">
+            <span class="material-icons">edit</span>
+            Edit Profile
+        </button>
     </div>
 </div>
 
 <div class="staff-card">
-    <h2>Student Assistant Profiles</h2>
-    <input type="text" id="staffSearch" class="staff-search" placeholder="Search by name or ID...">
+    <div class="card-header">
+        <h2>Student Assistant Profiles</h2>
+        <div class="search-wrapper">
+            <span class="material-icons search-icon">search</span>
+            <input type="text" id="staffSearch" class="staff-search" placeholder="Search by name or ID...">
+        </div>
+    </div>
+    
+    <div id="noResultsMessage" class="no-results-message" style="display: none;">
+        No staff found matching your search.
+    </div>
+    
     <div class="staff-grid" id="staffGrid">
         {% for student in students %}
         <div class="staff-item" data-username="{{ student.username }}">
-            <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="{{ student.name }}" class="avatar avatar-sm">
+            <div class="staff-avatar">
+                <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="{{ student.name }}" class="avatar avatar-sm">
+            </div>
             <div class="staff-info">
                 <h4 class="staff-name">{{ student.name }}</h4>
                 <p class="staff-id">{{ student.username }}</p>
+                <div class="staff-stats">
+                    <span class="staff-stat">
+                        <span class="material-icons">schedule</span>
+                        {{ student.hours_worked|default(0) }} hrs
+                    </span>
+                    <span class="staff-stat">
+                        <span class="material-icons">school</span>
+                        {{ student.degree }}
+                    </span>
+                </div>
             </div>
-            <button class="btn btn-primary manage-btn" data-username="{{ student.username }}">Manage</button>
+            <button class="btn btn-secondary manage-btn" data-username="{{ student.username }}">
+                <span class="material-icons">manage_accounts</span>
+                Manage
+            </button>
         </div>
         {% endfor %}
     </div>
@@ -88,6 +125,19 @@
             <div class="edit-form-group">
                 <label for="studentMinHours">Minimum Hours</label>
                 <input type="number" id="studentMinHours" name="hours_minimum" min="0">
+            </div>
+            <div class="edit-form-group">
+                <label>Status</label>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" id="activeStatus" name="active" value="true">
+                        <label for="activeStatus">Active</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" id="inactiveStatus" name="active" value="false">
+                        <label for="inactiveStatus">Inactive</label>
+                    </div>
+                </div>
             </div>
             <div class="edit-form-actions">
                 <span class="loading-spinner" id="studentSpinner"></span>
