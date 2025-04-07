@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
           document.getElementById('idError').textContent = 'ID must contain only numbers';
           idInput.style.borderColor = '#dc3545';
           isValid = false;
-      } else if (!/^(81603|81604)\d{4}$/.test(idInput.value)) {
+      } else if (!/^(816|816)\d{6}$/.test(idInput.value)) {
           document.getElementById('idError').style.display = 'block';
           document.getElementById('idError').textContent = 'ID must follow the standard uwi format eg. 81604279';
           idInput.style.borderColor = '#dc3545';
@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Optional: If you want to validate as they type (only when they've entered enough digits)
       if (this.value.length >= 9) {
-          if (!/^(81603|81604)\d{4}$/.test(this.value)) {
+          if (!/^(816|816)\d{6}$/.test(this.value)) {
               document.getElementById('idError').style.display = 'block';
               document.getElementById('idError').textContent = 'ID must start with 81603 or 81604 followed by 4 digits';
               this.style.borderColor = '#dc3545';

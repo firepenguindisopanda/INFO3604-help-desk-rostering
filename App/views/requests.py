@@ -215,6 +215,7 @@ def reject_registration_endpoint(registration_id):
 def download_transcript(registration_id):
     """Download a transcript file for a registration request"""
     from App.models import RegistrationRequest
+    import os
     
     registration = RegistrationRequest.query.get(registration_id)
     if not registration or not registration.transcript_path:
@@ -222,11 +223,10 @@ def download_transcript(registration_id):
         return redirect(url_for('requests_views.registrations'))
     
     # Extract filename from path
-    transcript_path = registration.transcript_path
-    filename = os.path.basename(transcript_path)
+    filename = os.path.basename(registration.transcript_path)
     
-    # Get the directory from the transcript path
-    directory = os.path.join('App', 'uploads', os.path.dirname(transcript_path))
+    # The files are saved in uploads/transcripts, not App/uploads/transcripts
+    directory = os.path.join('uploads', 'transcripts')
     
     # Return the file
     return send_from_directory(directory, filename)
