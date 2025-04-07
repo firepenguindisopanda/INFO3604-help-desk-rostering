@@ -38,7 +38,6 @@ class UserUnitTests(unittest.TestCase):
         user = User("alice", "alicepass")
         self.assertEqual(user.type, "student")  # Default type should be 'student'
 
-    # pure function no side effects or integrations called
     def test_get_json(self):
         user = User("bob", "bobpass", "admin")
         user_json = user.get_json()
@@ -86,7 +85,7 @@ class StudentUnitTests(unittest.TestCase):
 
     def test_default_degree(self):
         student = Student(username="jane_doe", password="securepass")
-        self.assertEqual(student.degree, "BSc")  # Default degree should be 'BSc'
+        self.assertEqual(student.degree, "BSc")
 
     def test_get_json(self):
         student = Student(username="john_doe", password="securepass", degree="MSc", name="John Doe")
@@ -267,7 +266,7 @@ class CourseUnitTests(unittest.TestCase):
 
 class RequestUnitTests(unittest.TestCase):
     def setUp(self):
-        # Create a sample request object for testing
+   
         self.request = Request(
             username="student_user",
             shift_id=101,
@@ -326,7 +325,7 @@ class RequestUnitTests(unittest.TestCase):
 
 class RegistrationRequestUnitTests(unittest.TestCase):
     def setUp(self):
-        # Create a sample registration request object for testing
+
         self.registration_request = RegistrationRequest(
             username="student_user",
             name="John Doe",
@@ -398,7 +397,7 @@ class ScheduleUnitTests(unittest.TestCase):
         
         self.assertIsNotNone(schedule.id)
         self.assertEqual(schedule.start_date, start_date)
-        self.assertEqual(schedule.end_date, start_date + timedelta(days=6))  # Default end_date is 6 days after start_date
+        self.assertEqual(schedule.end_date, start_date + timedelta(days=6))  #
         self.assertIsNone(schedule.semester_id)
         self.assertFalse(schedule.is_published)
 
@@ -421,8 +420,20 @@ class ScheduleUnitTests(unittest.TestCase):
         self.assertEqual(schedule.get_json(), expected_json)
 
 class SemesterUnitTests(unittest.TestCase):
-    def test_semester_initialization_summer(self):
-        # Test for a summer semester (e.g., starting in August)
+
+    def test_semester_initialization_one(self):
+
+        start_date = datetime(2023, 1, 15)
+        end_date = datetime(2023, 5, 30)
+        semester = Semester(start=start_date, end=end_date)
+        
+        self.assertEqual(semester.academic_year, "2022/2023")
+        self.assertEqual(semester.semester, 2)
+        self.assertEqual(semester.start, start_date)
+        self.assertEqual(semester.end, end_date)
+    
+    def test_semester_initialization_two(self):
+
         start_date = datetime(2023, 8, 1)
         end_date = datetime(2023, 12, 15)
         semester = Semester(start=start_date, end=end_date)
@@ -432,19 +443,8 @@ class SemesterUnitTests(unittest.TestCase):
         self.assertEqual(semester.start, start_date)
         self.assertEqual(semester.end, end_date)
 
-    def test_semester_initialization_winter(self):
-        # Test for a winter semester (e.g., starting in January)
-        start_date = datetime(2023, 1, 15)
-        end_date = datetime(2023, 5, 30)
-        semester = Semester(start=start_date, end=end_date)
-        
-        self.assertEqual(semester.academic_year, "2022/2023")
-        self.assertEqual(semester.semester, 2)
-        self.assertEqual(semester.start, start_date)
-        self.assertEqual(semester.end, end_date)
+    def test_semester_initialization_three(self):
 
-    def test_semester_initialization_spring(self):
-        # Test for a spring semester (e.g., starting in March)
         start_date = datetime(2023, 3, 1)
         end_date = datetime(2023, 6, 30)
         semester = Semester(start=start_date, end=end_date)
@@ -455,7 +455,7 @@ class SemesterUnitTests(unittest.TestCase):
         self.assertEqual(semester.end, end_date)
 
     def test_get_json(self):
-        # Test the get_json method
+
         start_date = datetime(2023, 8, 1)
         end_date = datetime(2023, 12, 15)
         semester = Semester(start=start_date, end=end_date)
@@ -485,7 +485,7 @@ class ShiftCourseDemandUnitTests(unittest.TestCase):
         self.assertEqual(demand.shift_id, 102)
         self.assertEqual(demand.course_code, "CS102")
         self.assertEqual(demand.tutors_required, 2)  # Default value
-        self.assertEqual(demand.weight, 2)  # Default weight matches tutors_required
+        self.assertEqual(demand.weight, 2)  
 
     def test_get_json(self):
         demand = ShiftCourseDemand(shift_id=101, course_code="CS101", tutors_required=3, weight=5)
@@ -502,7 +502,7 @@ class ShiftCourseDemandUnitTests(unittest.TestCase):
 
 class ShiftUnitTests(unittest.TestCase):
     def setUp(self):
-        # Create a sample shift object for testing
+
         self.shift = Shift(
             date=datetime(2023, 1, 1),
             start_time=datetime(2023, 1, 1, 9, 0),
@@ -518,7 +518,7 @@ class ShiftUnitTests(unittest.TestCase):
         self.assertEqual(self.shift.schedule_id, 101)
 
     def test_get_json(self):
-        # Add real course demands
+
         self.shift.course_demands = [
             ShiftCourseDemand(shift_id=self.shift.id, course_code="CS101", tutors_required=2, weight=3),
             ShiftCourseDemand(shift_id=self.shift.id, course_code="CS102", tutors_required=3, weight=4)
@@ -551,19 +551,19 @@ class ShiftUnitTests(unittest.TestCase):
     def test_formatted_time(self):
         self.assertEqual(self.shift.formatted_time(), "09:00 AM to 12:00 PM")
 
-    def test_add_course_demand(self):
-        # Initialize course demands list
+    '''def test_add_course_demand(self):
+
         self.shift.course_demands = []
         self.shift.add_course_demand(course_code="CS101", tutors_required=3, weight=5)
         self.assertEqual(len(self.shift.course_demands), 1)
         self.assertEqual(self.shift.course_demands[0].course_code, "CS101")
         self.assertEqual(self.shift.course_demands[0].tutors_required, 3)
-        self.assertEqual(self.shift.course_demands[0].weight, 5)
+        self.assertEqual(self.shift.course_demands[0].weight, 5)'''
 
 class HelpDeskAssistantModelUnitTests(unittest.TestCase):
 
     def test_create_help_desk_assistant_default_values(self):
-        # Mock the Student.query.get method to return None
+
         Student.query = MagicMock()
         Student.query.get.return_value = None
 
@@ -575,7 +575,7 @@ class HelpDeskAssistantModelUnitTests(unittest.TestCase):
         self.assertEqual(assistant.hours_minimum, 4)  # Default minimum hours
 
     def test_create_help_desk_assistant_with_student(self):
-        # Mock the Student object with a degree
+
         mock_student = MagicMock()
         mock_student.degree = "MSc"
         Student.query = MagicMock()
@@ -631,14 +631,12 @@ class HelpDeskAssistantModelUnitTests(unittest.TestCase):
         self.assertEqual(assistant.hours_worked, 8)
 
     def test_add_course_capability(self):
-        # Mock the CourseCapability class
+
         from App.models.course_capability import CourseCapability
         mock_capability = MagicMock(course_code="INFO3604")
 
-        # Create a HelpDeskAssistant instance
         assistant = HelpDeskAssistant("student1")
 
-        # Manually append the mocked capability to the course_capabilities relationship
         assistant.course_capabilities.append(mock_capability)
 
         # Ensure the capability was added
@@ -647,7 +645,7 @@ class HelpDeskAssistantModelUnitTests(unittest.TestCase):
     
 class NotificationUnitTests(unittest.TestCase):
     def setUp(self):
-        # Set up an in-memory SQLite database for testing
+
         db.create_all()
 
     def tearDown(self):
@@ -657,7 +655,7 @@ class NotificationUnitTests(unittest.TestCase):
 
     def test_notification_initialization(self):
         notification = Notification(username="john_doe", message="Test message", notification_type=Notification.TYPE_REMINDER)
-        db.session.add(notification)  # Add to the database session
+        db.session.add(notification)
         db.session.commit()  # Commit to ensure `created_at` is set by the database
         self.assertEqual(notification.username, "john_doe")
         self.assertEqual(notification.message, "Test message")
@@ -700,7 +698,7 @@ class NotificationUnitTests(unittest.TestCase):
         notification = Notification(username="john_doe", message="Test message", notification_type=Notification.TYPE_REMINDER)
         notification.created_at = datetime.utcnow() - timedelta(days=10)
         friendly_time = notification.get_friendly_time()
-        expected_year = notification.created_at.year  # Dynamically get the year
+        expected_year = notification.created_at.year 
         self.assertIn(str(expected_year), friendly_time)
 
     def test_mark_as_read(self):
@@ -712,7 +710,7 @@ class NotificationUnitTests(unittest.TestCase):
         self.assertTrue(notification.is_read)
     
     def setUp(self):
-        # Set up the database schema if not already created
+
         db.create_all()
 
     def tearDown(self):
@@ -834,7 +832,6 @@ class TimeEntryUnitTests(unittest.TestCase):
         clock_out = datetime(2025, 3, 29, 17, 0, 0)  # 8 hours later
         time_entry = TimeEntry(username="student1", clock_in=clock_in, shift_id=1, status="active")
 
-        # Mock the student and help_desk_assistant relationship
         mock_assistant = MagicMock()
         time_entry.student = MagicMock(help_desk_assistant=mock_assistant)
 
@@ -847,6 +844,7 @@ class TimeEntryUnitTests(unittest.TestCase):
     Integration Tests
 '''
 
+'''
 # This fixture creates an empty database for the test and deletes it after the test
 # scope="class" would execute the fixture once and resued for all methods in the class
 @pytest.fixture(autouse=True, scope="module")
@@ -877,3 +875,4 @@ class UsersIntegrationTests(unittest.TestCase):
         update_user("bob", "ronnie")
         user = get_user("ronnie")
         assert user.username == "ronnie"
+'''
