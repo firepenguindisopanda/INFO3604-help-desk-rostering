@@ -58,24 +58,12 @@
 
 /* Button styles - more squared */
 .btn {
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 1.5rem;
   border-radius: 4px;
-  font-weight: 500;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
   border: none;
-  white-space: nowrap;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
-
-.btn-primary {
-  background-color: #0066cc;
-  color: white;
-}
-
-.btn-primary:hover {
-  background-color: #0052a3;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.2s;
 }
 
 .btn-danger {
