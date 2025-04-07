@@ -15,7 +15,7 @@ class RegistrationRequest(db.Model):
     reason = db.Column(db.Text, nullable=True)
     transcript_path = db.Column(db.String(255), nullable=True)
     status = db.Column(db.String(20), default='PENDING')  # PENDING, APPROVED, REJECTED
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=trinidad_now())
     processed_at = db.Column(db.DateTime, nullable=True)
     processed_by = db.Column(db.String(20), nullable=True)
     password = db.Column(db.String(120), nullable=True)  # Store hashed password

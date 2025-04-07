@@ -8,7 +8,7 @@ class Schedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     start_date = db.Column(db.DateTime, nullable=False)
     end_date = db.Column(db.DateTime, nullable=False)
-    generated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    generated_at = db.Column(db.DateTime, default=trinidad_now())
     is_published = db.Column(db.Boolean, default=False)
     semester_id = db.Column(db.Integer, db.ForeignKey('semester.id'))
     
