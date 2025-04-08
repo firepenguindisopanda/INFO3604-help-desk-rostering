@@ -5,35 +5,31 @@
 // ==============================
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Set default dates
-    setDefaultDates();
-    
-    // --- Drag and Drop Functionality ---
+    // Other initializations...
     initializeDragAndDrop();
-    
-    // --- Staff Search Modal ---
     initializeStaffSearchModal();
-    
-    // --- Generate Schedule Button ---
     initializeGenerateButton();
-    
-    // --- Flash Message Handling ---
     handleFlashMessages();
     
-    // --- Add global event delegation for remove buttons ---
+    // Add event delegation for remove buttons
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('remove-staff') || e.target.parentElement.classList.contains('remove-staff')) {
             handleStaffRemoval(e);
         }
     });
     
-    // --- Add CSS for availability indicators ---
+    // Add CSS for availability indicators
     addAvailabilityStyles();
     
-    // --- Load Current Schedule If Available ---
-    loadCurrentSchedule();
-
+    // Initialize clear schedule button
     initializeClearScheduleButton();
+    
+    // IMPORTANT: Set default dates FIRST to ensure correct dates
+    // regardless of what happens with schedule loading
+    setDefaultDates();
+    
+    // Then load current schedule
+    loadCurrentSchedule();
     
     // Preload availability data after schedule loads
     setTimeout(preloadAvailabilityData, 1000);
@@ -170,20 +166,64 @@ function addAvailabilityStyles() {
 }
 
 function setDefaultDates() {
-    const today = new Date();
     const startDate = document.getElementById('startDate');
     const endDate = document.getElementById('endDate');
     
-    // Set default start date to today
-    startDate.valueAsDate = today;
+    if (!startDate || !endDate) {
+        console.error("Date input elements not found");
+        return;
+    }
     
-    // Set default end date to Friday of current week
-    const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
-    const daysToFriday = 5 - (dayOfWeek === 0 ? 7 : dayOfWeek); // Convert Sunday (0) to 7
-    const friday = new Date(today);
-    friday.setDate(today.getDate() + daysToFriday);
+    // Get the current date
+    const today = new Date();
+    console.log("Today is:", today.toDateString(), "Day of week:", today.getDay());
     
+    // Calculate Monday of current week
+    const monday = getMonday(today);
+    
+    // Calculate Friday (Monday + 4 days)
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+    
+    // Log the calculated dates
+    console.log("Setting date range:", monday.toDateString(), "to", friday.toDateString());
+    
+    // Set form values
+    startDate.valueAsDate = monday;
     endDate.valueAsDate = friday;
+}
+
+/**
+ * Helper function to get Monday of the week containing the specified date
+ * @param {Date} date - The reference date
+ * @return {Date} - Monday of the same week
+ */
+function getMonday(date) {
+    const day = date.getDay();
+    const monday = new Date(date);
+    
+    // If it's already Monday, return the same date
+    if (day === 1) {
+        monday.setHours(0, 0, 0, 0);
+        return monday;
+    }
+    
+    // Calculate days to subtract to get to Monday
+    // If Sunday (0), go back 6 days
+    // Otherwise, subtract (day - 1) days
+    const daysToSubtract = day === 0 ? 6 : day - 1;
+    
+    // Calculate Monday
+    monday.setDate(date.getDate() - daysToSubtract);
+    monday.setHours(0, 0, 0, 0); // Reset time to midnight
+    
+    // Verify it's actually a Monday
+    if (monday.getDay() !== 1) {
+        console.error("Error calculating Monday: Result is", 
+                     ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][monday.getDay()]);
+    }
+    
+    return monday;
 }
 
 function handleFlashMessages() {
@@ -207,7 +247,7 @@ function loadCurrentSchedule() {
     const loadingIndicator = document.getElementById('loadingIndicator');
     loadingIndicator.style.display = 'flex';
     
-    fetch('/api/schedule/current')
+    return fetch('/api/schedule/current')
         .then(response => {
             if (!response.ok) {
                 if (response.status === 404) {
@@ -263,8 +303,6 @@ function loadCurrentSchedule() {
                 
                 // Now render with the fixed days array
                 renderSchedule(data.schedule.days);
-                
-                // Rest of your existing code...
                 
                 return true; // Signal that we loaded an existing schedule
             } else {
