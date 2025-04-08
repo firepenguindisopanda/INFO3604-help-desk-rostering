@@ -17,17 +17,22 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeCharts() {
   const barElements = document.querySelectorAll('.bar-value');
   
-  // Animate each bar with a slight delay for each
-  barElements.forEach((bar, index) => {
-    // Initially set height to 0
-    const finalHeight = bar.style.height;
-    bar.style.height = '0%';
-    
-    // Animate to final height with a staggered delay
-    setTimeout(() => {
-      bar.style.height = finalHeight;
-    }, 100 * index);
-  });
+  // Only initialize if we have bars to animate (i.e., data exists)
+  if (barElements.length > 0) {
+    // Animate each bar with a slight delay for each
+    barElements.forEach((bar, index) => {
+      // Initially set height to 0
+      const finalHeight = bar.style.height;
+      bar.style.height = '0%';
+      
+      // Animate to final height with a staggered delay
+      setTimeout(() => {
+        bar.style.height = finalHeight;
+      }, 100 * index);
+    });
+  } else {
+    console.log('No chart data available to animate');
+  }
 }
 
 /**

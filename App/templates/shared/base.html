@@ -6,6 +6,7 @@
     <title>{% block title %}Help Desk System{% endblock %}</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/layout-fixes.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -53,6 +54,7 @@
         });
     </script>
 
-    {% block scripts %}{% endblock %}
+    {% block scripts %}
+    <script src="{{ url_for('static', filename='js/layout-enhancements.js') }}"></script>{% endblock %}
 </body>
 </html>

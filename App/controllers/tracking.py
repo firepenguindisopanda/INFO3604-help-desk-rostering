@@ -45,19 +45,23 @@ def get_student_stats(username):
     return {
         'daily': {
             'date': today.strftime('%Y-%m-%d'),
-            'hours': daily_hours
+            'hours': daily_hours,
+            'date_range': today.strftime('%b %d, %Y')
         },
         'weekly': {
             'start_date': week_start.strftime('%Y-%m-%d'),
             'end_date': (week_start + timedelta(days=6)).strftime('%Y-%m-%d'),
-            'hours': weekly_hours
+            'hours': weekly_hours,
+            'date_range': f"{week_start.strftime('%b %d')} - {(week_start + timedelta(days=6)).strftime('%b %d, %Y')}"
         },
         'monthly': {
             'month': month_start.strftime('%B %Y'),
-            'hours': monthly_hours
+            'hours': monthly_hours,
+            'date_range': month_start.strftime('%B %Y')
         },
         'semester': {
-            'hours': semester_hours
+            'hours': semester_hours,
+            'date_range': 'Current Semester'
         },
         'absences': absences
     }
@@ -78,7 +82,7 @@ def get_all_assistant_stats():
             stats.append({
                 'id': assistant.username,
                 'name': student.get_name(),
-                'image': '/static/images/DefaultAvatar.jpg',
+                'image': '/static/images/DefaultAvatar.png',
                 'semester_attendance': f"{assistant_stats['semester']['hours']:.1f}",
                 'week_attendance': f"{assistant_stats['weekly']['hours']:.1f}"
             })
@@ -126,6 +130,7 @@ def get_today_shift(username):
                 "date": shift.date.strftime("%d %B, %Y"),
                 "start_time": shift.start_time.strftime("%I:%M %p"),
                 "end_time": shift.end_time.strftime("%I:%M %p"),
+                "time": f"{shift.start_time.strftime('%I:%M %p')} to {shift.end_time.strftime('%I:%M %p')}",
                 "status": "active",
                 "starts_now": True,
                 "time_until": f"{int(hours)} hours {int(minutes)} minutes",
@@ -223,7 +228,7 @@ def get_shift_attendance_records(shift_id=None, date_range=None):
             record = {
                 'staff_id': entry.username,
                 'staff_name': student.get_name(),
-                'image': '/static/images/DefaultAvatar.jpg',
+                'image': '/static/images/DefaultAvatar.png',
                 'date': entry.clock_in.strftime('%m-%d-%y') if entry.clock_in else 'ABSENT',
                 'day': entry.clock_in.strftime('%A') if entry.clock_in else 'ABSENT',
                 'login_time': entry.clock_in.strftime('%I:%M%p') if entry.clock_in else 'ABSENT',
@@ -477,6 +482,7 @@ def get_time_distribution(username):
     
     # Initialize daily hours
     daily_hours = [0, 0, 0, 0, 0]  # Mon-Fri
+    day_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
     
     # Calculate hours for each day
     for entry in entries:
@@ -488,22 +494,26 @@ def get_time_distribution(username):
                 hours = (entry.clock_out - entry.clock_in).total_seconds() / 3600
                 daily_hours[day_idx] += hours
     
+    # Check if we have any data to display
+    has_data = any(hours > 0 for hours in daily_hours)
+    
     # Find the maximum daily hours for scaling
-    max_hours = max(daily_hours) if max(daily_hours) > 0 else 8  # Default to 8 if no hours
+    max_hours = max(daily_hours) if has_data else 8  # Default to 8 if no hours
     
     # Calculate percentages (scale to 0-100)
-    day_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
     distribution = []
     
     for i, hours in enumerate(daily_hours):
-        percentage = (hours / max_hours) * 100
+        # Calculate percentage based on max hours (ensure it's never more than 100%)
+        percentage = min(100, (hours / max_hours) * 100) if max_hours > 0 else 0
         distribution.append({
             "label": day_labels[i],
             "percentage": percentage,
             "hours": hours
         })
     
-    return distribution
+    # Return the data only if we have valid entries
+    return distribution if has_data else distribution
 
 def generate_attendance_report(username=None, start_date=None, end_date=None, format='json'):
     """Generate an attendance report for one or all students"""

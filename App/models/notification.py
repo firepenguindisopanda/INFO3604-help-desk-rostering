@@ -8,7 +8,7 @@ class Notification(db.Model):
     message = db.Column(db.String(255), nullable=False)
     notification_type = db.Column(db.String(50), nullable=False)
     is_read = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=trinidad_now())
     
     # Notification types
     TYPE_APPROVAL = 'approval'

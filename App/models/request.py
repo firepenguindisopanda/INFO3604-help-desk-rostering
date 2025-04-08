@@ -14,7 +14,7 @@ class Request(db.Model):
     reason = db.Column(db.Text, nullable=False)
     replacement = db.Column(db.String(20), db.ForeignKey('student.username'), nullable=True)
     status = db.Column(db.String(20), default='PENDING')  # PENDING, APPROVED, REJECTED
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=trinidad_now())
     approved_at = db.Column(db.DateTime, nullable=True)
     rejected_at = db.Column(db.DateTime, nullable=True)
     

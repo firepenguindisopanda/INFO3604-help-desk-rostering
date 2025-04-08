@@ -36,7 +36,10 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeClearScheduleButton();
     
     // Preload availability data after schedule loads
-    setTimeout(preloadAvailabilityData, 1000);
+    setTimeout(function() {
+        preloadAvailabilityData();
+        prefetchCommonAvailabilityData();
+    }, 1000);
 });
 
 // ==============================
@@ -121,14 +124,61 @@ function showNotification(message, type = 'info') {
     }, 5000);
   }
 
+// Update styles to make the highlighting more distinct
 function addAvailabilityStyles() {
     const style = document.createElement('style');
     style.textContent = `
+        /* Not available cells - RED */
         .schedule-cell.not-available {
             background-color: #ffebee;
             border: 2px dashed #f44336;
+            transition: background-color 0.2s;
         }
         
+        /* Available cells - BLUE */
+        .schedule-cell.droppable {
+            background-color: #e3f2fd;
+            border: 2px dashed #2196f3;
+            transition: background-color 0.2s;
+        }
+        
+        /* Duplicate assignment - YELLOW */
+        .schedule-cell.duplicate-assignment {
+            background-color: #fff8e1;
+            border: 2px dashed #ffc107;
+            transition: background-color 0.2s;
+        }
+        
+        /* Already assigned message */
+        .already-assigned-msg {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.25rem;
+            margin: 0.25rem 0;
+            color: #b26a00;
+            font-size: 0.75rem;
+            background-color: #fff8e1;
+            border: 1px solid #ffc107;
+            border-radius: 3px;
+        }
+        
+        .already-assigned-msg i {
+            margin-right: 4px;
+            color: #f0ad4e;
+        }
+        
+        /* Currently hovered cell - GREEN outline */
+        .schedule-cell.drag-over {
+            box-shadow: inset 0 0 0 3px #4caf50;
+        }
+        
+        /* Staff element being dragged */
+        .staff-name.dragging {
+            opacity: 0.5;
+        }
+        
+        /* Other existing styles... */
         .modal-subtitle {
             color: #666;
             font-size: 14px;
@@ -170,20 +220,64 @@ function addAvailabilityStyles() {
 }
 
 function setDefaultDates() {
-    const today = new Date();
     const startDate = document.getElementById('startDate');
     const endDate = document.getElementById('endDate');
     
-    // Set default start date to today
-    startDate.valueAsDate = today;
+    if (!startDate || !endDate) {
+        console.error("Date input elements not found");
+        return;
+    }
     
-    // Set default end date to Friday of current week
-    const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
-    const daysToFriday = 5 - (dayOfWeek === 0 ? 7 : dayOfWeek); // Convert Sunday (0) to 7
-    const friday = new Date(today);
-    friday.setDate(today.getDate() + daysToFriday);
+    // Get the current date
+    const today = new Date();
+    console.log("Today is:", today.toDateString(), "Day of week:", today.getDay());
     
+    // Calculate Monday of current week
+    const monday = getMonday(today);
+    
+    // Calculate Friday (Monday + 4 days)
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+    
+    // Log the calculated dates
+    console.log("Setting date range:", monday.toDateString(), "to", friday.toDateString());
+    
+    // Set form values
+    startDate.valueAsDate = monday;
     endDate.valueAsDate = friday;
+}
+
+/**
+ * Helper function to get Monday of the week containing the specified date
+ * @param {Date} date - The reference date
+ * @return {Date} - Monday of the same week
+ */
+function getMonday(date) {
+    const day = date.getDay();
+    const monday = new Date(date);
+    
+    // If it's already Monday, return the same date
+    if (day === 1) {
+        monday.setHours(0, 0, 0, 0);
+        return monday;
+    }
+    
+    // Calculate days to subtract to get to Monday
+    // If Sunday (0), go back 6 days
+    // Otherwise, subtract (day - 1) days
+    const daysToSubtract = day === 0 ? 6 : day - 1;
+    
+    // Calculate Monday
+    monday.setDate(date.getDate() - daysToSubtract);
+    monday.setHours(0, 0, 0, 0); // Reset time to midnight
+    
+    // Verify it's actually a Monday
+    if (monday.getDay() !== 1) {
+        console.error("Error calculating Monday: Result is", 
+                     ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][monday.getDay()]);
+    }
+    
+    return monday;
 }
 
 function handleFlashMessages() {
@@ -207,7 +301,7 @@ function loadCurrentSchedule() {
     const loadingIndicator = document.getElementById('loadingIndicator');
     loadingIndicator.style.display = 'flex';
     
-    fetch('/api/schedule/current')
+    return fetch('/api/schedule/current')
         .then(response => {
             if (!response.ok) {
                 if (response.status === 404) {
@@ -263,8 +357,6 @@ function loadCurrentSchedule() {
                 
                 // Now render with the fixed days array
                 renderSchedule(data.schedule.days);
-                
-                // Rest of your existing code...
                 
                 return true; // Signal that we loaded an existing schedule
             } else {
@@ -695,6 +787,12 @@ function handleStaffRemoval(event) {
     // Update the staff counter
     updateStaffCounter(cell);
     
+    // Clear any "Already assigned" messages
+    const assignedMsg = cell.querySelector('.already-assigned-msg');
+    if (assignedMsg) {
+        assignedMsg.remove();
+    }
+    
     // Log the removal
     console.log(`Staff ${staffName} (${staffId}) removed from ${cell.getAttribute('data-day')} at ${cell.getAttribute('data-time')}`);
 }
@@ -742,65 +840,129 @@ function updateStaffCounter(cell) {
 // DRAG AND DROP FUNCTIONALITY
 // ==============================
 
-function initializeDragAndDrop() {
-    // Track the currently dragged staff element
-    let draggedStaff = null;
+/**
+ * Highlight all cells based on staff availability
+ * @param {string} staffId - ID of the staff member being dragged
+ */
+function highlightAllCellsForStaff(staffId) {
+    if (!staffId) return;
     
-    // Add event listener to all draggable elements (delegation)
-    document.addEventListener('dragstart', function(e) {
-        if (e.target.classList.contains('staff-name')) {
-            draggedStaff = e.target;
-            
-            // Store the staff ID for transfer
-            const staffId = e.target.getAttribute('data-staff-id');
-            const staffName = e.target.textContent.replace('×', '').trim();
-            e.dataTransfer.setData('text/plain', JSON.stringify({
-                id: staffId,
-                name: staffName
-            }));
-            
-            // Set opacity to indicate dragging
-            e.target.classList.add('dragging');
-        }
-    });
+    console.log(`Highlighting all cells for staff: ${staffId}`);
     
-    document.addEventListener('dragend', function(e) {
-        if (draggedStaff) {
-            // Reset opacity
-            draggedStaff.classList.remove('dragging');
-            draggedStaff = null;
+    // Clear any existing highlights first
+    clearAllCellHighlights();
+    
+    // Track count of available cells for debugging
+    let availableCount = 0;
+    let unavailableCount = 0;
+    let duplicateCount = 0;
+    
+    // Get all schedule cells
+    const cells = document.querySelectorAll('.schedule-cell');
+    
+    // For each cell, set the appropriate highlight
+    cells.forEach(cell => {
+        // Skip cells that are already full
+        const staffContainer = cell.querySelector('.staff-container');
+        const staffElements = staffContainer ? staffContainer.querySelectorAll('.staff-name') : [];
+        const staffCount = staffElements.length;
+        
+        if (staffCount >= 3) return;
+        
+        // Check if this staff is already in this cell
+        let isDuplicate = false;
+        for (let i = 0; i < staffElements.length; i++) {
+            if (staffElements[i].getAttribute('data-staff-id') === staffId) {
+                isDuplicate = true;
+                break;
+            }
         }
         
-        // Remove the droppable indicator from all cells
-        document.querySelectorAll('.schedule-cell').forEach(cell => {
-            cell.classList.remove('droppable');
-            cell.classList.remove('not-available');
-            cell.classList.remove('drag-over');
-        });
+        if (isDuplicate) {
+            // Mark as duplicate with a visible message
+            cell.classList.add('duplicate-assignment');
+            duplicateCount++;
+            
+            // Add the "Already assigned" message if it doesn't exist
+            if (!cell.querySelector('.already-assigned-msg')) {
+                const assignedMsg = document.createElement('div');
+                assignedMsg.className = 'already-assigned-msg';
+                assignedMsg.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Already assigned';
+                
+                // Add after the staff container
+                if (staffContainer) {
+                    staffContainer.insertAdjacentElement('afterend', assignedMsg);
+                } else {
+                    cell.appendChild(assignedMsg);
+                }
+            }
+            return; // Skip further processing for this cell
+        }
+        
+        // Get the day and time for this cell
+        const day = cell.getAttribute('data-day');
+        const timeSlot = cell.getAttribute('data-time');
+        
+        // Generate the availability cache key
+        const cacheKey = `${staffId}-${day}-${timeSlot}`;
+        
+        // Check if we have cached availability data
+        if (availabilityCache[cacheKey] !== undefined) {
+            // Use cached result
+            if (availabilityCache[cacheKey]) {
+                cell.classList.add('droppable');
+                availableCount++;
+            } else {
+                cell.classList.add('not-available');
+                unavailableCount++;
+            }
+        } else {
+            // For now, don't apply any class - we'll update after fetching availability
+            // This prevents momentary flashing of incorrect colors
+            
+            // Fetch the actual availability and update the display
+            checkAndUpdateCellAvailability(staffId, day, timeSlot, cell);
+        }
     });
     
-    // Prevent default to allow drop and check availability
-    document.addEventListener('dragover', function(e) {
-        const cell = e.target.closest('.schedule-cell');
-        if (cell && draggedStaff) {
-            e.preventDefault();
+    console.log(`Initial highlighting results: ${availableCount} available, ${unavailableCount} unavailable, ${duplicateCount} duplicate`);
+}
+
+function checkAndUpdateCellAvailability(staffId, day, timeSlot, cell) {
+    const cacheKey = `${staffId}-${day}-${timeSlot}`;
+    
+    // Check for cached result again (in case it was updated since we started)
+    if (availabilityCache[cacheKey] !== undefined) {
+        if (availabilityCache[cacheKey]) {
+            cell.classList.add('droppable');
+            cell.classList.remove('not-available');
+        } else {
+            cell.classList.add('not-available');
+            cell.classList.remove('droppable');
+        }
+        return;
+    }
+    
+    // Make the API call to check availability
+    fetch(`/api/staff/check-availability?staff_id=${encodeURIComponent(staffId)}&day=${encodeURIComponent(day)}&time=${encodeURIComponent(timeSlot)}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Update cache with real availability data
+            const isAvailable = data.status === 'success' && data.is_available;
+            availabilityCache[cacheKey] = isAvailable;
             
-            // Get staff count to check if cell is full
-            const staffCount = cell.querySelectorAll('.staff-name').length;
+            // Log for debugging
+            console.log(`API result: ${staffId} on ${day} at ${timeSlot}: ${isAvailable ? 'Available ✓' : 'Not Available ✗'}`);
             
-            // Only proceed if the cell isn't full
-            if (staffCount < 3) {
-                // Get the day and time for this cell
-                const day = cell.getAttribute('data-day');
-                const timeSlot = cell.getAttribute('data-time');
-                
-                // Get the staff ID being dragged
-                const staffId = draggedStaff.getAttribute('data-staff-id');
-                
-                // Check if the staff member is available for this time slot
-                const isAvailable = checkAvailabilitySync(staffId, day, timeSlot);
-                
-                // Add appropriate highlighting
+            // Only update the highlighting if we're still in drag mode with this staff
+            const currentlyDragging = document.querySelector('.staff-name.dragging');
+            if (currentlyDragging && currentlyDragging.getAttribute('data-staff-id') === staffId) {
+                // Update cell highlighting
                 if (isAvailable) {
                     cell.classList.add('droppable');
                     cell.classList.remove('not-available');
@@ -809,10 +971,162 @@ function initializeDragAndDrop() {
                     cell.classList.remove('droppable');
                 }
             }
+        })
+        .catch(error => {
+            console.error(`Error checking availability: ${error.message}`);
+            
+            // On error, mark as available to allow the drag operation to continue
+            // but don't cache this result since it's not accurate
+            if (cell) {
+                cell.classList.add('droppable');
+                cell.classList.remove('not-available');
+            }
+        });
+}
+
+
+/**
+ * Fetch availability data and update cell highlighting
+ */
+function fetchAndUpdateAvailability(staffId, day, timeSlot, cell) {
+    const cacheKey = `${staffId}-${day}-${timeSlot}`;
+    
+    // Make the API call
+    fetch(`/api/staff/check-availability?staff_id=${staffId}&day=${encodeURIComponent(day)}&time=${encodeURIComponent(timeSlot)}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to fetch availability');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Update cache with real availability data
+            const isAvailable = data.status === 'success' && data.is_available;
+            availabilityCache[cacheKey] = isAvailable;
+            
+            // Only update the highlighting if we're still in drag mode with this staff
+            // This prevents changing highlights if the operation is already done
+            const currentlyDragging = document.querySelector('.staff-name.dragging');
+            if (currentlyDragging && currentlyDragging.getAttribute('data-staff-id') === staffId) {
+                // Update cell highlighting
+                if (isAvailable) {
+                    cell.classList.add('droppable');
+                    cell.classList.remove('not-available');
+                } else {
+                    cell.classList.add('not-available');
+                    cell.classList.remove('droppable');
+                }
+                
+                // Check if we have ANY available cells after this update
+                const availableCells = document.querySelectorAll('.schedule-cell.droppable');
+                if (availableCells.length === 0) {
+                    // If no available cells, make some available to ensure dragging works
+                    console.warn('No available cells after availability check, ensuring dragging can work');
+                    const cells = document.querySelectorAll('.schedule-cell');
+                    cells.forEach(c => {
+                        if (!c.classList.contains('duplicate-assignment')) {
+                            c.classList.add('droppable');
+                            c.classList.remove('not-available');
+                        }
+                    });
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error checking availability:', error);
+            // Default to available in case of errors
+            availabilityCache[cacheKey] = true;
+            
+            // Only update if still relevant
+            const currentlyDragging = document.querySelector('.staff-name.dragging');
+            if (currentlyDragging && currentlyDragging.getAttribute('data-staff-id') === staffId) {
+                cell.classList.add('droppable');
+                cell.classList.remove('not-available');
+            }
+        });
+}
+
+function initializeDragAndDrop() {
+    // Track the currently dragged staff element
+    let draggedStaff = null;
+    let draggedStaffId = null;
+    
+    // Add event listener to all draggable elements (delegation)
+    document.addEventListener('dragstart', function(e) {
+        if (e.target.classList.contains('staff-name')) {
+            console.log('Drag started for staff:', e.target.textContent.trim());
+            
+            draggedStaff = e.target;
+            
+            // Store the staff ID for transfer
+            draggedStaffId = e.target.getAttribute('data-staff-id');
+            const staffName = e.target.textContent.replace('×', '').trim();
+            
+            // Set data in multiple formats to improve compatibility
+            e.dataTransfer.setData('text/plain', JSON.stringify({
+                id: draggedStaffId,
+                name: staffName
+            }));
+            e.dataTransfer.effectAllowed = 'move';
+            
+            // Add a small delay before adding the dragging class to ensure
+            // the drag operation is fully initiated
+            setTimeout(() => {
+                if (draggedStaff) {
+                    draggedStaff.classList.add('dragging');
+                    
+                    // Highlight all cells based on availability
+                    highlightAllCellsForStaff(draggedStaffId);
+                }
+            }, 50);
         }
     });
     
-    // Drop handling with availability check
+    document.addEventListener('dragend', function(e) {
+        if (draggedStaff) {
+            // Reset opacity
+            draggedStaff.classList.remove('dragging');
+            
+            // Clear all highlighting including "Already assigned" messages
+            clearAllCellHighlights();
+            
+            // Reset tracking variables
+            draggedStaff = null;
+            draggedStaffId = null;
+        }
+    });
+    
+    // Prevent default to allow drop
+    document.addEventListener('dragover', function(e) {
+        // Always prevent default if we're dragging a staff element
+        if (draggedStaff) {
+            e.preventDefault();
+            
+            const cell = e.target.closest('.schedule-cell');
+            if (cell) {
+                // Add additional highlight for the current cell being hovered
+                document.querySelectorAll('.schedule-cell.drag-over').forEach(c => {
+                    c.classList.remove('drag-over');
+                });
+                
+                // Only add hover highlight if cell isn't full
+                const staffCount = cell.querySelectorAll('.staff-name').length;
+                if (staffCount < 3) {
+                    cell.classList.add('drag-over');
+                }
+            }
+        }
+    });
+    
+    // Clear the drag-over class when leaving a cell
+    document.addEventListener('dragleave', function(e) {
+        const cell = e.target.closest('.schedule-cell');
+        if (cell) {
+            cell.classList.remove('drag-over');
+        }
+    });
+    
+    // Drop handling
     document.addEventListener('drop', function(e) {
         e.preventDefault();
         
@@ -820,14 +1134,13 @@ function initializeDragAndDrop() {
         const cell = e.target.closest('.schedule-cell');
         
         if (cell) {
-            // Remove highlights
-            cell.classList.remove('droppable');
-            cell.classList.remove('not-available');
-            cell.classList.remove('drag-over');
+            // Remove all highlighting immediately
+            clearAllCellHighlights();
             
             // Check if cell is already full (3 staff)
             let staffContainer = cell.querySelector('.staff-container');
             if (staffContainer && staffContainer.querySelectorAll('.staff-name').length >= 3) {
+                showNotification("This cell already has the maximum of 3 staff members", "warning");
                 return; // Cell is full
             }
             
@@ -835,28 +1148,41 @@ function initializeDragAndDrop() {
             try {
                 const staffData = JSON.parse(e.dataTransfer.getData('text/plain'));
                 
-                // Get the day and time for this cell
-                const day = cell.getAttribute('data-day');
-                const timeSlot = cell.getAttribute('data-time');
-                
-                // Check if the staff member is available for this time slot
-                const isAvailable = isStaffAvailableForTimeSlot(staffData.id, day, timeSlot);
-                
-                if (!isAvailable) {
+                // Check if this cell has the "not-available" class
+                if (cell.classList.contains('not-available')) {
                     // Show warning if staff is not available
                     showNotification(`${staffData.name} is not available at this time`, 'warning');
                     return;
                 }
                 
+                // Check if staff is already assigned to this cell
+                if (staffContainer) {
+                    const existingStaff = Array.from(staffContainer.querySelectorAll('.staff-name'));
+                    
+                    // Check if this staff ID already exists in the cell
+                    const isDuplicate = existingStaff.some(staffElem => 
+                        staffElem.getAttribute('data-staff-id') === staffData.id
+                    );
+                    
+                    if (isDuplicate) {
+                        showNotification(`${staffData.name} is already assigned to this time slot`, 'warning');
+                        return;
+                    }
+                }
+                
                 // If the dragged element exists, remove it from its original container
                 if (draggedStaff) {
+                    // Get the original container before removing the staff
+                    const originalCell = draggedStaff.closest('.schedule-cell');
+                    const originalContainer = draggedStaff.closest('.staff-container');
+                    
+                    // Remove the staff element
                     draggedStaff.remove();
                     
-                    // Check if the original container is now empty
-                    const originalContainer = document.querySelectorAll('.staff-container');
-                    originalContainer.forEach(container => {
-                        updateStaffCounter(container.closest('.schedule-cell'));
-                    });
+                    // Update the original cell's counter
+                    if (originalCell && originalContainer) {
+                        updateStaffCounter(originalCell);
+                    }
                 }
                 
                 // Create or get staff container
@@ -878,6 +1204,11 @@ function initializeDragAndDrop() {
                 
                 // Update counter
                 updateStaffCounter(cell);
+                
+                // Reset tracking variables to prevent issues if drop handler is called twice
+                draggedStaff = null;
+                draggedStaffId = null;
+                
             } catch (error) {
                 console.error('Error parsing staff data:', error);
             }
@@ -888,6 +1219,76 @@ function initializeDragAndDrop() {
     document.querySelectorAll('.remove-staff').forEach(button => {
         button.removeEventListener('click', handleStaffRemoval); // Remove any existing handlers
         button.addEventListener('click', handleStaffRemoval);
+    });
+}
+
+/**
+ * Clear all cell highlights across the schedule
+ */
+function clearAllCellHighlights() {
+    document.querySelectorAll('.schedule-cell').forEach(cell => {
+        // Remove all highlighting classes
+        cell.classList.remove('droppable');
+        cell.classList.remove('not-available');
+        cell.classList.remove('drag-over');
+        cell.classList.remove('duplicate-assignment');
+        
+        // Remove any "Already assigned" messages
+        const assignedMsg = cell.querySelector('.already-assigned-msg');
+        if (assignedMsg) {
+            assignedMsg.remove();
+        }
+    });
+}
+
+/**
+ * Highlight all schedule cells based on staff availability
+ * @param {string} staffId - ID of the staff being dragged
+ */
+// Add this function to run on page load to get the drag and drop feel faster
+function prefetchCommonAvailabilityData() {
+    // We'll perform a quick prefetch of availability data for common staff
+    // This will make the drag and drop feel more responsive
+    
+    // Get all staff currently in the schedule
+    const staffIds = new Set();
+    document.querySelectorAll('.staff-name').forEach(staffElem => {
+        const staffId = staffElem.getAttribute('data-staff-id');
+        if (staffId) {
+            staffIds.add(staffId);
+        }
+    });
+    
+    if (staffIds.size === 0) return;
+    
+    console.log(`Prefetching availability data for ${staffIds.size} staff members`);
+    
+    // Get all days and time slots
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    const timeSlots = [];
+    document.querySelectorAll('.time-cell').forEach(cell => {
+        const timeText = cell.textContent.trim();
+        if (timeText && !timeSlots.includes(timeText)) {
+            timeSlots.push(timeText);
+        }
+    });
+    
+    // Prefetch availability data with staggered requests
+    let delay = 0;
+    const increment = 50; // 50ms between requests
+    
+    // Limit to first 3 staff to avoid too many requests
+    const limitedStaffIds = Array.from(staffIds).slice(0, 3);
+    
+    limitedStaffIds.forEach(staffId => {
+        days.forEach(day => {
+            timeSlots.forEach(timeSlot => {
+                delay += increment;
+                setTimeout(() => {
+                    isStaffAvailableForTimeSlot(staffId, day, timeSlot);
+                }, delay);
+            });
+        });
     });
 }
 
@@ -1159,7 +1560,7 @@ async function isStaffAvailableForTimeSlot(staffId, day, timeSlot) {
     }
 }
 
-// Synchronous version for drag and drop
+// Synchronous version for immediate feedback during drag operations
 function checkAvailabilitySync(staffId, day, timeSlot) {
     const cacheKey = `${staffId}-${day}-${timeSlot}`;
     
@@ -1168,14 +1569,25 @@ function checkAvailabilitySync(staffId, day, timeSlot) {
         return availabilityCache[cacheKey];
     }
     
-    // Otherwise, make the check asynchronously but return true for now
-    // This will update the cache for future checks
-    isStaffAvailableForTimeSlot(staffId, day, timeSlot).then(result => {
-        availabilityCache[cacheKey] = result;
-    });
+    // For non-cached entries, queue up an async request but don't wait for it
+    setTimeout(() => {
+        // Only fetch if not already cached (could have been set by another request)
+        if (availabilityCache[cacheKey] === undefined) {
+            fetch(`/api/staff/check-availability?staff_id=${encodeURIComponent(staffId)}&day=${encodeURIComponent(day)}&time=${encodeURIComponent(timeSlot)}`)
+                .then(response => response.ok ? response.json() : null)
+                .then(data => {
+                    if (data && data.status === 'success') {
+                        availabilityCache[cacheKey] = data.is_available;
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error in background availability check: ${error.message}`);
+                });
+        }
+    }, 10);
     
-    // Default to true while we wait for the real check
-    return true;
+    // Default to null for immediate sync response (meaning "unknown")
+    return null;
 }
 
 function updateUiForAvailabilityChange(staffId, day, timeSlot, isAvailable) {
@@ -1203,14 +1615,24 @@ function updateUiForAvailabilityChange(staffId, day, timeSlot, isAvailable) {
     }
 }
 
+// Preload availability data for all staff in schedule
 function preloadAvailabilityData() {
+    console.log("Preloading availability data...");
+    
     // Get all staff elements currently in the schedule
     const staffElements = document.querySelectorAll('.staff-name');
     const processedCombinations = new Set();
     
+    // Track staff IDs to preload availability data for all time slots
+    const allStaffIds = new Set();
+    
     // For each staff element, preload availability data for its current cell
     staffElements.forEach(staffElem => {
         const staffId = staffElem.getAttribute('data-staff-id');
+        if (!staffId) return;
+        
+        allStaffIds.add(staffId);
+        
         const cell = staffElem.closest('.schedule-cell');
         
         if (cell) {
@@ -1224,17 +1646,34 @@ function preloadAvailabilityData() {
             if (!processedCombinations.has(comboKey)) {
                 processedCombinations.add(comboKey);
                 
-                // Preload availability
-                isStaffAvailableForTimeSlot(staffId, day, timeSlot).then(isAvailable => {
-                    if (!isAvailable) {
-                        // If not available, highlight this assignment
-                        staffElem.classList.add('unavailable-assignment');
-                        staffElem.setAttribute('title', 'Staff member is not available at this time');
-                    }
-                });
+                // Check if we already have this in the cache
+                if (availabilityCache[comboKey] === undefined) {
+                    // Preload availability
+                    checkAvailabilitySync(staffId, day, timeSlot);
+                }
             }
         }
     });
+    
+    // Log the staff we found for debugging
+    console.log(`Found ${allStaffIds.size} staff members in the schedule`);
+    allStaffIds.forEach(staffId => {
+        console.log(`- Staff ID: ${staffId}`);
+    });
+    
+    // For each unique staff ID, preload availability for all time slots
+    // This ensures drag and drop operations will be smoother
+    if (allStaffIds.size > 0) {
+        // Generate a debug report of current cache contents
+        let availableCount = 0;
+        let unavailableCount = 0;
+        Object.keys(availabilityCache).forEach(key => {
+            if (availabilityCache[key] === true) availableCount++;
+            else if (availabilityCache[key] === false) unavailableCount++;
+        });
+        
+        console.log(`Current cache: ${Object.keys(availabilityCache).length} entries (${availableCount} available, ${unavailableCount} unavailable)`);
+    }
 }
 
 

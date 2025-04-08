@@ -225,34 +225,12 @@ def update_student_profile_api():
 @jwt_required()
 @admin_required
 def update_admin_profile_api():
-    """API endpoint for admin to update their own profile"""
-    try:
-        data = request.json
-        username = current_user.username
-        
-        # Get the admin user
-        admin = User.query.get(username)
-        if not admin:
-            return jsonify({
-                'success': False,
-                'message': 'Admin user not found'
-            })
-        
-        # In a real application, you would store more profile info
-        # For now, we'll just return success since there's not much to update
-        
-        return jsonify({
-            'success': True,
-            'message': 'Admin profile updated successfully'
-        })
-    
-    except Exception as e:
-        print(f"Error updating admin profile: {e}")
-        return jsonify({
-            'success': False,
-            'message': f'An error occurred while updating the profile: {str(e)}'
-        })
-        
+    """API endpoint for admin to update their own profile - now just a stub that returns success"""
+    return jsonify({
+        'success': True,
+        'message': 'Profile functionality disabled'
+    })
+
 @profile_views.route('/api/admin/staff/update-profile', methods=['POST'])
 @jwt_required()
 @admin_required

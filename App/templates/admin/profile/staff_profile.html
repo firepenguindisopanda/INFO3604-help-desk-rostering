@@ -11,7 +11,7 @@
 <div class="staff-profile-card">
     <div class="profile-header">
         <div class="profile-avatar">
-            <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="{{ profile.name }}" width="120" height="120">
+            <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="{{ profile.name }}" width="120" height="120">
         </div>
         <div class="profile-info">
             <h1 class="profile-name">{{ profile.name }}</h1>
@@ -85,23 +85,17 @@
     </div>
     
     <div class="action-buttons">
-        {% if request.referrer and 'tracking' in request.referrer %}
+        {% if request.args.get('source') == 'tracking' %}
             <a href="{{ url_for('tracking_views.time_tracking') }}" class="btn btn-secondary">Back to Time Tracking</a>
-        {% elif request.referrer and 'profile' in request.referrer %}
+        {% elif request.args.get('source') == 'profile' or request.referrer and 'profile' in request.referrer %}
             <a href="{{ url_for('profile_views.profile') }}" class="btn btn-secondary">Back to Staff Profiles</a>
         {% else %}
             <!-- Fallback that shows both options -->
             <div class="btn-group">
-                <button class="btn btn-secondary dropdown-toggle" type="button" id="backOptions" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    Return to
-                </button>
-                <div class="dropdown-menu" aria-labelledby="backOptions">
-                    <a class="dropdown-item" href="{{ url_for('tracking_views.time_tracking') }}">Time Tracking</a>
-                    <a class="dropdown-item" href="{{ url_for('profile_views.profile') }}">Staff List</a>
-                </div>
-            </div>
+                <a href="{{ url_for('tracking_views.time_tracking') }}" class="btn btn-secondary">Back to Time Tracking</a>
         {% endif %}
-        <button class="btn btn-primary" id="generateReportBtn">Generate Attendance Report</button>
+                <button class="btn btn-primary" id="generateReportBtn">Generate Attendance Report</button>
+            </div>
     </div>
 </div>
 

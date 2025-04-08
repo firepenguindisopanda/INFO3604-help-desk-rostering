@@ -193,11 +193,28 @@ def login_action():
 def forgot_password():
     return render_template('auth/forgot_password.html')
 
-@auth_views.route('/reset-password-request', methods=['POST'])
+@auth_views.route('/reset_password_request', methods=['POST'])
 def reset_password_request():
-    username = request.form.get('username', '')
-    flash('If an account with this ID exists, password reset instructions have been sent.', 'success')
-    return redirect(url_for('auth_views.login_page'))
+    """Handle password reset request submission"""
+    from App.controllers.password_reset import create_password_reset_request
+    
+    username = request.form.get('username')
+    reason = request.form.get('reason')
+    
+    # Basic validation
+    if not username or not reason:
+        flash("Both ID and reason are required", "error")
+        return redirect(url_for('auth_views.forgot_password'))
+    
+    # Create password reset request
+    success, message = create_password_reset_request(username, reason)
+    
+    if success:
+        flash(message, "success")
+        return redirect(url_for('auth_views.login_page'))
+    else:
+        flash(message, "error")
+        return redirect(url_for('auth_views.forgot_password'))
 
 @auth_views.route('/logout', methods=['GET'])
 def logout_action():

@@ -1,5 +1,6 @@
 from App.database import db
 from datetime import datetime
+from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 class Allocation(db.Model):
     __tablename__ = 'allocation'
@@ -8,7 +9,7 @@ class Allocation(db.Model):
     username = db.Column(db.String(20), db.ForeignKey('student.username'), nullable=False)
     shift_id = db.Column(db.Integer, db.ForeignKey('shift.id'), nullable=False)
     schedule_id = db.Column(db.Integer, db.ForeignKey('schedule.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=trinidad_now())
     
     # Relationships
     student = db.relationship('Student', backref=db.backref('allocations', lazy=True))

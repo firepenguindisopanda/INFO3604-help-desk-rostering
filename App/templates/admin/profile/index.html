@@ -13,7 +13,7 @@
     <h2>Your Profile</h2>
     <div class="profile-info">
         <div class="profile-avatar">
-            <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="{{ admin_profile.name }}" class="avatar avatar-lg">
+            <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="{{ admin_profile.name }}" class="avatar avatar-lg">
             <div class="avatar-overlay">
                 <span class="material-icons">photo_camera</span>
             </div>
@@ -27,10 +27,7 @@
                 <span class="status-text">Administrator</span>
             </div>
         </div>
-        <button class="btn btn-primary edit-profile-btn" id="editAdminProfileBtn">
-            <span class="material-icons">edit</span>
-            Edit Profile
-        </button>
+        <!-- Admin edit button removed -->
     </div>
 </div>
 
@@ -51,7 +48,7 @@
         {% for student in students %}
         <div class="staff-item" data-username="{{ student.username }}">
             <div class="staff-avatar">
-                <img src="{{ url_for('static', filename='images/DefaultAvatar.jpg') }}" alt="{{ student.name }}" class="avatar avatar-sm">
+                <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="{{ student.name }}" class="avatar avatar-sm">
             </div>
             <div class="staff-info">
                 <h4 class="staff-name">{{ student.name }}</h4>
@@ -76,28 +73,7 @@
     </div>
 </div>
 
-<!-- Admin Profile Edit Modal -->
-<div id="adminEditModal" class="edit-modal">
-    <div class="edit-modal-content">
-        <button class="close-btn">&times;</button>
-        <h2>Edit Your Profile</h2>
-        <form id="adminEditForm">
-            <div class="edit-form-group">
-                <label for="adminName">Name</label>
-                <input type="text" id="adminName" name="name" value="{{ admin_profile.name }}">
-            </div>
-            <div class="edit-form-group">
-                <label for="adminEmail">Email</label>
-                <input type="email" id="adminEmail" name="email" value="{{ admin_profile.email }}">
-            </div>
-            <div class="edit-form-actions">
-                <span class="loading-spinner" id="adminSpinner"></span>
-                <button type="button" class="btn btn-secondary" id="adminCancelBtn">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Changes</button>
-            </div>
-        </form>
-    </div>
-</div>
+<!-- Admin Edit Modal Removed -->
 
 <!-- Student Edit Modal -->
 <div id="studentEditModal" class="edit-modal">

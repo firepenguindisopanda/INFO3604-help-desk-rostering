@@ -4,61 +4,12 @@
 {% block title %}Login - Help Desk System{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/auth/auth.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}">
-<style>
-    .error-message {
-        color: #dc3545;
-        font-size: 0.85rem;
-        margin-top: 0.25rem;
-        display: none;
-    }
-    
-    .form-group input.invalid {
-        border-color: #dc3545;
-    }
-    
-    .account-actions {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 1rem;
-        font-size: 0.85rem;
-    }
-    
-    .account-actions a {
-        color: #0066cc;
-        text-decoration: none;
-    }
-    
-    .account-actions a:hover {
-        text-decoration: underline;
-    }
-    
-    .login-tips {
-        margin-top: 1.5rem;
-        padding: 1rem;
-        background-color: #f8f9fa;
-        border-radius: 4px;
-        font-size: 0.9rem;
-    }
-    
-    .login-tips h3 {
-        font-size: 1rem;
-        margin-bottom: 0.5rem;
-    }
-    
-    .login-tips ul {
-        padding-left: 1.5rem;
-        margin-bottom: 0;
-    }
 
-    .front-page-image {
-        max-width: 90%;
-        margin: 20px auto;
-        display: block;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
+<link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/layout-fixes.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/auth/login.css') }}">
+<style>
+
 </style>
 {% endblock %}
 
@@ -71,7 +22,7 @@
     <div class="right-side">
         <div class="login-form-container">
             <form class="login-form" method="POST" action="{{ url_for('auth_views.login_action') }}" id="loginForm">
-                <h2>Login</h2>
+                <h2>Welcome Back</h2>
                 
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
@@ -86,8 +37,8 @@
                 {% endwith %}
                 
                 <div class="form-group">
-                    <label for="id">ID</label>
-                    <input type="text" id="id" name="username" placeholder="Enter your ID" required>
+                    <label for="id">ID Number</label>
+                    <input type="text" id="id" name="username" placeholder="Enter your ID number" required>
                     <div class="error-message" id="idError">Please enter a valid ID</div>
                 </div>
                 <div class="form-group">
@@ -97,18 +48,11 @@
                 </div>
                 <div class="account-actions">
                     <a href="{{ url_for('auth_views.forgot_password') }}">Forgot password?</a>
-                    <a href="{{ url_for('auth_views.register') }}">Register as a Student Assistant</a>
+                    <a href="{{ url_for('auth_views.register') }}">Register as Assistant</a>
                 </div>
                 
                 <button type="submit" class="btn btn-primary">Sign In</button>
                 
-                <div class="login-tips">
-                    <h3>Demo Accounts:</h3>
-                    <ul>
-                        <li><strong>Admin:</strong> Username: a, Password: 123</li>
-                        <li><strong>Assistant:</strong> Username: 8, Password: a</li>
-                    </ul>
-                </div>
             </form>
         </div>
     </div>
@@ -117,57 +61,6 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize notifications
-        handleFlashMessages();
-        
-        const loginForm = document.getElementById('loginForm');
-        const idInput = document.getElementById('id');
-        const passwordInput = document.getElementById('password');
-        const idError = document.getElementById('idError');
-        const passwordError = document.getElementById('passwordError');
-        
-        // Form validation
-        loginForm.addEventListener('submit', function(e) {
-            let isValid = true;
-            
-            // Validate ID
-            if (!idInput.value) {
-                idInput.classList.add('invalid');
-                idError.style.display = 'block';
-                idError.textContent = 'ID is required';
-                isValid = false;
-            } else {
-                idInput.classList.remove('invalid');
-                idError.style.display = 'none';
-            }
-            
-            // Validate password
-            if (!passwordInput.value) {
-                passwordInput.classList.add('invalid');
-                passwordError.style.display = 'block';
-                isValid = false;
-            } else {
-                passwordInput.classList.remove('invalid');
-                passwordError.style.display = 'none';
-            }
-            
-            if (!isValid) {
-                e.preventDefault();
-            }
-        });
-        
-        // Clear errors on input
-        idInput.addEventListener('input', function() {
-            idInput.classList.remove('invalid');
-            idError.style.display = 'none';
-        });
-        
-        passwordInput.addEventListener('input', function() {
-            passwordInput.classList.remove('invalid');
-            passwordError.style.display = 'none';
-        });
-    });
-</script>
+<script src="{{ url_for('static', filename='js/layout-enhancements.js') }}"></script>
+<script src="{{ url_for('static', filename='js/auth/login.js') }}"></script>
 {% endblock %}
