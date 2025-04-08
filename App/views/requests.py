@@ -16,6 +16,12 @@ from App.controllers.registration import (
     approve_registration,
     reject_registration
 )
+
+from App.controllers.password_reset import (
+    get_all_password_reset_requests,
+    complete_password_reset,
+    reject_password_reset
+)
 import os
 from datetime import datetime
 
@@ -246,3 +252,64 @@ def get_available_replacements_api():
     """API endpoint to get available replacement assistants"""
     available_replacements = get_available_replacements(current_user.username)
     return jsonify(available_replacements)
+
+
+#Password Reset
+
+@requests_views.route('/password-resets')
+@jwt_required()
+@admin_required
+def password_resets():
+    """Admin view for managing password reset requests"""
+    # Get all password reset requests
+    reset_data = get_all_password_reset_requests()
+    
+    return render_template('admin/requests/password_resets.html', 
+                           pending_requests=reset_data['pending'],
+                           completed_requests=reset_data['completed'])
+
+@requests_views.route('/api/password-resets/<int:reset_id>/complete', methods=['POST'])
+@jwt_required()
+@admin_required
+def complete_password_reset_endpoint(reset_id):
+    """API endpoint to complete a password reset"""
+    data = request.json
+    new_password = data.get('new_password')
+    
+    if not new_password:
+        return jsonify({
+            "success": False,
+            "message": "New password is required"
+        })
+    
+    success, message = complete_password_reset(reset_id, new_password, current_user.username)
+    
+    if success:
+        flash(message, "success")
+    else:
+        flash(message, "error")
+        
+    return jsonify({
+        "success": success,
+        "message": message
+    })
+
+@requests_views.route('/api/password-resets/<int:reset_id>/reject', methods=['POST'])
+@jwt_required()
+@admin_required
+def reject_password_reset_endpoint(reset_id):
+    """API endpoint to reject a password reset"""
+    data = request.json
+    reason = data.get('reason')
+    
+    success, message = reject_password_reset(reset_id, current_user.username, reason)
+    
+    if success:
+        flash(message, "success")
+    else:
+        flash(message, "error")
+        
+    return jsonify({
+        "success": success,
+        "message": message
+    })
