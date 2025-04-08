@@ -4,33 +4,6 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteer/tracking.css') }}">
-<style>
-  /* Additional notification styling for messages */
-  .notification-message {
-    position: fixed;
-    top: 1.5rem;
-    right: 1.5rem;
-    padding: 1rem 1.5rem;
-    border-radius: 4px;
-    font-weight: 500;
-    color: white;
-    z-index: 2000;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    transition: opacity 0.3s ease;
-  }
-  
-  .notification-message.success {
-    background-color: #10b981;
-  }
-  
-  .notification-message.error {
-    background-color: #ef4444;
-  }
-  
-  .notification-message.fade-out {
-    opacity: 0;
-  }
-</style>
 {% endblock %}
 
 {% block content %}
@@ -94,90 +67,90 @@
     </div>
 
     <!-- Time Distribution Chart - With Accurate Proportions -->
-    <div style="background-color: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 5px rgba(0,0,0,0.08); height: 100%;">
+    <div class="weekly-hours-chart">
       <!-- Title -->
-      <div style="margin-bottom: 1.5rem; color: #0f2a52; font-weight: 600; font-size: 1rem; text-transform: uppercase;">
+      <div class="chart-title">
         Weekly Hours by Day
       </div>
       
       <!-- Chart layout using HTML table with accurate proportions -->
-      <table style="width: 100%; border-collapse: collapse; table-layout: fixed; height: 250px;">
+      <table class="chart-table">
         <!-- Main chart container with grid lines -->
-        <tr style="height: 200px; position: relative;">
+        <tr class="chart-grid-row">
           <!-- Y-axis labels with grid lines -->
-          <td style="width: 30px; position: relative;">
-            <div style="position: absolute; top: 0; right: 10px; bottom: 0; display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
-              <div style="font-size: 11px; color: #64748b; padding-bottom: 2px;">8h</div>
-              <div style="font-size: 11px; color: #64748b; padding-bottom: 2px;">6h</div>
-              <div style="font-size: 11px; color: #64748b; padding-bottom: 2px;">4h</div>
-              <div style="font-size: 11px; color: #64748b; padding-bottom: 2px;">2h</div>
-              <div style="font-size: 11px; color: #64748b;">0h</div>
+          <td class="y-axis-cell">
+            <div class="y-axis-labels">
+              <div class="y-axis-label">8h</div>
+              <div class="y-axis-label">6h</div>
+              <div class="y-axis-label">4h</div>
+              <div class="y-axis-label">2h</div>
+              <div class="y-axis-label">0h</div>
             </div>
           </td>
           
           <!-- Grid and Chart Area -->
-          <td colspan="5" style="position: relative; vertical-align: bottom; padding: 0;">
+          <td colspan="5" class="chart-area-cell">
             <!-- Grid lines (horizontal) -->
-            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none;">
-              <div style="position: absolute; top: 0%; left: 0; right: 0; height: 1px; background-color: #f1f5f9;"></div>
-              <div style="position: absolute; top: 25%; left: 0; right: 0; height: 1px; background-color: #f1f5f9;"></div>
-              <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background-color: #f1f5f9;"></div>
-              <div style="position: absolute; top: 75%; left: 0; right: 0; height: 1px; background-color: #f1f5f9;"></div>
-              <div style="position: absolute; top: 100%; left: 0; right: 0; height: 1px; background-color: #e2e8f0;"></div>
+            <div class="chart-grid-lines">
+              <div class="grid-line" style="top: 0%;"></div>
+              <div class="grid-line" style="top: 25%;"></div>
+              <div class="grid-line" style="top: 50%;"></div>
+              <div class="grid-line" style="top: 75%;"></div>
+              <div class="grid-line bottom" style="top: 100%;"></div>
             </div>
             
             <!-- Bars container -->
-            <div style="display: flex; height: 100%; width: 100%;">
+            <div class="bars-container">
               <!-- Monday bar -->
-              <div style="flex: 1; display: flex; justify-content: center; align-items: flex-end;">
-                <div style="width: 65%; height: {{ (time_distribution[0].hours / 8) * 100 }}%; background: linear-gradient(to top, #0066cc, #2563eb); border-radius: 4px 4px 0 0; min-height: {{ 1 if time_distribution[0].hours > 0 else 0 }}px;"></div>
+              <div class="bar-column">
+                <div class="bar" style="height: {{ (time_distribution[0].hours / 8) * 100 }}%; min-height: {{ 1 if time_distribution[0].hours > 0 else 0 }}px;"></div>
               </div>
               
               <!-- Tuesday bar -->
-              <div style="flex: 1; display: flex; justify-content: center; align-items: flex-end;">
-                <div style="width: 65%; height: {{ (time_distribution[1].hours / 8) * 100 }}%; background: linear-gradient(to top, #0066cc, #2563eb); border-radius: 4px 4px 0 0; min-height: {{ 1 if time_distribution[1].hours > 0 else 0 }}px;"></div>
+              <div class="bar-column">
+                <div class="bar" style="height: {{ (time_distribution[1].hours / 8) * 100 }}%; min-height: {{ 1 if time_distribution[1].hours > 0 else 0 }}px;"></div>
               </div>
               
               <!-- Wednesday bar -->
-              <div style="flex: 1; display: flex; justify-content: center; align-items: flex-end;">
-                <div style="width: 65%; height: {{ (time_distribution[2].hours / 8) * 100 }}%; background: linear-gradient(to top, #0066cc, #2563eb); border-radius: 4px 4px 0 0; min-height: {{ 1 if time_distribution[2].hours > 0 else 0 }}px;"></div>
+              <div class="bar-column">
+                <div class="bar" style="height: {{ (time_distribution[2].hours / 8) * 100 }}%; min-height: {{ 1 if time_distribution[2].hours > 0 else 0 }}px;"></div>
               </div>
               
               <!-- Thursday bar -->
-              <div style="flex: 1; display: flex; justify-content: center; align-items: flex-end;">
-                <div style="width: 65%; height: {{ (time_distribution[3].hours / 8) * 100 }}%; background: linear-gradient(to top, #0066cc, #2563eb); border-radius: 4px 4px 0 0; min-height: {{ 1 if time_distribution[3].hours > 0 else 0 }}px;"></div>
+              <div class="bar-column">
+                <div class="bar" style="height: {{ (time_distribution[3].hours / 8) * 100 }}%; min-height: {{ 1 if time_distribution[3].hours > 0 else 0 }}px;"></div>
               </div>
               
               <!-- Friday bar -->
-              <div style="flex: 1; display: flex; justify-content: center; align-items: flex-end;">
-                <div style="width: 65%; height: {{ (time_distribution[4].hours / 8) * 100 }}%; background: linear-gradient(to top, #0066cc, #2563eb); border-radius: 4px 4px 0 0; min-height: {{ 1 if time_distribution[4].hours > 0 else 0 }}px;"></div>
+              <div class="bar-column">
+                <div class="bar" style="height: {{ (time_distribution[4].hours / 8) * 100 }}%; min-height: {{ 1 if time_distribution[4].hours > 0 else 0 }}px;"></div>
               </div>
             </div>
           </td>
         </tr>
         
         <!-- Labels row -->
-        <tr style="height: 40px;">
+        <tr class="x-axis-labels-row">
           <td></td>
-          <td style="text-align: center; vertical-align: top; padding-top: 8px;">
-            <div style="font-size: 12px; font-weight: 500; color: #334155;">Mon</div>
-            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">{{ time_distribution[0].hours|round(1) }}h</div>
+          <td class="day-label">
+            <div class="day-name">Mon</div>
+            <div class="day-hours">{{ time_distribution[0].hours|round(1) }}h</div>
           </td>
-          <td style="text-align: center; vertical-align: top; padding-top: 8px;">
-            <div style="font-size: 12px; font-weight: 500; color: #334155;">Tue</div>
-            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">{{ time_distribution[1].hours|round(1) }}h</div>
+          <td class="day-label">
+            <div class="day-name">Tue</div>
+            <div class="day-hours">{{ time_distribution[1].hours|round(1) }}h</div>
           </td>
-          <td style="text-align: center; vertical-align: top; padding-top: 8px;">
-            <div style="font-size: 12px; font-weight: 500; color: #334155;">Wed</div>
-            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">{{ time_distribution[2].hours|round(1) }}h</div>
+          <td class="day-label">
+            <div class="day-name">Wed</div>
+            <div class="day-hours">{{ time_distribution[2].hours|round(1) }}h</div>
           </td>
-          <td style="text-align: center; vertical-align: top; padding-top: 8px;">
-            <div style="font-size: 12px; font-weight: 500; color: #334155;">Thu</div>
-            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">{{ time_distribution[3].hours|round(1) }}h</div>
+          <td class="day-label">
+            <div class="day-name">Thu</div>
+            <div class="day-hours">{{ time_distribution[3].hours|round(1) }}h</div>
           </td>
-          <td style="text-align: center; vertical-align: top; padding-top: 8px;">
-            <div style="font-size: 12px; font-weight: 500; color: #334155;">Fri</div>
-            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">{{ time_distribution[4].hours|round(1) }}h</div>
+          <td class="day-label">
+            <div class="day-name">Fri</div>
+            <div class="day-hours">{{ time_distribution[4].hours|round(1) }}h</div>
           </td>
         </tr>
       </table>
