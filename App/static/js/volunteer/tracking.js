@@ -17,21 +17,45 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeCharts() {
   const barElements = document.querySelectorAll('.bar-value');
   
-  // Only initialize if we have bars to animate (i.e., data exists)
+  // Only initialize if we have bars to animate
   if (barElements.length > 0) {
-    // Animate each bar with a slight delay for each
-    barElements.forEach((bar, index) => {
-      // Initially set height to 0
-      const finalHeight = bar.style.height;
-      bar.style.height = '0%';
+    console.log('Initializing chart with ' + barElements.length + ' bars');
+    
+    // Reset all bars to 0 height
+    barElements.forEach(bar => {
+      // Save the original percentage as a data attribute if it's not already there
+      const originalHeight = bar.style.height;
+      if (originalHeight && !bar.hasAttribute('data-original-height')) {
+        bar.setAttribute('data-original-height', originalHeight);
+      }
       
-      // Animate to final height with a staggered delay
-      setTimeout(() => {
-        bar.style.height = finalHeight;
-      }, 100 * index);
+      // Reset to 0
+      bar.style.height = '0px';
     });
+    
+    // Force browser to acknowledge the change
+    setTimeout(() => {
+      // Now animate each bar with a slight delay
+      barElements.forEach((bar, index) => {
+        setTimeout(() => {
+          // Get the original height from the data attribute
+          let finalHeight = bar.getAttribute('data-original-height') || 
+                            bar.getAttribute('data-percentage') || 
+                            '0%';
+          
+          // Make sure data-hours values greater than 0 have visible height
+          const dataHours = parseFloat(bar.getAttribute('data-hours') || '0');
+          if (dataHours > 0 && (finalHeight === '0%' || finalHeight === '0px')) {
+            finalHeight = '5%'; // Minimum visible height
+          }
+          
+          console.log(`Setting bar ${index} height to ${finalHeight}`);
+          bar.style.height = finalHeight;
+        }, 100 * index);
+      });
+    }, 50);
   } else {
-    console.log('No chart data available to animate');
+    console.log('No chart bars found to animate');
   }
 }
 

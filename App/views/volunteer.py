@@ -28,6 +28,10 @@ def dashboard():
     # Get current user's username
     username = current_user.username
     
+    # Check for abandoned time entries and auto-complete them
+    from App.controllers.tracking import check_and_complete_abandoned_entry
+    check_and_complete_abandoned_entry(username)
+    
     # Import the dashboard data controller functions
     from App.controllers.dashboard import get_dashboard_data
     
@@ -51,16 +55,20 @@ def dashboard():
     print(f"Full schedule time slots: {full_schedule['time_slots']}")
     
     # Render the template with real data
-    return render_template('volunteer/dashboard/dashboard.html', 
+    return render_template('volunteer/dashboard/dashboard.html',
                           next_shift=next_shift,
                           my_shifts=my_shifts,
                           full_schedule=full_schedule)
-
+    
 @volunteer_views.route('/volunteer/time_tracking')
 @jwt_required()
 @volunteer_required
 def time_tracking():
     username = current_user.username
+    
+    # Auto-complete any expired sessions first
+    from App.controllers.tracking import auto_complete_time_entries
+    auto_complete_time_entries()
     
     # Get student stats
     stats = get_student_stats(username) or {
@@ -305,6 +313,40 @@ def profile():
     }
     
     return render_template('volunteer/profile/index.html', user=user_data)
+
+@volunteer_views.route('/volunteer/time_tracking/fix_session', methods=['POST'])
+@jwt_required()
+@volunteer_required
+def fix_stuck_session():
+    """
+    Special endpoint to fix a stuck time tracking session.
+    This is called when a user has an active time entry but the UI shows 'Clock In'
+    button or when they can't clock in because of an existing active session.
+    """
+    username = current_user.username
+    
+    # Import the fix function
+    from App.controllers.tracking import fix_abandoned_sessions
+    
+    # Fix any abandoned sessions for this user
+    result = fix_abandoned_sessions(username)
+    
+    if result.get("success", False):
+        if result.get("fixed_count", 0) > 0:
+            return jsonify({
+                'success': True,
+                'message': f"Fixed {result['fixed_count']} stuck session(s). You can now clock in."
+            })
+        else:
+            return jsonify({
+                'success': True, 
+                'message': "No stuck sessions found. If you're still having issues, please contact support."
+            })
+    else:
+        return jsonify({
+            'success': False,
+            'message': result.get("message", "An error occurred while fixing your session.")
+        })
 
 @volunteer_views.route('/volunteer/update_profile', methods=['POST'])
 @jwt_required()

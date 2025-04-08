@@ -74,9 +74,12 @@ def notify_clock_in(username, shift_details):
     message = f"You clocked in for your {shift_details} shift."
     return create_notification(username, message, Notification.TYPE_CLOCK_IN)
 
-def notify_clock_out(username, shift_details):
+def notify_clock_out(username, shift_details, auto_completed=False):
     """Notify a user that they clocked out for a shift"""
-    message = f"You clocked out for your {shift_details} shift."
+    if auto_completed:
+        message = f"Your shift for {shift_details} has ended and you've been automatically clocked out."
+    else:
+        message = f"You clocked out for your {shift_details} shift."
     return create_notification(username, message, Notification.TYPE_CLOCK_OUT)
 
 def notify_schedule_published(username, schedule_date_range=None):

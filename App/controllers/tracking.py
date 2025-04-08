@@ -93,121 +93,140 @@ def get_today_shift(username):
     """
     Get the current or next shift for today for this user
     Returns a dict with shift details including current status
+    
+    This function also auto-completes any shifts that have ended
     """
-    now = trinidad_now()
-    today_start = datetime.combine(now.date(), datetime.min.time())
-    today_end = datetime.combine(now.date(), datetime.max.time())
-    
-    # First check for a currently active shift
-    active_shifts = db.session.query(Shift, Allocation)\
-        .join(Allocation, Allocation.shift_id == Shift.id)\
-        .filter(
-            Allocation.username == username,
-            Shift.date >= today_start,
-            Shift.date <= today_end,
-            Shift.start_time <= now,
-            Shift.end_time >= now
-        ).all()
-    
-    # If we have an active shift
-    if active_shifts:
-        shift, allocation = active_shifts[0]
+    try:
+        now = trinidad_now()
+        today_start = datetime.combine(now.date(), datetime.min.time())
+        today_end = datetime.combine(now.date(), datetime.max.time())
         
-        # Check if we have an active time entry
-        active_entry = TimeEntry.query.filter_by(
-            username=username,
-            shift_id=shift.id,
-            status='active'
-        ).first()
+        # Auto-complete any sessions that have ended
+        auto_complete_time_entries()
         
-        # If we have an active entry, we're clocked in
-        if active_entry:
-            time_left = shift.end_time - now
-            hours = time_left.total_seconds() // 3600
-            minutes = (time_left.total_seconds() % 3600) // 60
+        # Now check for currently active shifts
+        active_shifts = db.session.query(Shift, Allocation)\
+            .join(Allocation, Allocation.shift_id == Shift.id)\
+            .filter(
+                Allocation.username == username,
+                Shift.date >= today_start,
+                Shift.date <= today_end,
+                Shift.start_time <= now,
+                Shift.end_time >= now
+            ).all()
+        
+        # If we have an active shift
+        if active_shifts:
+            shift, allocation = active_shifts[0]
+            
+            # Check if we have an active time entry
+            active_entry = TimeEntry.query.filter_by(
+                username=username,
+                shift_id=shift.id,
+                status='active'
+            ).first()
+            
+            # If we have an active entry, we're clocked in
+            if active_entry:
+                time_left = shift.end_time - now
+                hours = time_left.total_seconds() // 3600
+                minutes = (time_left.total_seconds() % 3600) // 60
+                
+                return {
+                    "date": shift.date.strftime("%d %B, %Y"),
+                    "start_time": shift.start_time.strftime("%I:%M %p"),
+                    "end_time": shift.end_time.strftime("%I:%M %p"),
+                    "time": f"{shift.start_time.strftime('%I:%M %p')} to {shift.end_time.strftime('%I:%M %p')}",
+                    "status": "active",
+                    "starts_now": True,
+                    "time_until": f"{int(hours)} hours {int(minutes)} minutes",
+                    "shift_id": shift.id
+                }
+            else:
+                # Shift is happening now but we're not clocked in
+                return {
+                    "date": shift.date.strftime("%d %B, %Y"),
+                    "start_time": shift.start_time.strftime("%I:%M %p"),
+                    "end_time": shift.end_time.strftime("%I:%M %p"),
+                    "time": f"{shift.start_time.strftime('%I:%M %p')} to {shift.end_time.strftime('%I:%M %p')}",
+                    "status": "active",
+                    "starts_now": False,
+                    "shift_id": shift.id
+                }
+        
+        # If no active shift, check for an upcoming shift today
+        upcoming_shifts = db.session.query(Shift, Allocation)\
+            .join(Allocation, Allocation.shift_id == Shift.id)\
+            .filter(
+                Allocation.username == username,
+                Shift.date >= today_start,
+                Shift.date <= today_end,
+                Shift.start_time > now
+            ).order_by(Shift.start_time).all()
+        
+        if upcoming_shifts:
+            shift, allocation = upcoming_shifts[0]
+            
+            # Calculate time until shift starts
+            time_until = shift.start_time - now
+            hours = time_until.total_seconds() // 3600
+            minutes = (time_until.total_seconds() % 3600) // 60
             
             return {
                 "date": shift.date.strftime("%d %B, %Y"),
                 "start_time": shift.start_time.strftime("%I:%M %p"),
                 "end_time": shift.end_time.strftime("%I:%M %p"),
                 "time": f"{shift.start_time.strftime('%I:%M %p')} to {shift.end_time.strftime('%I:%M %p')}",
-                "status": "active",
-                "starts_now": True,
+                "status": "future",
                 "time_until": f"{int(hours)} hours {int(minutes)} minutes",
                 "shift_id": shift.id
             }
-        else:
-            # Shift is happening now but we're not clocked in
-            return {
-                "date": shift.date.strftime("%d %B, %Y"),
-                "start_time": shift.start_time.strftime("%I:%M %p"),
-                "end_time": shift.end_time.strftime("%I:%M %p"),
-                "time": f"{shift.start_time.strftime('%I:%M %p')} to {shift.end_time.strftime('%I:%M %p')}",
-                "status": "active",
-                "starts_now": False,
-                "shift_id": shift.id
-            }
-    
-    # If no active shift, check for an upcoming shift today
-    upcoming_shifts = db.session.query(Shift, Allocation)\
-        .join(Allocation, Allocation.shift_id == Shift.id)\
-        .filter(
-            Allocation.username == username,
-            Shift.date >= today_start,
-            Shift.date <= today_end,
-            Shift.start_time > now
-        ).order_by(Shift.start_time).all()
-    
-    if upcoming_shifts:
-        shift, allocation = upcoming_shifts[0]
         
-        # Calculate time until shift starts
-        time_until = shift.start_time - now
-        hours = time_until.total_seconds() // 3600
-        minutes = (time_until.total_seconds() % 3600) // 60
+        # Check for completed shifts today (already clocked out)
+        completed_shifts = TimeEntry.query.filter(
+            TimeEntry.username == username,
+            TimeEntry.clock_in >= today_start,
+            TimeEntry.clock_in <= today_end,
+            TimeEntry.status == 'completed'
+        ).all()
         
+        if completed_shifts:
+            # Get the most recent completed shift
+            completed_entry = sorted(completed_shifts, key=lambda x: x.clock_out or datetime.min)[-1]
+            shift = Shift.query.get(completed_entry.shift_id) if completed_entry.shift_id else None
+            
+            if shift:
+                return {
+                    "date": shift.date.strftime("%d %B, %Y"),
+                    "start_time": shift.start_time.strftime("%I:%M %p"),
+                    "end_time": shift.end_time.strftime("%I:%M %p"),
+                    "time": f"{shift.start_time.strftime('%I:%M %p')} to {shift.end_time.strftime('%I:%M %p')}",
+                    "status": "completed",
+                    "shift_id": shift.id,
+                    "hours_worked": completed_entry.get_hours_worked()
+                }
+        
+        # No shifts today
         return {
-            "date": shift.date.strftime("%d %B, %Y"),
-            "start_time": shift.start_time.strftime("%I:%M %p"),
-            "end_time": shift.end_time.strftime("%I:%M %p"),
-            "time": f"{shift.start_time.strftime('%I:%M %p')} to {shift.end_time.strftime('%I:%M %p')}",
-            "status": "future",
-            "time_until": f"{int(hours)} hours {int(minutes)} minutes",
-            "shift_id": shift.id
+            "date": now.strftime("%d %B, %Y"),
+            "start_time": "No shift scheduled",
+            "end_time": "N/A",
+            "time": "No shift scheduled today",
+            "status": "none"
         }
-    
-    # Check for completed shifts today (already clocked out)
-    completed_shifts = TimeEntry.query.filter(
-        TimeEntry.username == username,
-        TimeEntry.clock_in >= today_start,
-        TimeEntry.clock_in <= today_end,
-        TimeEntry.status == 'completed'
-    ).all()
-    
-    if completed_shifts:
-        # Get the most recent completed shift
-        completed_entry = sorted(completed_shifts, key=lambda x: x.clock_out or datetime.min)[-1]
-        shift = Shift.query.get(completed_entry.shift_id) if completed_entry.shift_id else None
+    except Exception as e:
+        print(f"Error in get_today_shift: {e}")
+        import traceback
+        traceback.print_exc()
         
-        if shift:
-            return {
-                "date": shift.date.strftime("%d %B, %Y"),
-                "start_time": shift.start_time.strftime("%I:%M %p"),
-                "end_time": shift.end_time.strftime("%I:%M %p"),
-                "time": f"{shift.start_time.strftime('%I:%M %p')} to {shift.end_time.strftime('%I:%M %p')}",
-                "status": "completed",
-                "shift_id": shift.id,
-                "hours_worked": completed_entry.get_hours_worked()
-            }
-    
-    # No shifts today
-    return {
-        "date": now.strftime("%d %B, %Y"),
-        "start_time": "No shift scheduled",
-        "end_time": "N/A",
-        "time": "No shift scheduled today",
-        "status": "none"
-    }
+        # Return a safe default
+        return {
+            "date": now.strftime("%d %B, %Y"),
+            "start_time": "Error retrieving shifts",
+            "end_time": "N/A",
+            "time": "Error retrieving shifts",
+            "status": "error"
+        }
 
 def get_shift_attendance_records(shift_id=None, date_range=None):
     """Get attendance records for a specific shift or date range"""
@@ -239,20 +258,88 @@ def get_shift_attendance_records(shift_id=None, date_range=None):
     
     return records
 
-def clock_in(username, shift_id=None):
+def auto_complete_time_entries():
     """
-    Record a clock-in event for a student.
-    Only allows clocking in for assigned shifts.
+    Automatically complete any active time entries where the shift has ended.
+    This function should be called frequently to ensure proper time recording.
     """
     try:
         now = trinidad_now()
+        
+        # Find all active time entries
+        active_entries = TimeEntry.query.filter_by(status='active').all()
+        
+        if not active_entries:
+            return {"success": True, "message": "No active time entries found to auto-complete"}
+            
+        completed_count = 0
+        
+        for entry in active_entries:
+            # Get the associated shift
+            shift = Shift.query.get(entry.shift_id) if entry.shift_id else None
+            
+            # Skip if no shift is associated
+            if not shift:
+                continue
+                
+            # Check if the shift has ended
+            if now > shift.end_time:
+                print(f"Auto-completing time entry {entry.id} for {entry.username} - shift ended at {shift.end_time}")
+                entry.clock_out = shift.end_time
+                entry.status = 'completed'
+                
+                # Calculate hours worked
+                hours_worked = (entry.clock_out - entry.clock_in).total_seconds() / 3600
+                
+                # Update the help desk assistant's total hours
+                assistant = HelpDeskAssistant.query.get(entry.username)
+                if assistant:
+                    assistant.hours_worked += hours_worked
+                    db.session.add(assistant)
+                
+                # Create notification
+                shift_details = shift.formatted_time() if hasattr(shift, 'formatted_time') else f"{shift.start_time.strftime('%I:%M %p')} to {shift.end_time.strftime('%I:%M %p')}"
+                # Use the auto-completed parameter for the notification
+                notify_clock_out(entry.username, shift_details, auto_completed=True)
+                
+                db.session.add(entry)
+                completed_count += 1
+                
+                print(f"Auto-completed time entry {entry.id} for {entry.username} - {hours_worked:.2f} hours")
+        
+        if completed_count > 0:
+            db.session.commit()
+            print(f"Successfully auto-completed {completed_count} time entries")
+            
+        return {
+            "success": True,
+            "completed_count": completed_count
+        }
+            
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error auto-completing time entries: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": f"Error: {str(e)}"
+        }
+
+def clock_in(username, shift_id=None):
+    """Record a clock-in event for a student"""
+    try:
+        now = trinidad_now()
+        
+        # First auto-complete any sessions that have ended
+        auto_complete_time_entries()
         
         # Check if there's already an active entry
         active_entry = TimeEntry.query.filter_by(username=username, status='active').first()
         if active_entry:
             return {
                 'success': False,
-                'message': 'You already have an active clock-in record'
+                'message': 'You already have an active clock-in record. Please wait for your current session to end or clock out first.'
             }
         
         # If no shift_id provided, try to find the current active shift
@@ -302,7 +389,7 @@ def clock_in(username, shift_id=None):
                 'message': f'Too early to clock in. Shift starts at {shift.start_time.strftime("%I:%M %p")}'
             }
         
-        if now > late_window and now > shift.end_time:
+        if now > shift.end_time:
             return {
                 'success': False,
                 'message': 'This shift has already ended'
@@ -324,6 +411,9 @@ def clock_in(username, shift_id=None):
         }
     except Exception as e:
         db.session.rollback()
+        print(f"Error clocking in: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             'success': False,
             'message': f'Error clocking in: {str(e)}'
@@ -345,30 +435,35 @@ def clock_out(username):
         # Get the shift details
         shift = Shift.query.get(time_entry.shift_id) if time_entry.shift_id else None
         
-        # Check if trying to clock out too early
-        if shift and now < shift.end_time - timedelta(minutes=15):
-            # Allow early clock-out but with a confirmation
-            # The UI should handle this by asking for confirmation
-            pass
+        # Determine the appropriate clock-out time
+        clock_out_time = now
+        
+        # If shift has already ended, use the shift end time instead of current time
+        if shift and now > shift.end_time:
+            clock_out_time = shift.end_time
+            print(f"Shift has already ended. Using shift end time for clock out: {clock_out_time}")
         
         # Update the time entry
-        time_entry.complete(now)
+        time_entry.clock_out = clock_out_time
+        time_entry.status = 'completed'
         db.session.add(time_entry)
-        db.session.commit()
-        
-        # Send notification
-        shift_details = shift.formatted_time() if shift and hasattr(shift, 'formatted_time') else f"{time_entry.clock_in.strftime('%I:%M %p')} shift"
-        notify_clock_out(username, shift_details)
         
         # Calculate hours worked
-        hours_worked = time_entry.get_hours_worked()
+        hours_worked = 0
+        if time_entry.clock_in and time_entry.clock_out:
+            hours_worked = (time_entry.clock_out - time_entry.clock_in).total_seconds() / 3600
         
         # Update the help desk assistant's total hours
         assistant = HelpDeskAssistant.query.get(username)
         if assistant:
             assistant.hours_worked += hours_worked
             db.session.add(assistant)
-            db.session.commit()
+            
+        db.session.commit()
+        
+        # Send notification
+        shift_details = shift.formatted_time() if shift and hasattr(shift, 'formatted_time') else f"{time_entry.clock_in.strftime('%I:%M %p')} shift"
+        notify_clock_out(username, shift_details)
         
         return {
             'success': True,
@@ -378,10 +473,25 @@ def clock_out(username):
         }
     except Exception as e:
         db.session.rollback()
+        print(f"Error clocking out: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             'success': False,
             'message': f'Error clocking out: {str(e)}'
         }
+
+def check_and_complete_abandoned_entry(username):
+    """
+    Check if there's an abandoned time entry for this user where the shift has ended
+    but they never clocked out. This is called when they log in again.
+    """
+    try:
+        # Simply call auto-complete to ensure all ended sessions are completed
+        return auto_complete_time_entries()
+    except Exception as e:
+        print(f"Error checking abandoned entries: {e}")
+        return False
 
 def mark_missed_shift(username, shift_id):
     """Mark a shift as missed for a student"""
@@ -497,23 +607,27 @@ def get_time_distribution(username):
     # Check if we have any data to display
     has_data = any(hours > 0 for hours in daily_hours)
     
-    # Find the maximum daily hours for scaling
-    max_hours = max(daily_hours) if has_data else 8  # Default to 8 if no hours
+    # For visualization purposes, set max scale to 8 hours unless we have larger values
+    max_hours = max(max(daily_hours) if has_data else 8, 8)
     
     # Calculate percentages (scale to 0-100)
     distribution = []
     
     for i, hours in enumerate(daily_hours):
-        # Calculate percentage based on max hours (ensure it's never more than 100%)
-        percentage = min(100, (hours / max_hours) * 100) if max_hours > 0 else 0
+        # Calculate percentage based on max hours
+        # Ensure any day with hours > 0 has at least 10% height for visibility
+        percentage = (hours / max_hours) * 100 if max_hours > 0 else 0
+        if hours > 0 and percentage < 10:
+            percentage = 10
+            
         distribution.append({
             "label": day_labels[i],
             "percentage": percentage,
             "hours": hours
         })
     
-    # Return the data only if we have valid entries
-    return distribution if has_data else distribution
+    print(f"Time distribution data: {distribution}")  # Debug output
+    return distribution
 
 def generate_attendance_report(username=None, start_date=None, end_date=None, format='json'):
     """Generate an attendance report for one or all students"""
