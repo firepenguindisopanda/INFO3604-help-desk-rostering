@@ -105,12 +105,22 @@
           <span>0h</span>
         </div>
         <div class="chart">
-          {% for day in time_distribution %}
-            <div class="chart-bar">
-              <div class="bar-value" style="height: {{ day.percentage }}%;"></div>
-              <div class="bar-label">{{ day.label }}<br>{{ day.hours|round(1) }}h</div>
-            </div>
-          {% endfor %}
+          {% if time_distribution and time_distribution|length > 0 %}
+            {% for day in time_distribution %}
+              <div class="chart-bar">
+                <div class="bar-value" style="height: {{ day.percentage }}%;"></div>
+                <div class="bar-label">{{ day.label }}<br>{{ day.hours|round(1) }}h</div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <!-- Empty state for chart when no data is available -->
+            {% for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] %}
+              <div class="chart-bar">
+                <div class="bar-value" style="height: 0%;"></div>
+                <div class="bar-label">{{ day }}<br>0h</div>
+              </div>
+            {% endfor %}
+          {% endif %}
         </div>
       </div>
     </div>

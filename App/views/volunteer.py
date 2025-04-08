@@ -64,10 +64,15 @@ def time_tracking():
     
     # Get student stats
     stats = get_student_stats(username) or {
-        'daily': {'hours': 0, 'date': datetime.now().strftime('%Y-%m-%d')},
-        'weekly': {'hours': 0, 'start_date': (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': datetime.now().strftime('%Y-%m-%d')},
-        'monthly': {'hours': 0, 'month': datetime.now().strftime('%B %Y')},
-        'semester': {'hours': 0},
+        'daily': {'hours': 0, 'date': datetime.now().strftime('%Y-%m-%d'), 'date_range': datetime.now().strftime("%d %b, %Y")},
+        'weekly': {
+            'hours': 0, 
+            'start_date': (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'), 
+            'end_date': datetime.now().strftime('%Y-%m-%d'),
+            'date_range': f"Week {datetime.now().isocalendar()[1]}, {(datetime.now() - timedelta(days=7)).strftime('%b %d')} - {datetime.now().strftime('%b %d')}"
+        },
+        'monthly': {'hours': 0, 'month': datetime.now().strftime('%B %Y'), 'date_range': datetime.now().strftime('%B %Y')},
+        'semester': {'hours': 0, 'date_range': 'Current Semester'},
         'absences': 0
     }
     
@@ -84,27 +89,35 @@ def time_tracking():
     now = datetime.now()
     
     daily = {
-        "date_range": now.strftime("%d %b, %I:%M %p"),
+        "date_range": stats['daily'].get('date_range', now.strftime("%d %b, %I:%M %p")),
         "hours": f"{stats['daily']['hours']:.1f}"
     }
     
-    week_start = datetime.strptime(stats['weekly']['start_date'], '%Y-%m-%d')
-    week_end = datetime.strptime(stats['weekly']['end_date'], '%Y-%m-%d')
-    
     weekly = {
-        "date_range": f"Week {now.isocalendar()[1]}, {week_start.strftime('%b %d')} - {week_end.strftime('%b %d')}",
+        "date_range": stats['weekly'].get('date_range', f"Week {now.isocalendar()[1]}, {now.strftime('%b %d')} - {(now + timedelta(days=6)).strftime('%b %d')}"),
         "hours": f"{stats['weekly']['hours']:.1f}"
     }
     
     monthly = {
-        "date_range": stats['monthly']['month'],
+        "date_range": stats['monthly'].get('date_range', stats['monthly']['month']),
         "hours": f"{stats['monthly']['hours']:.1f}"
     }
     
     semester = {
-        "date_range": "Current Semester",
+        "date_range": stats['semester'].get('date_range', "Current Semester"),
         "hours": f"{stats['semester']['hours']:.1f}"
     }
+    
+    # Check if time_distribution has actual data or is empty
+    has_data = time_distribution and any(day.get('hours', 0) > 0 for day in time_distribution)
+    
+    # If we have no time distribution data, create empty placeholder data
+    if not has_data and (not time_distribution or len(time_distribution) == 0):
+        day_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+        time_distribution = [
+            {"label": day, "percentage": 0, "hours": 0} 
+            for day in day_labels
+        ]
     
     return render_template('volunteer/time_tracking/index.html',
                           today_shift=today_shift,
