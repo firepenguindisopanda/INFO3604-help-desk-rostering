@@ -82,7 +82,7 @@ def get_all_assistant_stats():
             stats.append({
                 'id': assistant.username,
                 'name': student.get_name(),
-                'image': '/static/images/DefaultAvatar.jpg',
+                'image': '/static/images/DefaultAvatar.png',
                 'semester_attendance': f"{assistant_stats['semester']['hours']:.1f}",
                 'week_attendance': f"{assistant_stats['weekly']['hours']:.1f}"
             })
@@ -228,7 +228,7 @@ def get_shift_attendance_records(shift_id=None, date_range=None):
             record = {
                 'staff_id': entry.username,
                 'staff_name': student.get_name(),
-                'image': '/static/images/DefaultAvatar.jpg',
+                'image': '/static/images/DefaultAvatar.png',
                 'date': entry.clock_in.strftime('%m-%d-%y') if entry.clock_in else 'ABSENT',
                 'day': entry.clock_in.strftime('%A') if entry.clock_in else 'ABSENT',
                 'login_time': entry.clock_in.strftime('%I:%M%p') if entry.clock_in else 'ABSENT',

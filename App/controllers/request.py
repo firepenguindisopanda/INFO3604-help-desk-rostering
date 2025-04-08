@@ -26,7 +26,7 @@ def get_all_requests():
             "name": student.get_name(),
             "role": "Student Assistant",
             "id_number": student.username,
-            "image": "/static/images/DefaultAvatar.jpg",
+            "image": "/static/images/DefaultAvatar.png",
             "requests": []
         }
         
