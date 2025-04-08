@@ -1,0 +1,41 @@
+/* 
+ * Sticky Navbar CSS
+ * Path: App/static/css/sticky-navbar.css
+ */
+
+/* Sticky Navigation Bar */
+.nav-container {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  width: 100%;
+}
+
+/* Make content area adjust for sticky navbar */
+.content {
+  padding-top: 1rem;
+  min-height: calc(100vh - 60px); /* Adjust based on navbar height */
+}
+
+/* Responsive adjustments for navbar */
+@media (max-width: 768px) {
+  .nav-container {
+    padding: 0.5rem 1rem;
+  }
+  
+  .nav-links {
+    gap: 1rem;
+  }
+  
+  .nav-link {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+  }
+  
+  .btn-primary {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+}

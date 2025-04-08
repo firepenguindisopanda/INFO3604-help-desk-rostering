@@ -6,7 +6,123 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/auth/auth.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/layout-fixes.css') }}">
 <style>
+
+    html, body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+      
+      .login-container {
+        height: 100vh;
+        display: flex;
+        overflow: hidden;
+      }
+      
+      .left-side {
+        flex: 1;
+        background-color: #0066cc;
+        padding: 2rem;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow: hidden;
+      }
+      
+      .right-side {
+        flex: 1;
+        padding: 2rem;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow: hidden;
+      }
+      
+      .front-page-image {
+        max-width: 90%;
+        max-height: 40vh;
+        margin: 10px auto;
+        display: block;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        object-fit: contain;
+      }
+      
+      .login-form-container {
+        width: 100%;
+        max-width: 450px;
+        margin: 0 auto;
+      }
+      
+      .login-form {
+        width: 100%;
+      }
+      
+      /* Compact login tips */
+      .login-tips {
+        margin-top: 0.75rem;
+        padding: 0.6rem;
+        font-size: 0.8rem;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+      }
+      
+      .login-tips h3 {
+        font-size: 0.9rem;
+        margin-bottom: 0.15rem;
+        margin-top: 0;
+      }
+      
+      .login-tips ul {
+        margin: 0.25rem 0;
+        padding-left: 1.25rem;
+      }
+      
+      /* Hide any footers */
+      footer {
+        display: none;
+      }
+      
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+        .login-container {
+          flex-direction: column;
+        }
+        
+        .left-side {
+          height: 40vh;
+          min-height: 200px;
+          flex: none;
+        }
+        
+        .right-side {
+          height: 60vh;
+          flex: none;
+          overflow-y: auto; /* Allow scrolling on small screens if needed */
+        }
+        
+        .front-page-image {
+          max-height: 25vh;
+        }
+        
+        .login-form {
+          padding: 0;
+        }
+        
+        .login-tips {
+          font-size: 0.75rem;
+          padding: 0.5rem;
+        }
+        
+        .login-tips ul {
+          padding-left: 1rem;
+        }
+      }
+      
     .error-message {
         color: #dc3545;
         font-size: 0.85rem;
@@ -170,4 +286,5 @@
         });
     });
 </script>
+<script src="{{ url_for('static', filename='js/layout-enhancements.js') }}"></script>
 {% endblock %}
