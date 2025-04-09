@@ -43,6 +43,8 @@ def profile():
 def staff_profile(username):
     """Staff profile view with context awareness for navigation"""
     # Get user details from database directly
+    import json  # Ensure json is imported
+    
     user = User.query.get(username)
     if not user:
         print(f"User {username} not found")
@@ -69,6 +71,14 @@ def staff_profile(username):
     # Get availabilities
     availabilities = Availability.query.filter_by(username=username).all()
     
+    # Parse profile_data JSON to get email and phone
+    profile_data = {}
+    if hasattr(student, 'profile_data') and student.profile_data:
+        try:
+            profile_data = json.loads(student.profile_data)
+        except:
+            profile_data = {}
+    
     # Build profile data
     profile = {
         'username': username,
@@ -80,22 +90,14 @@ def staff_profile(username):
         'hours_minimum': assistant.hours_minimum,
         'courses': [cap.course_code for cap in course_capabilities],
         'availabilities': [avail.get_json() for avail in availabilities],
-        'email': f"{username}@my.uwi.edu"  # Default email format
+        'email': profile_data.get('email', f"{username}@my.uwi.edu"),
+        'phone': profile_data.get('phone', '')  # Get phone from profile_data
     }
-    
-    # Get email from profile data if it exists
-    if hasattr(student, 'profile_data') and student.profile_data:
-        try:
-            profile_data = json.loads(student.profile_data)
-            if 'email' in profile_data:
-                profile['email'] = profile_data['email']
-        except:
-            pass
     
     # Store the referrer information to use in template for back button
     referrer = request.referrer
     
-    print(f"Generated profile for {profile['name']} with referrer: {referrer}")
+    print(f"Generated profile for {profile['name']} with phone: {profile['phone']}")
     
     # Render the template with the profile data and referrer context
     return render_template('admin/profile/staff_profile.html', profile=profile, referrer=referrer)
@@ -104,6 +106,8 @@ def staff_profile(username):
 @jwt_required()
 def get_staff_profile_api(username):
     # Get user details
+    import json  # Ensure json is imported
+    
     user = User.query.get(username)
     if not user:
         return jsonify({'success': False, 'message': 'User not found'}), 404
@@ -124,6 +128,14 @@ def get_staff_profile_api(username):
     # Get availabilities
     availabilities = Availability.query.filter_by(username=username).all()
     
+    # Parse profile_data JSON to get email and phone
+    profile_data = {}
+    if hasattr(student, 'profile_data') and student.profile_data:
+        try:
+            profile_data = json.loads(student.profile_data)
+        except:
+            profile_data = {}
+    
     # Build profile data
     profile = {
         'username': username,
@@ -134,7 +146,9 @@ def get_staff_profile_api(username):
         'hours_worked': assistant.hours_worked,
         'hours_minimum': assistant.hours_minimum,
         'courses': [cap.course_code for cap in course_capabilities],
-        'availabilities': [avail.get_json() for avail in availabilities]
+        'availabilities': [avail.get_json() for avail in availabilities],
+        'email': profile_data.get('email', f"{username}@my.uwi.edu"),
+        'phone': profile_data.get('phone', '')  # Get phone from profile_data
     }
     
     return jsonify({'success': True, 'profile': profile})
@@ -237,6 +251,8 @@ def update_admin_profile_api():
 def admin_update_staff_profile():
     """Comprehensive API endpoint for admin to update all aspects of a student profile"""
     try:
+        import json  # Ensure json is imported
+        
         data = request.json
         username = data.get('username')
         
