@@ -469,8 +469,8 @@ class RequestIntegrationTests(unittest.TestCase):
         create_db()
 
         # Create test data
-        self.student = Student(username="student1", name="John Doe", password="securepassword")
-        self.admin = User(username="admin", password="adminpass", type="admin")
+        self.student = create_student("student1", "securepassword", "BSc", "John Doe")
+        self.admin = create_admin("admin", "adminpass")
         db.session.add(self.student)
         db.session.add(self.admin)
         db.session.commit()
