@@ -236,7 +236,7 @@ class NotificationIntegrationTests(unittest.TestCase):
         create_db()
 
         # Create a test user with a password
-        self.test_user = User(username='testuser', password='testpass', type='user')
+        self.test_user = create_admin(username='testuser', password='testpass')
         db.session.add(self.test_user)
         db.session.commit()
 
