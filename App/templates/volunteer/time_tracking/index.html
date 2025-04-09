@@ -4,33 +4,6 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteer/tracking.css') }}">
-<style>
-  /* Additional notification styling for messages */
-  .notification-message {
-    position: fixed;
-    top: 1.5rem;
-    right: 1.5rem;
-    padding: 1rem 1.5rem;
-    border-radius: 4px;
-    font-weight: 500;
-    color: white;
-    z-index: 2000;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    transition: opacity 0.3s ease;
-  }
-  
-  .notification-message.success {
-    background-color: #10b981;
-  }
-  
-  .notification-message.error {
-    background-color: #ef4444;
-  }
-  
-  .notification-message.fade-out {
-    opacity: 0;
-  }
-</style>
 {% endblock %}
 
 {% block content %}
@@ -93,36 +66,94 @@
       </table>
     </div>
 
-    <!-- Time Distribution Chart -->
-    <div class="time-distribution">
-      <h3>Weekly Hours by Day</h3>
-      <div class="chart-container">
-        <div class="chart-y-labels">
-          <span>8h</span>
-          <span>6h</span>
-          <span>4h</span>
-          <span>2h</span>
-          <span>0h</span>
-        </div>
-        <div class="chart">
-          {% if time_distribution and time_distribution|length > 0 %}
-            {% for day in time_distribution %}
-              <div class="chart-bar">
-                <div class="bar-value" style="height: {{ day.percentage }}%;"></div>
-                <div class="bar-label">{{ day.label }}<br>{{ day.hours|round(1) }}h</div>
-              </div>
-            {% endfor %}
-          {% else %}
-            <!-- Empty state for chart when no data is available -->
-            {% for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] %}
-              <div class="chart-bar">
-                <div class="bar-value" style="height: 0%;"></div>
-                <div class="bar-label">{{ day }}<br>0h</div>
-              </div>
-            {% endfor %}
-          {% endif %}
-        </div>
+    <!-- Time Distribution Chart - With Accurate Proportions -->
+    <div class="weekly-hours-chart">
+      <!-- Title -->
+      <div class="chart-title">
+        Weekly Hours by Day
       </div>
+      
+      <!-- Chart layout using HTML table with accurate proportions -->
+      <table class="chart-table">
+        <!-- Main chart container with grid lines -->
+        <tr class="chart-grid-row">
+          <!-- Y-axis labels with grid lines -->
+          <td class="y-axis-cell">
+            <div class="y-axis-labels">
+              <div class="y-axis-label">8h</div>
+              <div class="y-axis-label">6h</div>
+              <div class="y-axis-label">4h</div>
+              <div class="y-axis-label">2h</div>
+              <div class="y-axis-label">0h</div>
+            </div>
+          </td>
+          
+          <!-- Grid and Chart Area -->
+          <td colspan="5" class="chart-area-cell">
+            <!-- Grid lines (horizontal) -->
+            <div class="chart-grid-lines">
+              <div class="grid-line" style="top: 0%;"></div>
+              <div class="grid-line" style="top: 25%;"></div>
+              <div class="grid-line" style="top: 50%;"></div>
+              <div class="grid-line" style="top: 75%;"></div>
+              <div class="grid-line bottom" style="top: 100%;"></div>
+            </div>
+            
+            <!-- Bars container -->
+            <div class="bars-container">
+              <!-- Monday bar -->
+              <div class="bar-column">
+                <div class="bar" style="height: {{ (time_distribution[0].hours / 8) * 100 }}%; min-height: {{ 1 if time_distribution[0].hours > 0 else 0 }}px;"></div>
+              </div>
+              
+              <!-- Tuesday bar -->
+              <div class="bar-column">
+                <div class="bar" style="height: {{ (time_distribution[1].hours / 8) * 100 }}%; min-height: {{ 1 if time_distribution[1].hours > 0 else 0 }}px;"></div>
+              </div>
+              
+              <!-- Wednesday bar -->
+              <div class="bar-column">
+                <div class="bar" style="height: {{ (time_distribution[2].hours / 8) * 100 }}%; min-height: {{ 1 if time_distribution[2].hours > 0 else 0 }}px;"></div>
+              </div>
+              
+              <!-- Thursday bar -->
+              <div class="bar-column">
+                <div class="bar" style="height: {{ (time_distribution[3].hours / 8) * 100 }}%; min-height: {{ 1 if time_distribution[3].hours > 0 else 0 }}px;"></div>
+              </div>
+              
+              <!-- Friday bar -->
+              <div class="bar-column">
+                <div class="bar" style="height: {{ (time_distribution[4].hours / 8) * 100 }}%; min-height: {{ 1 if time_distribution[4].hours > 0 else 0 }}px;"></div>
+              </div>
+            </div>
+          </td>
+        </tr>
+        
+        <!-- Labels row -->
+        <tr class="x-axis-labels-row">
+          <td></td>
+          <td class="day-label">
+            <div class="day-name">Mon</div>
+            <div class="day-hours">{{ time_distribution[0].hours|round(1) }}h</div>
+          </td>
+          <td class="day-label">
+            <div class="day-name">Tue</div>
+            <div class="day-hours">{{ time_distribution[1].hours|round(1) }}h</div>
+          </td>
+          <td class="day-label">
+            <div class="day-name">Wed</div>
+            <div class="day-hours">{{ time_distribution[2].hours|round(1) }}h</div>
+          </td>
+          <td class="day-label">
+            <div class="day-name">Thu</div>
+            <div class="day-hours">{{ time_distribution[3].hours|round(1) }}h</div>
+          </td>
+          <td class="day-label">
+            <div class="day-name">Fri</div>
+            <div class="day-hours">{{ time_distribution[4].hours|round(1) }}h</div>
+          </td>
+        </tr>
+      </table>
     </div>
   </div>
 

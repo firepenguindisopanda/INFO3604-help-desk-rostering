@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/registrations.css') }}">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 {% endblock %}
 
 {% block content %}
@@ -17,6 +18,24 @@
         <div class="tab active">Registration Requests</div>
         <div class="tab" onclick="window.location.href='{{ url_for('requests_views.password_resets') }}'">Password Reset Requests</div>
     </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message {{ category }}">
+                    {% if category == 'success' %}
+                        <span class="icon material-icons">check_circle</span>
+                    {% elif category == 'error' %}
+                        <span class="icon material-icons">error</span>
+                    {% else %}
+                        <span class="icon material-icons">info</span>
+                    {% endif %}
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 
     <div class="search-container">
         <i class="material-icons">search</i>
@@ -208,6 +227,19 @@
 <!-- Loading overlay (hidden by default) -->
 <div id="loadingOverlay" class="loading-overlay" style="display: none;">
     <div class="loading-spinner"></div>
+</div>
+
+<!-- Custom confirmation modal -->
+<div id="confirmationModal" class="confirm-modal-overlay">
+    <div class="confirm-modal">
+        <i class="material-icons confirm-modal-icon">help</i>
+        <div class="confirm-modal-title">Confirmation</div>
+        <div class="confirm-modal-message" id="confirmMessage">Are you sure you want to perform this action?</div>
+        <div class="confirm-modal-buttons">
+            <button class="btn-confirm-cancel" id="confirmCancel">Cancel</button>
+            <button class="btn-confirm-ok" id="confirmOk">OK</button>
+        </div>
+    </div>
 </div>
 {% endblock %}
 

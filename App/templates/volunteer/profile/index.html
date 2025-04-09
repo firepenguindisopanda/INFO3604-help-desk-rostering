@@ -40,15 +40,8 @@
             
             <div class="info-block contact-block">
                 <div class="label">CONTACT</div>
-                <div class="value">{{ user.phone|default('398-3921') }}</div>
+                <div class="value">{{ user.phone|default('') }}</div>
                 <div class="email">{{ user.email|default(user.id ~ '@my.uwi.edu') }}</div>
-            </div>
-            
-            <div class="info-block address-block">
-                <div class="label">ADDRESS</div>
-                <div class="value">{{ user.address.street|default('45 Coconut Drive') }}</div>
-                <div class="city">{{ user.address.city|default('San Fernando') }}</div>
-                <div class="country">{{ user.address.country|default('Trinidad and Tobago') }}</div>
             </div>
         </div>
         

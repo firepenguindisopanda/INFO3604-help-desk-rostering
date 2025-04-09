@@ -1,5 +1,31 @@
 /* Time Tracking specific styles */
 
+/* Notification styling */
+.notification-message {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  padding: 1rem 1.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  color: white;
+  z-index: 2000;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  transition: opacity 0.3s ease;
+}
+
+.notification-message.success {
+  background-color: #10b981;
+}
+
+.notification-message.error {
+  background-color: #ef4444;
+}
+
+.notification-message.fade-out {
+  opacity: 0;
+}
+
 /* Section Spacing */
 .today-shift-section, 
 .shift-history-section, 
@@ -136,8 +162,8 @@
   border-bottom: none;
 }
 
-/* Time Distribution Chart */
-.time-distribution {
+/* Weekly Hours Chart */
+.weekly-hours-chart {
   background-color: white;
   border-radius: 8px;
   padding: 1.5rem;
@@ -145,73 +171,114 @@
   height: 100%;
 }
 
-.time-distribution h3 {
-  margin-top: 0;
-  margin-bottom: 1.25rem;
-  font-size: 1rem;
-  font-weight: 600;
+.chart-title {
+  margin-bottom: 1.5rem;
   color: #0f2a52;
+  font-weight: 600;
+  font-size: 1rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+}
+
+.chart-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  height: 250px;
+}
+
+.chart-grid-row {
+  height: 200px;
   position: relative;
 }
 
-.time-distribution h3::after {
-  content: '';
+.y-axis-cell {
+  width: 30px;
+  position: relative;
+}
+
+.y-axis-labels {
   position: absolute;
-  bottom: -0.5rem;
-  left: 0;
-  width: 3rem;
-  height: 2px;
-  background-color: #0066cc;
-}
-
-.chart-container {
-  display: flex;
-  height: 200px;
-  margin-top: 1.5rem;
-}
-
-.chart-y-labels {
+  top: 0;
+  right: 10px;
+  bottom: 0;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  margin-right: 15px;
-  color: #64748b;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.chart {
-  display: flex;
-  flex-grow: 1;
-  align-items: flex-end;
-  justify-content: space-around;
   height: 100%;
 }
 
-.chart-bar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 40px;
+.y-axis-label {
+  font-size: 11px;
+  color: #64748b;
+  padding-bottom: 2px;
 }
 
-.bar-value {
-  width: 25px;
+.chart-area-cell {
+  position: relative;
+  vertical-align: bottom;
+  padding: 0;
+}
+
+.chart-grid-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.grid-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: #f1f5f9;
+}
+
+.grid-line.bottom {
+  background-color: #e2e8f0;
+}
+
+.bars-container {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+.bar-column {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.bar {
+  width: 65%;
   background: linear-gradient(to top, #0066cc, #2563eb);
   border-radius: 4px 4px 0 0;
-  transition: height 0.5s ease;
-  box-shadow: 0 2px 4px rgba(0, 102, 204, 0.2);
 }
 
-.bar-label {
-  margin-top: 8px;
-  font-size: 0.75rem;
-  color: #334155;
-  font-weight: 500;
+.x-axis-labels-row {
+  height: 40px;
+}
+
+.day-label {
   text-align: center;
+  vertical-align: top;
+  padding-top: 8px;
+}
+
+.day-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.day-hours {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
 }
 
 /* Hours Worked Section */
@@ -293,8 +360,12 @@
     align-self: flex-end;
   }
   
-  .chart-container {
+  .chart-table {
     height: 180px;
+  }
+  
+  .chart-grid-row {
+    height: 140px;
   }
 }
 
@@ -309,16 +380,20 @@
     font-size: 0.85rem;
   }
   
-  .chart-y-labels {
-    margin-right: 10px;
+  .y-axis-labels {
+    margin-right: 5px;
+  }
+  
+  .y-axis-label {
     font-size: 0.7rem;
   }
   
-  .bar-value {
+  .bar {
     width: 20px;
   }
   
-  .bar-label {
+  .day-name,
+  .day-hours {
     font-size: 0.7rem;
   }
 }

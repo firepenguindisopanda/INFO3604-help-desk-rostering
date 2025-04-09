@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
     flashMessages.forEach(message => {
         setTimeout(() => {
             message.style.opacity = '0';
-            message.style.transform = 'translateY(-10px)';
+            message.style.transform = 'translate(-50%, -10px)';
             setTimeout(() => {
                 if (message.parentNode) {
                     message.parentNode.removeChild(message);
@@ -175,113 +175,144 @@ function highlightMatch(element, text, searchTerm) {
     }
 }
 
+// Custom confirmation dialog
+function showConfirmation(message, onConfirm) {
+    const modal = document.getElementById('confirmationModal');
+    const confirmMessage = document.getElementById('confirmMessage');
+    const confirmOk = document.getElementById('confirmOk');
+    const confirmCancel = document.getElementById('confirmCancel');
+    
+    // Set the confirmation message
+    confirmMessage.textContent = message;
+    
+    // Show the modal
+    modal.style.display = 'block';
+    
+    // Setup event handlers for the buttons
+    const handleConfirm = () => {
+        modal.style.display = 'none';
+        removeEventListeners();
+        onConfirm();
+    };
+    
+    const handleCancel = () => {
+        modal.style.display = 'none';
+        removeEventListeners();
+    };
+    
+    const removeEventListeners = () => {
+        confirmOk.removeEventListener('click', handleConfirm);
+        confirmCancel.removeEventListener('click', handleCancel);
+    };
+    
+    // Add event listeners
+    confirmOk.addEventListener('click', handleConfirm);
+    confirmCancel.addEventListener('click', handleCancel);
+}
+
 function approveRequest(requestId) {
-    // Show confirmation dialog
-    if (!confirm('Are you sure you want to approve this request?')) {
-        return;
-    }
-    
-    // Show loading overlay
-    showLoading();
-    
-    // Make API call to approve the request
-    fetch(`/api/requests/${requestId}/approve`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Hide loading overlay
-        hideLoading();
+    // Show custom confirmation dialog
+    showConfirmation('Are you sure you want to approve this request?', () => {
+        // Show loading overlay
+        showLoading();
         
-        if (data.success) {
-            // Update the UI
-            const requestElement = findRequestElement(requestId);
-            if (requestElement) {
-                requestElement.classList.remove('pending');
-                requestElement.classList.add('approved');
-                
-                const statusElement = requestElement.querySelector('.request-status');
-                if (statusElement) {
-                    statusElement.textContent = 'APPROVED';
-                }
-                
-                // Remove the action buttons
-                const actionsElement = requestElement.querySelector('.request-actions');
-                if (actionsElement) {
-                    actionsElement.remove();
-                }
+        // Make API call to approve the request
+        fetch(`/api/requests/${requestId}/approve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
             }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Hide loading overlay
+            hideLoading();
             
-            // Show success message
-            showNotification('Request approved successfully', 'success');
-        } else {
-            showNotification(`Error: ${data.message}`, 'error');
-        }
-    })
-    .catch(error => {
-        // Hide loading overlay
-        hideLoading();
-        
-        console.error('Error:', error);
-        showNotification('An error occurred while approving the request', 'error');
+            if (data.success) {
+                // Update the UI
+                const requestElement = findRequestElement(requestId);
+                if (requestElement) {
+                    requestElement.classList.remove('pending');
+                    requestElement.classList.add('approved');
+                    
+                    const statusElement = requestElement.querySelector('.request-status');
+                    if (statusElement) {
+                        statusElement.textContent = 'APPROVED';
+                    }
+                    
+                    // Remove the action buttons
+                    const actionsElement = requestElement.querySelector('.request-actions');
+                    if (actionsElement) {
+                        actionsElement.remove();
+                    }
+                }
+                
+                // Show success message
+                showNotification('Request approved successfully', 'success');
+            } else {
+                showNotification(`Error: ${data.message}`, 'error');
+            }
+        })
+        .catch(error => {
+            // Hide loading overlay
+            hideLoading();
+            
+            console.error('Error:', error);
+            showNotification('An error occurred while approving the request', 'error');
+        });
     });
 }
 
 function rejectRequest(requestId) {
-    // Show confirmation dialog
-    if (!confirm('Are you sure you want to reject this request?')) {
-        return;
-    }
-    
-    // Show loading overlay
-    showLoading();
-    
-    // Make API call to reject the request
-    fetch(`/api/requests/${requestId}/reject`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Hide loading overlay
-        hideLoading();
+    // Show custom confirmation dialog
+    showConfirmation('Are you sure you want to reject this request?', () => {
+        // Show loading overlay
+        showLoading();
         
-        if (data.success) {
-            // Update the UI
-            const requestElement = findRequestElement(requestId);
-            if (requestElement) {
-                requestElement.classList.remove('pending');
-                requestElement.classList.add('rejected');
-                
-                const statusElement = requestElement.querySelector('.request-status');
-                if (statusElement) {
-                    statusElement.textContent = 'REJECTED';
-                }
-                
-                // Remove the action buttons
-                const actionsElement = requestElement.querySelector('.request-actions');
-                if (actionsElement) {
-                    actionsElement.remove();
-                }
+        // Make API call to reject the request
+        fetch(`/api/requests/${requestId}/reject`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
             }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Hide loading overlay
+            hideLoading();
             
-            // Show success message
-            showNotification('Request rejected', 'success');
-        } else {
-            showNotification(`Error: ${data.message}`, 'error');
-        }
-    })
-    .catch(error => {
-        // Hide loading overlay
-        hideLoading();
-        
-        console.error('Error:', error);
-        showNotification('An error occurred while rejecting the request', 'error');
+            if (data.success) {
+                // Update the UI
+                const requestElement = findRequestElement(requestId);
+                if (requestElement) {
+                    requestElement.classList.remove('pending');
+                    requestElement.classList.add('rejected');
+                    
+                    const statusElement = requestElement.querySelector('.request-status');
+                    if (statusElement) {
+                        statusElement.textContent = 'REJECTED';
+                    }
+                    
+                    // Remove the action buttons
+                    const actionsElement = requestElement.querySelector('.request-actions');
+                    if (actionsElement) {
+                        actionsElement.remove();
+                    }
+                }
+                
+                // Show success message
+                showNotification('Request rejected successfully', 'success');
+            } else {
+                showNotification(`Error: ${data.message}`, 'error');
+            }
+        })
+        .catch(error => {
+            // Hide loading overlay
+            hideLoading();
+            
+            console.error('Error:', error);
+            showNotification('An error occurred while rejecting the request', 'error');
+        });
     });
 }
 
@@ -318,6 +349,9 @@ function hideLoading() {
     }
 }
 
+/**
+* Show notification message with enhanced styling
+*/
 function showNotification(message, type = 'info') {
     // Remove any existing notifications first
     document.querySelectorAll('.flash-message').forEach(el => {
@@ -329,13 +363,16 @@ function showNotification(message, type = 'info') {
     notification.className = `flash-message ${type}`;
     
     // Add icon based on notification type
+    let icon = '';
     if (type === 'success') {
-        notification.innerHTML = `<span style="margin-right: 8px;">✓</span>${message}`;
+        icon = '<span class="icon material-icons">check_circle</span>';
     } else if (type === 'error') {
-        notification.innerHTML = `<span style="margin-right: 8px;">⚠️</span>${message}`;
-    } else {
-        notification.textContent = message;
+        icon = '<span class="icon material-icons">error</span>';
+    } else if (type === 'info') {
+        icon = '<span class="icon material-icons">info</span>';
     }
+    
+    notification.innerHTML = `${icon}<span>${message}</span>`;
     
     // Add the notification to the page
     document.body.appendChild(notification);
@@ -343,11 +380,22 @@ function showNotification(message, type = 'info') {
     // Remove the notification after a delay
     setTimeout(() => {
         notification.style.opacity = '0';
-        notification.style.transform = 'translateY(-10px)';
+        notification.style.transform = 'translate(-50%, -10px)';
         setTimeout(() => {
             if (document.body.contains(notification)) {
                 document.body.removeChild(notification);
             }
         }, 500);
     }, 5000);
+    
+    // Make the notification dismissable on click
+    notification.addEventListener('click', function() {
+        this.style.opacity = '0';
+        this.style.transform = 'translate(-50%, -10px)';
+        setTimeout(() => {
+            if (document.body.contains(this)) {
+                document.body.removeChild(this);
+            }
+        }, 300);
+    });
 }
