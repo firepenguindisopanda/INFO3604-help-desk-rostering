@@ -18,32 +18,32 @@ LOGGER = logging.getLogger(__name__)
     Integration Tests
 '''
 
-# class UsersIntegrationTests(unittest.TestCase):
+class UsersIntegrationTests(unittest.TestCase):
 
-#     def setUp(self):
-#         # Set up an in-memory SQLite database for testing
-#         self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
-#         self.app_context = self.app.app_context()
-#         self.app_context.push()
-#         create_db()
+    def setUp(self):
+        # Set up an in-memory SQLite database for testing
+        self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+        create_db()
 
-#     def tearDown(self):
-#         db.session.remove()
-#         db.drop_all()
-#         if self.app_context is not None:
-#             self.app_context.pop()
+    def tearDown(self):
+        db.session.remove()
+        db.drop_all()
+        if self.app_context is not None:
+            self.app_context.pop()
 
-#     def test_create_user(self):
-#         user = create_user("rick", "bobpass")
-#         assert user.username == "rick"
+    def test_create_user(self):
+        user = create_user("rick", "bobpass")
+        assert user.username == "rick"
 
-#     def test_update_user(self):
-#         create_user("bob", "bobpass")
-#         update_user("bob", "ronnie")
-#         user = get_user("ronnie")
-#         assert user is not None
-#         assert user.username == "ronnie"
-        
+    def test_update_user(self):
+        create_user("bob", "bobpass")
+        update_user("bob", "ronnie")
+        user = get_user("ronnie")
+        assert user is not None
+        assert user.username == "ronnie"
+
 
 class AuthIntegrationTests(unittest.TestCase):
 

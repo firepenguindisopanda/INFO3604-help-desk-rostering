@@ -1,11 +1,13 @@
 from App.models import User, Student, HelpDeskAssistant,CourseCapability, Availability
+from App.controllers import create_admin, create_student
 from App.database import db
 
 def create_user(username, password, type='student'):
-    newuser = User(username=username, password=password, type=type)
-    db.session.add(newuser)
-    db.session.commit()
-    return newuser
+    if type == 'student':
+        user = create_student(username, password, "BSc", "Unnamed")
+    else:
+        user = create_admin(username, password)
+    return user
 
 def get_user(username):
     return User.query.filter_by(username=username).first()
