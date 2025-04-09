@@ -198,6 +198,7 @@ def clock_out_endpoint():
 def profile():
     # Get current user data from database
     username = current_user.username
+    import json  # Ensure json is imported here
    
     # Get the user details
     student = Student.query.get(username)
@@ -273,7 +274,7 @@ def profile():
         'absences': 0
     }
     
-    # Determine if student has profile data
+    # Get profile data from student record
     profile_data = {}
     if hasattr(student, 'profile_data') and student.profile_data:
         try:
@@ -285,14 +286,9 @@ def profile():
     user_data = {
         "name": student.name if student.name else username,
         "id": username,
-        "phone": profile_data.get('phone', '398-3921'),
+        "phone": profile_data.get('phone', ''),
         "email": profile_data.get('email', f"{username}@my.uwi.edu"),
         "degree": student.degree,
-        "address": {
-            "street": profile_data.get('street', '45 Coconut Drive'),
-            "city": profile_data.get('city', 'San Fernando'),
-            "country": profile_data.get('country', 'Trinidad and Tobago')
-        },
         "enrolled_courses": [cap.course_code for cap in course_capabilities],
         "availability": availability_by_day,
         "stats": {

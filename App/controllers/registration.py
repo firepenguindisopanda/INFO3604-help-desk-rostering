@@ -5,11 +5,16 @@ from App.database import db
 from App.controllers.user import create_user
 from App.controllers.notification import create_notification, Notification
 import os
+import json
 from datetime import datetime, time
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
+
 def create_registration_request(username, name, email, degree, reason=None, phone=None, transcript_file=None, courses=None, password=None):
     """Create a new registration request with password"""
+    import json  # Ensure json is imported
+    import os
+    
     try:
         # Check if user already exists
         existing_user = User.query.get(username)
@@ -100,6 +105,8 @@ def approve_registration(request_id, admin_username):
         username = registration.username
         name = registration.name or username
         degree = registration.degree
+        email = registration.email
+        phone = registration.phone
         stored_password = registration.password  # This should be already hashed
         
         # Get courses for this registration
@@ -130,16 +137,25 @@ def approve_registration(request_id, admin_username):
                 {"username": username, "password": hashed_password, "type": "student"}
             )
         
-        # Create student record
+        # Create profile_data with email and phone
+        profile_data = json.dumps({
+            "email": email,
+            "phone": phone
+        })
+        
+        # Create student record with profile data
         connection.execute(
-            text("INSERT INTO student (username, degree, name) VALUES (:username, :degree, :name)"),
-            {"username": username, "degree": degree, "name": name}
+            text("INSERT INTO student (username, degree, name, profile_data) VALUES (:username, :degree, :name, :profile_data)"),
+            {"username": username, "degree": degree, "name": name, "profile_data": profile_data}
         )
+        
+        # Set rate based on degree (MSc gets higher rate)
+        rate = 35.00 if degree == 'MSc' else 20.00
         
         # Create help desk assistant record
         connection.execute(
             text("INSERT INTO help_desk_assistant (username, rate, active, hours_worked, hours_minimum) VALUES (:username, :rate, :active, :hours_worked, :hours_minimum)"),
-            {"username": username, "rate": 20.0, "active": True, "hours_worked": 0, "hours_minimum": 4}
+            {"username": username, "rate": rate, "active": True, "hours_worked": 0, "hours_minimum": 4}
         )
         
         # Add course capabilities
