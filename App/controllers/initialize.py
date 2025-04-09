@@ -14,6 +14,7 @@ Usage:
 """
 
 from App.controllers.admin import create_admin
+from App.controllers.course import create_course, get_all_courses
 from App.controllers.student import create_student
 from App.controllers.notification import (
     create_notification,
@@ -34,8 +35,7 @@ from App.models import (
 from App.database import db
 from datetime import datetime, timedelta, time
 from sqlalchemy import text
-import logging
-from App.models.course_constants import STANDARD_COURSES
+import logging, csv
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -71,21 +71,23 @@ def create_standard_courses():
     # First, check if courses already exist
     existing_courses = Course.query.all()
     if existing_courses:
-        logger.info(f"Found {len(existing_courses)} existing courses - skipping creation")
-        return
+        for course in existing_courses:
+            db.session.delete(course)
+            db.session.commit()
     
     # Create all courses from the standardized list
-    for code, name in STANDARD_COURSES:
-        course = Course(code, name)
-        db.session.add(course)
-    
-    # Commit the courses to the database
     try:
-        db.session.commit()
-        logger.info(f"Successfully created {len(STANDARD_COURSES)} standard courses")
+        with open('sample/course_constants.csv', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                course = create_course(code=row['code'], name=row['name'])
+        
+        courses = get_all_courses()
+        logger.info(f"Successfully created {len(courses)} standard courses")
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error creating standard courses: {e}")
+
 
 def create_student_assistants():
     """Create all student assistant accounts with their availability and course capabilities"""
@@ -309,3 +311,5 @@ def create_student_assistants():
             logger.error(f"Error creating student {student['username']}: {e}")
             
     logger.info(f"Created {len(student_data)} student assistants with availability data")
+
+    

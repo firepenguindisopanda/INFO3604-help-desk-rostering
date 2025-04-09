@@ -1,6 +1,7 @@
 from .admin import *
 from .allocation import *
 from .auth import *
+from .course import *
 from .dashboard import *
 from .initialize import *
 from .notification import *

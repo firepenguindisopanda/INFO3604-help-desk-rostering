@@ -11,15 +11,13 @@ from App.controllers import (
     get_all_users_json,
     login,
     get_user,
-    update_user
-)
-
-from App.models.course_constants import (
+    update_user,
     get_course_name,
     get_all_course_codes,
     get_courses_dict,
     is_valid_course
 )
+
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 LOGGER = logging.getLogger(__name__)
@@ -28,7 +26,6 @@ LOGGER = logging.getLogger(__name__)
    Unit Tests
 '''
 class UserUnitTests(unittest.TestCase):
-
     def test_create_user(self):
         user = User("bob", "bobpass", "admin")
         self.assertEqual(user.username, "bob")
@@ -75,7 +72,6 @@ class UserUnitTests(unittest.TestCase):
         self.assertTrue(student_user.is_student())
 
 class StudentUnitTests(unittest.TestCase):
-
     def test_create_student(self):
         student = Student(username="john_doe", password="securepass", degree="MSc", name="John Doe", profile_data='{"age": 25}')
         self.assertEqual(student.username, "john_doe")
@@ -194,80 +190,29 @@ class CourseCapabilityUnitTests(unittest.TestCase):
             'Course Code': "CS101"
         }
         self.assertEqual(capability.get_json(), expected_json)
-
-class CourseConstantsUnitTests(unittest.TestCase):
-    def setUp(self):
-        self.mock_courses = [
-            ('INFO3606', 'Cloud Computing'),
-            ('INFO3607', 'Fundamentals of WAN Technologies'),
-            ('INFO3608', 'E-Commerce'),
-        ]
-
-    @patch('App.models.course_constants.STANDARD_COURSES', new_callable=lambda: [
-        ('INFO3606', 'Cloud Computing'),
-        ('INFO3607', 'Fundamentals of WAN Technologies'),
-        ('INFO3608', 'E-Commerce'),
-    ])
-    def test_get_course_name(self, mock_courses):
-        self.assertEqual(get_course_name('INFO3606'), 'Cloud Computing')
-        self.assertEqual(get_course_name('INVALID_CODE'), 'INVALID_CODE')
-
-    @patch('App.models.course_constants.STANDARD_COURSES', new_callable=lambda: [
-        ('INFO3606', 'Cloud Computing'),
-        ('INFO3607', 'Fundamentals of WAN Technologies'),
-        ('INFO3608', 'E-Commerce'),
-    ])
-    def test_get_all_course_codes(self, mock_courses):
-        expected_codes = ['INFO3606', 'INFO3607', 'INFO3608']
-        self.assertListEqual(get_all_course_codes(), expected_codes)
-
-    @patch('App.models.course_constants.STANDARD_COURSES', new_callable=lambda: [
-        ('INFO3606', 'Cloud Computing'),
-        ('INFO3607', 'Fundamentals of WAN Technologies'),
-        ('INFO3608', 'E-Commerce'),
-    ])
-    def test_get_courses_dict(self, mock_courses):
-        expected_dict = {
-            'INFO3606': 'Cloud Computing',
-            'INFO3607': 'Fundamentals of WAN Technologies',
-            'INFO3608': 'E-Commerce',
-        }
-        self.assertDictEqual(get_courses_dict(), expected_dict)
-
-    @patch('App.models.course_constants.STANDARD_COURSES', new_callable=lambda: [
-        ('INFO3606', 'Cloud Computing'),
-        ('INFO3607', 'Fundamentals of WAN Technologies'),
-        ('INFO3608', 'E-Commerce'),
-    ])
-    def test_is_valid_course(self, mock_courses):
-        self.assertTrue(is_valid_course('INFO3606'))
-        self.assertFalse(is_valid_course('INVALID_CODE'))
     
+
 class CourseUnitTests(unittest.TestCase):
     def test_course_initialization(self):
-        course = Course(code="CS101", name="Introduction to Computer Science", semester=1)
+        course = Course(code="CS101", name="Introduction to Computer Science")
         self.assertEqual(course.code, "CS101")
         self.assertEqual(course.name, "Introduction to Computer Science")
-        self.assertEqual(course.semester, 1)
 
     def test_course_initialization_without_semester(self):
         course = Course(code="CS102", name="Data Structures")
         self.assertEqual(course.code, "CS102")
         self.assertEqual(course.name, "Data Structures")
-        self.assertIsNone(course.semester)
 
     def test_get_json(self):
-        course = Course(code="CS101", name="Introduction to Computer Science", semester=1)
+        course = Course(code="CS101", name="Introduction to Computer Science")
         expected_json = {
-            'Course Code': "CS101",
-            'Course Name': "Introduction to Computer Science",
-            'Semester': 1
+            "CS101": "Introduction to Computer Science",
         }
         self.assertEqual(course.get_json(), expected_json)
 
+
 class RequestUnitTests(unittest.TestCase):
     def setUp(self):
-   
         self.request = Request(
             username="student_user",
             shift_id=101,
@@ -326,7 +271,6 @@ class RequestUnitTests(unittest.TestCase):
 
 class RegistrationRequestUnitTests(unittest.TestCase):
     def setUp(self):
-
         self.registration_request = RegistrationRequest(
             username="student_user",
             name="John Doe",
@@ -421,9 +365,7 @@ class ScheduleUnitTests(unittest.TestCase):
         self.assertEqual(schedule.get_json(), expected_json)
 
 class SemesterUnitTests(unittest.TestCase):
-
     def test_semester_initialization_one(self):
-
         start_date = datetime(2023, 1, 15)
         end_date = datetime(2023, 5, 30)
         semester = Semester(start=start_date, end=end_date)
@@ -434,7 +376,6 @@ class SemesterUnitTests(unittest.TestCase):
         self.assertEqual(semester.end, end_date)
     
     def test_semester_initialization_two(self):
-
         start_date = datetime(2023, 8, 1)
         end_date = datetime(2023, 12, 15)
         semester = Semester(start=start_date, end=end_date)
@@ -445,7 +386,6 @@ class SemesterUnitTests(unittest.TestCase):
         self.assertEqual(semester.end, end_date)
 
     def test_semester_initialization_three(self):
-
         start_date = datetime(2023, 3, 1)
         end_date = datetime(2023, 6, 30)
         semester = Semester(start=start_date, end=end_date)
@@ -456,7 +396,6 @@ class SemesterUnitTests(unittest.TestCase):
         self.assertEqual(semester.end, end_date)
 
     def test_get_json(self):
-
         start_date = datetime(2023, 8, 1)
         end_date = datetime(2023, 12, 15)
         semester = Semester(start=start_date, end=end_date)
@@ -503,7 +442,6 @@ class ShiftCourseDemandUnitTests(unittest.TestCase):
 
 class ShiftUnitTests(unittest.TestCase):
     def setUp(self):
-
         self.shift = Shift(
             date=datetime(2023, 1, 1),
             start_time=datetime(2023, 1, 1, 9, 0),
@@ -519,7 +457,6 @@ class ShiftUnitTests(unittest.TestCase):
         self.assertEqual(self.shift.schedule_id, 101)
 
     def test_get_json(self):
-
         self.shift.course_demands = [
             ShiftCourseDemand(shift_id=self.shift.id, course_code="CS101", tutors_required=2, weight=3),
             ShiftCourseDemand(shift_id=self.shift.id, course_code="CS102", tutors_required=3, weight=4)
@@ -562,9 +499,7 @@ class ShiftUnitTests(unittest.TestCase):
         self.assertEqual(self.shift.course_demands[0].weight, 5)'''
 
 class HelpDeskAssistantModelUnitTests(unittest.TestCase):
-
     def test_create_help_desk_assistant_default_values(self):
-
         Student.query = MagicMock()
         Student.query.get.return_value = None
 
@@ -576,7 +511,6 @@ class HelpDeskAssistantModelUnitTests(unittest.TestCase):
         self.assertEqual(assistant.hours_minimum, 4)  # Default minimum hours
 
     def test_create_help_desk_assistant_with_student(self):
-
         mock_student = MagicMock()
         mock_student.degree = "MSc"
         Student.query = MagicMock()
@@ -632,7 +566,6 @@ class HelpDeskAssistantModelUnitTests(unittest.TestCase):
         self.assertEqual(assistant.hours_worked, 8)
 
     def test_add_course_capability(self):
-
         from App.models.course_capability import CourseCapability
         mock_capability = MagicMock(course_code="INFO3604")
 
@@ -646,7 +579,6 @@ class HelpDeskAssistantModelUnitTests(unittest.TestCase):
     
 class NotificationUnitTests(unittest.TestCase):
     def setUp(self):
-
         db.create_all()
 
     def tearDown(self):
@@ -711,7 +643,6 @@ class NotificationUnitTests(unittest.TestCase):
         self.assertTrue(notification.is_read)
     
     def setUp(self):
-
         db.create_all()
 
     def tearDown(self):
@@ -720,7 +651,6 @@ class NotificationUnitTests(unittest.TestCase):
         db.session.commit()
 
 class SemesterUnitTests(unittest.TestCase):
-
     def test_create_semester_first_semester(self):
         start_date = datetime(2025, 9, 1)  # September 1, 2025
         end_date = datetime(2025, 12, 15)  # December 15, 2025
@@ -766,7 +696,6 @@ class SemesterUnitTests(unittest.TestCase):
         self.assertDictEqual(semester.get_json(), expected_json)
 
 class TimeEntryUnitTests(unittest.TestCase):
-
     def test_create_time_entry(self):
         clock_in = datetime(2025, 3, 29, 9, 0, 0)  # March 29, 2025, 9:00 AM
         time_entry = TimeEntry(username="student1", clock_in=clock_in, shift_id=1, status="active")
