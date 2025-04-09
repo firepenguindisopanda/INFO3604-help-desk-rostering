@@ -13,7 +13,8 @@ Usage:
     initialize()
 """
 
-from App.controllers.user import create_user
+from App.controllers.admin import create_admin
+from App.controllers.student import create_student
 from App.controllers.notification import (
     create_notification,
     notify_shift_approval,
@@ -52,7 +53,7 @@ def initialize():
     db.create_all()
     
     # Create default admin account
-    admin = create_user('a', '123', type='admin')
+    admin = create_admin('a', '123')
     logger.info(f"Created admin user: {admin.username}")
     
     # Create standard courses
@@ -268,15 +269,9 @@ def create_student_assistants():
     # Create users and their associated data
     for student in student_data:
         try:
-            # Create user account
-            user = create_user(student['username'], student['password'], type='student')
+            # Create student account
+            user = create_student(student['username'], student['password'], student['degree'], student['name'])
             logger.info(f"Created user: {user.username}")
-            
-            # Create student record
-            db.session.execute(
-                text("INSERT OR IGNORE INTO student (username, degree, name) VALUES (:username, :degree, :name)"),
-                {"username": student['username'], "degree": student['degree'], "name": student['name']}
-            )
             
             # Create help desk assistant record
             rate = 35.00 if student['degree'] == 'MSc' else 20.00  # Higher rate for MSc students
