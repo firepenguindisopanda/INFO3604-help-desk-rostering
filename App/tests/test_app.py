@@ -339,7 +339,7 @@ class RegistrationIntegrationTests(unittest.TestCase):
         create_db()
 
         # Create a test admin user
-        self.admin_user = User(username='admin', password='adminpass', type='admin')
+        self.admin_user = create_admin('admin', 'adminpass')
         db.session.add(self.admin_user)
         db.session.commit()
 
