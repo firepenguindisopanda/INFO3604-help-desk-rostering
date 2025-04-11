@@ -13,6 +13,7 @@ from App.controllers.tracking import (
 )
 from App.database import db
 from App.controllers.notification import notify_availability_updated
+from App.controllers.course import get_courses_dict
 import datetime
 import os
 import json
@@ -559,11 +560,8 @@ def update_availability():
 def get_courses():
     """Get all available courses from the standardized list"""
     try:
-        # Import the standardized course list
-        from App.models.course_constants import STANDARD_COURSES
-        
         # Format the courses as required by the frontend
-        formatted_courses = [{'code': code, 'name': name} for code, name in STANDARD_COURSES]
+        formatted_courses = [get_courses_dict()]
         
         return jsonify({
             'success': True,

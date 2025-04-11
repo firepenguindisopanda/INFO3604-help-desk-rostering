@@ -1,9 +1,8 @@
 from datetime import datetime, timedelta
 from flask import jsonify
 from ortools.sat.python import cp_model
-import logging
+import logging, csv
 from sqlalchemy import text
-from App.models.course_constants import get_all_course_codes, STANDARD_COURSES
 
 from App.models import (
     Schedule, Shift, Student, HelpDeskAssistant, 
@@ -11,8 +10,10 @@ from App.models import (
     Allocation, Course
 )
 from App.database import db
+from App.controllers.course import create_course, get_all_courses
 from App.controllers.notification import notify_schedule_published
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
+
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -117,14 +118,14 @@ def generate_schedule(start_date=None, end_date=None):
         clear_shifts_in_range(schedule.id, start_date, end_date)
         
         # Get all courses from the standardized list
-        all_courses = Course.query.all()
+        all_courses = get_all_courses()
         if not all_courses:
             # Create standard courses if none exist
-            for code, name in STANDARD_COURSES:
-                course = Course(code, name)
-                db.session.add(course)
-            db.session.commit()
-            all_courses = Course.query.all()
+            with open('sample/standard_courses.csv', newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    course = create_course(course_code=row['code'], course_name=row['name'])
+            all_courses = get_all_courses()
             logger.info(f"Created {len(all_courses)} standard courses")
         
         # Generate shifts for the schedule (only for the specified date range)

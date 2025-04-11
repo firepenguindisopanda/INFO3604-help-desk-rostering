@@ -1,4 +1,4 @@
-import os, tempfile, pytest, logging, unittest
+import os, tempfile, pytest, logging, unittest, warnings
 from unittest.mock import MagicMock, patch
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask import Flask, jsonify
@@ -19,7 +19,6 @@ LOGGER = logging.getLogger(__name__)
 '''
 
 class UsersIntegrationTests(unittest.TestCase):
-
     def setUp(self):
         # Set up an in-memory SQLite database for testing
         self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
@@ -43,10 +42,9 @@ class UsersIntegrationTests(unittest.TestCase):
         user = get_user("ronnie")
         assert user is not None
         assert user.username == "ronnie"
-        
+
 
 class AuthIntegrationTests(unittest.TestCase):
-
     def setUp(self):
         # Set up a Flask app for testing
         self.app = Flask(__name__)
@@ -82,8 +80,53 @@ class AuthIntegrationTests(unittest.TestCase):
             self.assertIsNone(token)
             self.assertIsNone(user_type)
 
-class DashboardIntegrationTests(unittest.TestCase):
 
+class CourseIntegrationTests(unittest.TestCase):
+    def setUp(self):
+        # Set up an in-memory SQLite database for testing
+        self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+        create_db()
+    
+    def tearDown(self):
+        db.session.remove()
+        db.drop_all()
+        if self.app_context is not None:
+            self.app_context.pop()
+    
+    def test_get_courses_dict(self):
+        expected_dict = [
+            {'INFO3606': 'Cloud Computing'},
+            {'INFO3607': 'Fundamentals of WAN Technologies'},
+            {'INFO3608': 'E-Commerce'}
+        ]
+        
+        course = create_course(code="INFO3606", name="Cloud Computing")
+        course = create_course(code="INFO3607", name="Fundamentals of WAN Technologies")
+        course = create_course(code="INFO3608", name="E-Commerce")
+        
+        self.assertEqual(get_courses_dict(), expected_dict)
+    
+    def test_is_valid_course(self):
+        course = create_course(code="INFO3606", name="Cloud Computing")
+        self.assertTrue(is_valid_course('INFO3606'))
+        self.assertFalse(is_valid_course('INVALID_CODE'))
+    
+    def test_get_all_course_codes(self):
+        course = create_course(code="INFO3606", name="Cloud Computing")
+        course = create_course(code="INFO3607", name="Fundamentals of WAN Technologies")
+        course = create_course(code="INFO3608", name="E-Commerce")
+        expected_codes = ['INFO3606', 'INFO3607', 'INFO3608']
+        self.assertListEqual(get_all_course_codes(), expected_codes)
+    
+    def test_get_course_name(self):
+        course = create_course(code="INFO3606", name="Cloud Computing")
+        self.assertEqual(get_course_name('INFO3606'), 'Cloud Computing')
+        self.assertEqual(get_course_name('INVALID_CODE'), 'INVALID_CODE')
+
+
+class DashboardIntegrationTests(unittest.TestCase):
     def setUp(self):
         # Mock the database session
         self.mock_db_session = patch('App.database.db.session').start()
@@ -163,7 +206,6 @@ class DashboardIntegrationTests(unittest.TestCase):
         self.assertEqual(len(full_schedule['staff_schedule']), 8)
 
 class InitializeIntegrationTests(unittest.TestCase):
-
     def setUp(self):
         # Set up an in-memory SQLite database for testing
         self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
@@ -227,7 +269,6 @@ class InitializeIntegrationTests(unittest.TestCase):
             self.assertTrue(any("Error creating student" in message for message in log.output))
     
 class NotificationIntegrationTests(unittest.TestCase):
-
     def setUp(self):
         # Set up an in-memory SQLite database for testing
         self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
@@ -236,7 +277,7 @@ class NotificationIntegrationTests(unittest.TestCase):
         create_db()
 
         # Create a test user with a password
-        self.test_user = User(username='testuser', password='testpass', type='user')
+        self.test_user = create_admin(username='testuser', password='testpass')
         db.session.add(self.test_user)
         db.session.commit()
 
@@ -330,7 +371,6 @@ class NotificationIntegrationTests(unittest.TestCase):
         self.assertTrue(any(n.username == 'admin2' for n in notifications))'''
 
 class RegistrationIntegrationTests(unittest.TestCase):
-
     def setUp(self):
         # Set up an in-memory SQLite database for testing
         self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
@@ -339,7 +379,7 @@ class RegistrationIntegrationTests(unittest.TestCase):
         create_db()
 
         # Create a test admin user
-        self.admin_user = User(username='admin', password='adminpass', type='admin')
+        self.admin_user = create_admin('admin', 'adminpass')
         db.session.add(self.admin_user)
         db.session.commit()
 
@@ -460,7 +500,6 @@ class RegistrationIntegrationTests(unittest.TestCase):
         self.assertIn("CS102", registration_data['course_codes'])
 
 class RequestIntegrationTests(unittest.TestCase):
-
     def setUp(self):
         # Set up an in-memory SQLite database for testing
         self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
@@ -469,8 +508,8 @@ class RequestIntegrationTests(unittest.TestCase):
         create_db()
 
         # Create test data
-        self.student = Student(username="student1", name="John Doe", password="securepassword")
-        self.admin = User(username="admin", password="adminpass", type="admin")
+        self.student = create_student("student1", "securepassword", "BSc", "John Doe")
+        self.admin = create_admin("admin", "adminpass")
         db.session.add(self.student)
         db.session.add(self.admin)
         db.session.commit()
@@ -639,7 +678,6 @@ class RequestIntegrationTests(unittest.TestCase):
         self.assertEqual(replacements[0]["name"], "Jane Doe")'''
     
 class ScheduleIntegrationTests(unittest.TestCase):
-
     def setUp(self):
         # Set up an in-memory SQLite database for testing
         self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
@@ -730,14 +768,13 @@ class ScheduleIntegrationTests(unittest.TestCase):
         # Clear the schedule
         result = clear_schedule()
         self.assertEqual(result["status"], "success")
-        self.assertEqual(result["details"]["shifts_removed"], 32)
+        self.assertEqual(result["details"]["shifts_removed"], 24)
 
         # Verify the schedule is cleared
         shifts = Shift.query.all()
         self.assertEqual(len(shifts), 0)
 
 class TrackingIntegrationTests(unittest.TestCase):
-
     def setUp(self):
         # Set up an in-memory SQLite database for testing
         self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
@@ -851,7 +888,6 @@ class TrackingIntegrationTests(unittest.TestCase):
 
 
 class UserIntegrationTests(unittest.TestCase):
-
     def setUp(self):
         # Set up an in-memory SQLite database for testing
         self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})

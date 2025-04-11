@@ -13,7 +13,9 @@ Usage:
     initialize()
 """
 
-from App.controllers.user import create_user
+from App.controllers.admin import create_admin
+from App.controllers.course import create_course, get_all_courses
+from App.controllers.student import create_student
 from App.controllers.notification import (
     create_notification,
     notify_shift_approval,
@@ -33,8 +35,7 @@ from App.models import (
 from App.database import db
 from datetime import datetime, timedelta, time
 from sqlalchemy import text
-import logging
-from App.models.course_constants import STANDARD_COURSES
+import logging, csv
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -52,7 +53,7 @@ def initialize():
     db.create_all()
     
     # Create default admin account
-    admin = create_user('a', '123', type='admin')
+    admin = create_admin('a', '123')
     logger.info(f"Created admin user: {admin.username}")
     
     # Create standard courses
@@ -63,6 +64,7 @@ def initialize():
     
     logger.info('Database initialized successfully with all sample data')
 
+
 def create_standard_courses():
     """Create all standard courses in the database"""
     logger.info("Creating standard courses")
@@ -70,21 +72,23 @@ def create_standard_courses():
     # First, check if courses already exist
     existing_courses = Course.query.all()
     if existing_courses:
-        logger.info(f"Found {len(existing_courses)} existing courses - skipping creation")
-        return
+        for course in existing_courses:
+            db.session.delete(course)
+            db.session.commit()
     
     # Create all courses from the standardized list
-    for code, name in STANDARD_COURSES:
-        course = Course(code, name)
-        db.session.add(course)
-    
-    # Commit the courses to the database
     try:
-        db.session.commit()
-        logger.info(f"Successfully created {len(STANDARD_COURSES)} standard courses")
+        with open('sample/course_constants.csv', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                course = create_course(code=row['code'], name=row['name'])
+        
+        courses = get_all_courses()
+        logger.info(f"Successfully created {len(courses)} standard courses")
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error creating standard courses: {e}")
+
 
 def create_student_assistants():
     """Create all student assistant accounts with their availability and course capabilities"""
@@ -268,15 +272,9 @@ def create_student_assistants():
     # Create users and their associated data
     for student in student_data:
         try:
-            # Create user account
-            user = create_user(student['username'], student['password'], type='student')
+            # Create student account
+            user = create_student(student['username'], student['password'], student['degree'], student['name'])
             logger.info(f"Created user: {user.username}")
-            
-            # Create student record
-            db.session.execute(
-                text("INSERT OR IGNORE INTO student (username, degree, name) VALUES (:username, :degree, :name)"),
-                {"username": student['username'], "degree": student['degree'], "name": student['name']}
-            )
             
             # Create help desk assistant record
             rate = 35.00 if student['degree'] == 'MSc' else 20.00  # Higher rate for MSc students
@@ -314,3 +312,5 @@ def create_student_assistants():
             logger.error(f"Error creating student {student['username']}: {e}")
             
     logger.info(f"Created {len(student_data)} student assistants with availability data")
+
+    
