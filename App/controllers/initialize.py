@@ -78,7 +78,7 @@ def create_standard_courses():
     
     # Create all courses from the standardized list
     try:
-        with open('sample/course_constants.csv', newline='') as csvfile:
+        with open('sample/courses.csv', newline='') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 course = create_course(code=row['code'], name=row['name'])
