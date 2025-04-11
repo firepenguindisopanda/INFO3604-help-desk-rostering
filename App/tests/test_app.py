@@ -81,54 +81,49 @@ class AuthIntegrationTests(unittest.TestCase):
             self.assertIsNone(user_type)
 
 
-# class CourseIntegrationTests(unittest.TestCase):
-#     def setUp(self):
-#         # Set up an in-memory SQLite database for testing
-#         self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
-#         self.app_context = self.app.app_context()
-#         self.app_context.push()
-#         create_db()
+class CourseIntegrationTests(unittest.TestCase):
+    def setUp(self):
+        # Set up an in-memory SQLite database for testing
+        self.app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+        create_db()
+    
+    def tearDown(self):
+        db.session.remove()
+        db.drop_all()
+        if self.app_context is not None:
+            self.app_context.pop()
+    
+    def test_get_courses_dict(self):
+        expected_dict = [
+            {'INFO3606': 'Cloud Computing'},
+            {'INFO3607': 'Fundamentals of WAN Technologies'},
+            {'INFO3608': 'E-Commerce'}
+        ]
         
-#         self.mock_course = MagicMock()
-#         self.mock_course.code = "INFO3606"
-#         self.mock_course.name = "Cloud Computing"
+        course = create_course(code="INFO3606", name="Cloud Computing")
+        course = create_course(code="INFO3607", name="Fundamentals of WAN Technologies")
+        course = create_course(code="INFO3608", name="E-Commerce")
         
-#         self.mock_courses=['INFO3606', 'INFO3607', 'INFO3608']
+        self.assertEqual(get_courses_dict(), expected_dict)
     
-#     def tearDown(self):
-#         db.session.remove()
-#         db.drop_all()
-#         if self.app_context is not None:
-#             self.app_context.pop()
+    def test_is_valid_course(self):
+        course = create_course(code="INFO3606", name="Cloud Computing")
+        self.assertTrue(is_valid_course('INFO3606'))
+        self.assertFalse(is_valid_course('INVALID_CODE'))
     
-#     def test_get_courses_dict(self):
-#         expected_dict = {
-#             'INFO3606': 'Cloud Computing',
-#             'INFO3607': 'Fundamentals of WAN Technologies',
-#             'INFO3608': 'E-Commerce',
-#         }
-        
-#         course = Course(code="INFO3606", name="Cloud Computing")
-#         course = Course(code="INFO3607", name="Fundamentals of WAN Technologies")
-#         course = Course(code="INFO3608", name="E-Commerce")
-        
-#         self.assertDictEqual(get_courses_dict(), expected_dict)
+    def test_get_all_course_codes(self):
+        course = create_course(code="INFO3606", name="Cloud Computing")
+        course = create_course(code="INFO3607", name="Fundamentals of WAN Technologies")
+        course = create_course(code="INFO3608", name="E-Commerce")
+        expected_codes = ['INFO3606', 'INFO3607', 'INFO3608']
+        self.assertListEqual(get_all_course_codes(), expected_codes)
     
-#     def test_is_valid_course(self):
-#         self.assertTrue(is_valid_course('INFO3606'))
-#         self.assertFalse(is_valid_course('INVALID_CODE'))
-    
-#     def test_get_all_course_codes(self):
-#         course = Course(code="INFO3606", name="Cloud Computing")
-#         course = Course(code="INFO3607", name="Fundamentals of WAN Technologies")
-#         course = Course(code="INFO3608", name="E-Commerce")
-#         expected_codes = ['INFO3606', 'INFO3607', 'INFO3608']
-#         self.assertListEqual(get_all_course_codes(), expected_codes)
-    
-#     def test_get_course_name(self):
-#         course = Course(code="INFO3606", name="Cloud Computing")
-#         self.assertEqual(get_course_name('INFO3606'), 'Cloud Computing')
-#         self.assertEqual(get_course_name('INVALID_CODE'), 'INVALID_CODE')
+    def test_get_course_name(self):
+        course = create_course(code="INFO3606", name="Cloud Computing")
+        self.assertEqual(get_course_name('INFO3606'), 'Cloud Computing')
+        self.assertEqual(get_course_name('INVALID_CODE'), 'INVALID_CODE')
 
 
 class DashboardIntegrationTests(unittest.TestCase):

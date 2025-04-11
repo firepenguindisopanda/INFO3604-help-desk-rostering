@@ -15,7 +15,7 @@ def get_all_courses():
 # Helper function to get course name by code
 def get_course_name(course_code):
     course = Course.query.filter_by(code=course_code).first()
-    if course.code == course_code:
+    if course:
         return course.name
     return course_code # Returns supplied course code if course not found
 
@@ -28,8 +28,10 @@ def get_all_course_codes():
 
 # Helper function to get all courses as a dictionary
 def get_courses_dict():
-    courses = get_all_courses()    
-    return {course.code: course.name for course in courses}
+    courses = get_all_courses()
+    if courses:
+        return [course.get_json() for course in courses]
+    return []
 
 
 # Helper function to validate a course code

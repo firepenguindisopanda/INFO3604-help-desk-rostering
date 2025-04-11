@@ -64,6 +64,7 @@ def initialize():
     
     logger.info('Database initialized successfully with all sample data')
 
+
 def create_standard_courses():
     """Create all standard courses in the database"""
     logger.info("Creating standard courses")
