@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from flask import jsonify
 from ortools.sat.python import cp_model
+from ortools.linear_solver import pywraplp
 import logging, csv
 from sqlalchemy import text
 
@@ -17,6 +18,7 @@ from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 # Configure logger
 logger = logging.getLogger(__name__)
+
 
 # Add debug function to check constraints before scheduling
 def check_scheduling_feasibility():
@@ -79,6 +81,7 @@ def check_scheduling_feasibility():
             "message": f"Error checking feasibility: {str(e)}"
         }
 
+
 def generate_schedule(start_date=None, end_date=None):
     """
     Generate a help desk schedule with flexible date range.
@@ -112,7 +115,7 @@ def generate_schedule(start_date=None, end_date=None):
         is_full_week = start_date.weekday() == 0 and (end_date - start_date).days >= 4
         
         # Get or create the main schedule
-        schedule = get_or_create_main_schedule(start_date, end_date)
+        schedule = get_schedule(1, start_date, end_date)
         
         # Clear existing shifts for the date range
         clear_shifts_in_range(schedule.id, start_date, end_date)
@@ -416,26 +419,33 @@ def generate_schedule(start_date=None, end_date=None):
             "status": "error",
             "message": str(e)
         }
-        
+    
 
-def get_or_create_main_schedule(start_date, end_date):
+def get_schedule(id, start_date, end_date):
     """Get or create the main schedule object"""
-    # Check for existing main schedule (id=1)
-    schedule = Schedule.query.get(1)
+    schedule = Schedule.query.get(id)
     
     if not schedule:
         # Create a new main schedule
-        schedule = Schedule(1, start_date, end_date)
-        db.session.add(schedule)
-        db.session.flush()
+        schedule = create_schedule(id, start_date, end_date)
     else:
         # Update the existing schedule's date range
         schedule.start_date = start_date
         schedule.end_date = end_date
         db.session.add(schedule)
         db.session.flush()
-    
     return schedule
+
+
+def create_schedule(id, start_date, end_date):
+    start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+    
+    new_schedule = Schedule(id, start_date, end_date)
+    db.session.add(new_schedule)
+    db.session.commit()
+    return new_schedule
+
 
 def clear_shifts_in_range(schedule_id, start_date, end_date):
     """Clear existing shifts in the date range"""
@@ -462,12 +472,14 @@ def clear_shifts_in_range(schedule_id, start_date, end_date):
     
     db.session.flush()
 
+
 def clear_allocations_for_shifts(shifts):
     """Clear allocations for the given shifts"""
     for shift in shifts:
         Allocation.query.filter_by(shift_id=shift.id).delete()
     
     db.session.flush()
+
 
 def add_course_demand_to_shift(shift_id, course_code, tutors_required=2, weight=None):
     """Add course demand for a shift using raw SQL with text()"""
@@ -486,6 +498,7 @@ def add_course_demand_to_shift(shift_id, course_code, tutors_required=2, weight=
         }
     )
     db.session.flush()
+
 
 def get_course_demands_for_shift(shift_id):
     """
@@ -517,6 +530,7 @@ def get_course_demands_for_shift(shift_id):
     except Exception as e:
         logger.error(f"Error getting course demands for shift {shift_id}: {e}")
         return []  # Return empty list on error
+
 
 def sync_schedule_data():
     """
@@ -569,6 +583,7 @@ def sync_schedule_data():
         logger.error(f"Error syncing schedule data: {e}")
         return False
 
+
 def publish_and_notify(schedule_id):
     """
     Publish the schedule and notify all assigned staff.
@@ -606,6 +621,7 @@ def publish_and_notify(schedule_id):
             "message": f"Error: {str(e)}"
         }
 
+
 def publish_schedule(schedule_id):
     """Publish a schedule and notify all assigned staff"""
     try:
@@ -629,6 +645,7 @@ def publish_schedule(schedule_id):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+
 def get_assistants_for_shift(shift_id):
     """Get all assistants assigned to a specific shift"""
     allocations = Allocation.query.filter_by(shift_id=shift_id).all()
@@ -644,6 +661,7 @@ def get_assistants_for_shift(shift_id):
             })
     
     return assistants
+
 
 def clear_schedule():
     """
@@ -712,6 +730,7 @@ def clear_schedule():
             "status": "error",
             "message": str(e)
         }
+
 
 def get_current_schedule():
     """Get the current schedule with all shifts"""
@@ -809,53 +828,79 @@ def get_current_schedule():
                 } for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
             ]
         }
+
+
+def generate_lab_assistant_schedule():
+    try:
+        solver = pywraplp.Solver.CreateSolver('SCIP')
         
-    # Format the schedule for display
-    shifts_by_day = {}
-    
-    for shift in schedule.shifts:
-        day_idx = shift.date.weekday()  # 0=Monday, 6=Sunday
-        if day_idx >= 5:  # Skip weekend shifts
-            continue
-            
-        hour = shift.start_time.hour
+        # --- Variables ---
+        # i = staff index (i = 1 · · · I)
+        # j = shift index (j = 1 · · · J)
+        I = 1
+        J = 1
         
-        if day_idx not in shifts_by_day:
-            shifts_by_day[day_idx] = {}
-            
-        shifts_by_day[day_idx][hour] = {
-            "shift_id": shift.id,
-            "time": shift.formatted_time(),
-            "assistants": get_assistants_for_shift(shift.id)
-        }
-    
-    # Format into days array with shifts
-    days = []
-    for day_idx in range(5):  # Monday to Friday
-        day_date = schedule.start_date + timedelta(days=day_idx) if schedule.start_date else trinidad_now()
-        day_shifts = []
+        n = {}
+        p = {}
+        r = {}
+        d = {}
+        a = {}
         
-        if day_idx in shifts_by_day:
-            for hour in range(9, 17):  # 9am to 4pm
-                if hour in shifts_by_day[day_idx]:
-                    day_shifts.append(shifts_by_day[day_idx][hour])
+        # Calculate normalized preferences (w_ij)
+        w = {}
+        w = [[0 for _ in range(J)] for _ in range(I)]
+        for i in range(I):
+            for j in range(J):
+                if n[i] == 1:  # New staff
+                    w[i][j] = (1 / r[i])(p[i][j] - (1 / J) * sum(p[i][j] + 5 for j in range(J)))
                 else:
-                    day_shifts.append({
-                        "shift_id": None,
-                        "time": f"{hour}:00 - {hour+1}:00",
-                        "assistants": []
-                    })
+                    w[i][j] = p[i][j]
         
-        days.append({
-            "day": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][day_idx],
-            "date": day_date.strftime("%d %b"),
-            "shifts": day_shifts
-        })
-    
-    return {
-        "schedule_id": schedule.id,
-        "date_range": f"{schedule.start_date.strftime('%d %b')} - {schedule.end_date.strftime('%d %b, %Y')}" if schedule.start_date and schedule.end_date else "Current Schedule",
-        "is_published": schedule.is_published,
-        "days": days
-    }
+        
+        x = [[solver.IntVar(0, 1, f'x_{i}_{j}') for j in range(J)] for i in range(I)]
+        L = solver.NumVar(0, solver.inifity(), 'L')
+        
+        
+        # --- Objective Function ---
+        solver.Maximize(L)
+        
+        
+        # --- Constraints ---
+        # Constraint 1: L <= sum(w_ij * x_ij) for all i
+        for i in range(I):
+            solver.Add(L <= sum(w[i][j] * x[i][j] for j in range(J)))
+        
+        # Constraint 2: x_ij <= a_ij for all i, j
+        for i in range(I):
+            for j in range(J):
+                solver.Add(x[i][j] <= a[i][j])
+        
+        # Constraint 3: sum(x_ij) <= d_j for all j
+        for j in range(J):
+            solver.Add(sum(x[i][j] for i in range(I)) <= d[j])
+        
+        # Constraint 4: sum(x_ij) <= 3 * (1 - n_i) + n_i for all i
+        for i in range(I):
+            solver.Add(sum(x[i][j] for j in range(J)) <= 3 * (1 - n[i]) + n[i])
+        
+        # Constraint 5: sum((1 - n_i) * x_ij) >= 1 for all j
+        for j in range(J):
+            solver.Add(sum((1 - n[i]) * x[i][j] for i in range(I)) >= 1)
+        
+        
+        # --- Solve the Model ---
+        status = solver.Solve()
+        
+        if status == pywraplp.Solver.OPTIMAL:
+            return
+            # return data
+        else:
+            return
+            # return no data
+    except Exception as e:
+        logger.error(f"Error generating schedule: {e}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
 
