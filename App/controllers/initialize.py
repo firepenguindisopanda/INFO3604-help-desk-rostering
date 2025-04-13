@@ -14,7 +14,9 @@ Usage:
 """
 
 from App.controllers.admin import create_admin
+from App.controllers.availability import create_availability
 from App.controllers.course import create_course, get_all_courses
+from App.controllers.lab_assistant import create_lab_assistant, get_lab_assistant
 from App.controllers.student import create_student
 from App.controllers.notification import (
     create_notification,
@@ -61,6 +63,13 @@ def initialize():
     
     # Create all student assistants with availability
     create_student_assistants()
+    
+    # Create all help desk assistants with availability
+    create_help_desk_assistants()
+    
+    # Create all lab asistants with availability
+    create_lab_assistants()
+    create_lab_assistants_availability()
     
     logger.info('Database initialized successfully with all sample data')
 
@@ -313,4 +322,55 @@ def create_student_assistants():
             
     logger.info(f"Created {len(student_data)} student assistants with availability data")
 
+
+def create_help_desk_assistants():
+    pass
+
+
+def create_lab_assistants():
+    logger.info("Creating lab assistants")
     
+    # Create lab assistants from the csv
+    try:
+        with open('sample/lab_assistants.csv', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                # Create student record
+                student = create_student(row['username'], row['password'], row['degree'], row['name'])
+                # Create lab assistant record
+                assistant = create_lab_assistant(student.username, row['experience'])
+                logger.info(f"Successfully created lab assistant:")
+                logger.info(f"{assistant.get_json()}")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating lab assistants: {e}")
+
+
+def create_lab_assistants_availability():
+    logger.info("Creating lab assistants availability data")
+    
+    # Create lab assistant availability from the csv
+    try:
+        with open('sample/lab_assistants_availability.csv', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                # Parse time strings
+                start_time_parts = row['start_time'].split(':')
+                end_time_parts = row['end_time'].split(':')
+                
+                # Create time objects
+                start_time= time(int(start_time_parts[0]), int(start_time_parts[1]), int(start_time_parts[2]) if len(start_time_parts) > 2 else 0)
+                end_time = time(int(end_time_parts[0]), int(end_time_parts[1]), int(end_time_parts[2]) if len(end_time_parts) > 2 else 0)
+                
+                assistant = get_lab_assistant(row['username'])
+                if assistant:
+                    # Create availability record
+                    availability = create_availability(row['username'], row['day_of_week'], start_time, end_time)
+                    logger.info(f"{availability.get_json()}")
+                else:
+                    logger.error(f"Lab assistant {row['username']} not found for availability creation")
+                
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating lab assistants: {e}")
+

@@ -10,14 +10,14 @@ class LabAssistant(db.Model):
     
     def __init__(self, username, experience):
         self.username = username
-        self.active = True
         self.experience = experience
+        self.active = True
     
     def get_json(self):
         return {
             'Student ID': self.username,
-            'Account State': 'Active' if self.active == True else 'Inactive',
-            'Experience': 'New' if self.experience == False else 'Experienced'
+            'Account State': 'Active' if self.active else 'Inactive',
+            'Experience': 'Experienced' if self.experience else 'New'
         }
     
     def activate(self):
