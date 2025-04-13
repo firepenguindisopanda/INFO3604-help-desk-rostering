@@ -8,7 +8,6 @@ class LabAssistant(db.Model):
     active = db.Column(db.Boolean, nullable=False)
     experience = db.Column(db.Boolean, nullable=False)
     
-    
     def __init__(self, username, experience):
         self.username = username
         self.active = True
