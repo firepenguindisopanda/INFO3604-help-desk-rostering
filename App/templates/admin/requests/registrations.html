@@ -94,8 +94,11 @@
                         <div class="registration-detail-row">
                             <div class="registration-label">Transcript:</div>
                             <div class="registration-value">
-                                <a href="{{ url_for('requests_views.download_transcript', registration_id=registration.id) }}" class="file-download">
-                                    <i class="material-icons">file_download</i> Download Transcript
+                                <a href="{{ url_for('requests_views.download_transcript', registration_id=registration.id) }}" 
+                                class="file-download" 
+                                target="_blank" 
+                                rel="noopener noreferrer">
+                                    <i class="material-icons">description</i> View Transcript
                                 </a>
                             </div>
                         </div>
@@ -164,6 +167,20 @@
                         <div class="registration-label">Approved by:</div>
                         <div class="registration-value">{{ registration.processed_by }}</div>
                     </div>
+                    
+                    {% if registration.transcript_path %}
+                        <div class="registration-detail-row">
+                            <div class="registration-label">Transcript:</div>
+                            <div class="registration-value">
+                                <a href="{{ url_for('requests_views.download_transcript', registration_id=registration.id) }}" 
+                                class="file-download" 
+                                target="_blank" 
+                                rel="noopener noreferrer">
+                                    <i class="material-icons">description</i> View Transcript
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
                 </div>
             {% endfor %}
         {% else %}
@@ -214,6 +231,20 @@
                         <div class="registration-label">Rejected by:</div>
                         <div class="registration-value">{{ registration.processed_by }}</div>
                     </div>
+                    
+                    {% if registration.transcript_path %}
+                        <div class="registration-detail-row">
+                            <div class="registration-label">Transcript:</div>
+                            <div class="registration-value">
+                                <a href="{{ url_for('requests_views.download_transcript', registration_id=registration.id) }}" 
+                                class="file-download" 
+                                target="_blank" 
+                                rel="noopener noreferrer">
+                                    <i class="material-icons">description</i> View Transcript
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
                 </div>
             {% endfor %}
         {% else %}
