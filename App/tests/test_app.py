@@ -684,23 +684,7 @@ class ScheduleIntegrationTests(unittest.TestCase):
         self.app_context = self.app.app_context()
         self.app_context.push()
         create_db()
-
-        # Create test data
-        self.assistant = HelpDeskAssistant(username="assistant1")
-        self.assistant.active = True
-        self.assistant.hours_minimum = 4
-
-        self.course = Course(code="CS101", name="Introduction to Computer Science")
-        self.availability = Availability(
-            username="assistant1",
-            day_of_week=0,
-            start_time=datetime.strptime("09:00", "%H:%M").time(),
-            end_time=datetime.strptime("17:00", "%H:%M").time()
-        )
-        self.capability = CourseCapability(assistant_username="assistant1", course_code="CS101")
-
-        db.session.add_all([self.assistant, self.course, self.availability, self.capability])
-        db.session.commit()
+        initialize()
 
     def tearDown(self):
         db.session.remove()
@@ -768,7 +752,7 @@ class ScheduleIntegrationTests(unittest.TestCase):
         # Clear the schedule
         result = clear_schedule()
         self.assertEqual(result["status"], "success")
-        self.assertEqual(result["details"]["shifts_removed"], 24)
+        self.assertEqual(result["details"]["shifts_removed"], 32)
 
         # Verify the schedule is cleared
         shifts = Shift.query.all()

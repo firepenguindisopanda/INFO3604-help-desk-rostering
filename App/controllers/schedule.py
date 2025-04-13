@@ -438,9 +438,6 @@ def get_schedule(id, start_date, end_date):
 
 
 def create_schedule(id, start_date, end_date):
-    start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-    end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
-    
     new_schedule = Schedule(id, start_date, end_date)
     db.session.add(new_schedule)
     db.session.commit()
