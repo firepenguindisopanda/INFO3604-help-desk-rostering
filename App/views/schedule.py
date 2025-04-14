@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for
+from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for, send_file
 from flask_jwt_extended import jwt_required, current_user
 from datetime import datetime, timedelta
 from App.controllers.schedule import (
@@ -11,6 +11,10 @@ from App.controllers.schedule import (
 from App.models import Schedule, Shift, Allocation, Student
 from App.database import db
 from App.middleware import admin_required
+from io import BytesIO
+from weasyprint import HTML, CSS
+import tempfile
+import os
 
 
 schedule_views = Blueprint('schedule_views', __name__, template_folder='../templates')
@@ -666,6 +670,71 @@ def check_staff_availability():
         
     except Exception as e:
         print(f"Error checking Student Assistant availability: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@schedule_views.route('/api/schedule/pdf', methods=['GET'])
+@jwt_required()
+@admin_required
+def download_schedule_pdf():
+    """Generate and download current schedule as PDF"""
+    try:
+        # Get the current schedule data
+        schedule_data = get_current_schedule()
+        
+        if not schedule_data:
+            return jsonify({
+                'status': 'error',
+                'message': 'No schedule found'
+            }), 404
+        
+        # Create a temporary HTML file
+        with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as f:
+            temp_html = f.name
+            
+        # Render the schedule template with the data
+        html_content = render_template(
+            'admin/schedule/pdf_template.html',
+            schedule=schedule_data
+        )
+        
+        # Write the HTML to the temporary file
+        with open(temp_html, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        # Convert HTML to PDF
+        pdf = HTML(filename=temp_html).write_pdf(
+            stylesheets=[
+                CSS(string='@page { size: letter landscape; margin: 1cm; }')
+            ]
+        )
+        
+        # Clean up the temporary file
+        os.unlink(temp_html)
+        
+        # Create a BytesIO object for the PDF data
+        pdf_bytes = BytesIO(pdf)
+        pdf_bytes.seek(0)
+        
+        # Generate a filename with current date
+        from datetime import datetime
+        filename = f"help_desk_schedule_{datetime.now().strftime('%Y-%m-%d')}.pdf"
+        
+        # Send the PDF file
+        return send_file(
+            pdf_bytes,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        print(f"Error generating PDF: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'status': 'error',
             'message': str(e)

@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // --- Flash Message Handling ---
     handleFlashMessages();
+
+    initializeDownloadPdfButton();
     
     // --- Add global event delegation for remove buttons ---
     document.addEventListener('click', function(e) {
@@ -1771,4 +1773,41 @@ function initializeClearScheduleButton() {
         clearSchedule();
         confirmModal.style.display = 'none';
     });
+}
+
+
+//pdf gen 
+
+function initializeDownloadPdfButton() {
+    const downloadPdfBtn = document.getElementById('downloadPdf');
+    
+    if (downloadPdfBtn) {
+        downloadPdfBtn.addEventListener('click', function() {
+            // Show loading indicator
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            loadingIndicator.style.display = 'flex';
+            
+            // Create a new anchor element for the download
+            const downloadLink = document.createElement('a');
+            downloadLink.href = '/api/schedule/pdf';
+            downloadLink.target = '_blank';
+            
+            // Append the link to the body (required for Firefox)
+            document.body.appendChild(downloadLink);
+            
+            // Trigger the download
+            downloadLink.click();
+            
+            // Remove the link element
+            document.body.removeChild(downloadLink);
+            
+            // Hide loading indicator after a short delay
+            setTimeout(() => {
+                loadingIndicator.style.display = 'none';
+                
+                // Show success notification
+                showNotification('Schedule PDF is being downloaded', 'success');
+            }, 1000);
+        });
+    }
 }

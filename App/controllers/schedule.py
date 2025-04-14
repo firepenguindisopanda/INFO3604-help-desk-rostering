@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from flask import jsonify
+from flask import jsonify, render_template, url_for
 from ortools.sat.python import cp_model
 import logging, csv
 from sqlalchemy import text
@@ -13,7 +13,9 @@ from App.database import db
 from App.controllers.course import create_course, get_all_courses
 from App.controllers.notification import notify_schedule_published
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
-
+from weasyprint import HTML, CSS
+import tempfile
+import os
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -859,3 +861,45 @@ def get_current_schedule():
         "days": days
     }
 
+
+
+def generate_schedule_pdf(schedule_data):
+    """
+    Generate a PDF of the current schedule.
+    
+    Args:
+        schedule_data: The formatted schedule data
+        
+    Returns:
+        The PDF file as bytes
+    """
+    try:
+        # Create a temporary HTML file to render the schedule
+        with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as f:
+            temp_html = f.name
+            
+        # Render the schedule template with the data
+        html_content = render_template(
+            'admin/schedule/pdf_template.html',
+            schedule=schedule_data
+        )
+        
+        # Write the HTML to the temporary file
+        with open(temp_html, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        # Convert HTML to PDF
+        pdf = HTML(filename=temp_html).write_pdf(
+            stylesheets=[
+                CSS(string='@page { size: letter landscape; margin: 1cm; }')
+            ]
+        )
+        
+        # Clean up the temporary file
+        os.unlink(temp_html)
+        
+        return pdf
+        
+    except Exception as e:
+        logger.error(f"Error generating PDF: {e}")
+        raise e
