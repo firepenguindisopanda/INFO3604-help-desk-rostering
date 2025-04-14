@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Help Desk Schedule</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 10pt;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            background-color: #0066cc;
+            color: white;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 18pt;
+        }
+        .date-range {
+            font-size: 12pt;
+            margin-top: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            text-align: center;
+        }
+        th {
+            background-color: #f5f7ff;
+            font-weight: bold;
+        }
+        .time-cell {
+            width: 80px;
+            font-weight: bold;
+            text-align: center;
+            background-color: #f5f7ff;
+        }
+        .day-name {
+            font-weight: bold;
+        }
+        .day-date {
+            font-size: 8pt;
+            color: #666;
+            display: block;
+        }
+        .staff-name {
+            background-color: #fffbeb;
+            padding: 4px;
+            margin: 3px 0;
+            border-radius: 3px;
+            border: 1px solid #fcd34d;
+            display: block;
+            font-size: 9pt;
+        }
+        .staff-slot-indicator {
+            font-size: 8pt;
+            color: #666;
+            margin-bottom: 3px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Help Desk Schedule</h1>
+        <div class="date-range">{{ schedule.date_range }}</div>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th class="time-cell">Time</th>
+                {% for day in schedule.days %}
+                <th>
+                    <span class="day-name">{{ day.day }}</span>
+                    <span class="day-date">{{ day.date }}</span>
+                </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for time_index in range(8) %}
+                <tr>
+                    <td class="time-cell">
+                        {% if schedule.days[0].shifts|length > time_index %}
+                            {{ schedule.days[0].shifts[time_index].time }}
+                        {% endif %}
+                    </td>
+                    
+                    {% for day in schedule.days %}
+                        <td>
+                            {% if day.shifts|length > time_index %}
+                                <div class="staff-slot-indicator">
+                                    Staff: {{ day.shifts[time_index].assistants|length }}/3
+                                </div>
+                                
+                                {% for assistant in day.shifts[time_index].assistants %}
+                                    <div class="staff-name">{{ assistant.name }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
