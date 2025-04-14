@@ -366,7 +366,6 @@ def create_lab_assistants_availability():
                 if assistant:
                     # Create availability record
                     availability = create_availability(row['username'], row['day_of_week'], start_time, end_time)
-                    logger.info(f"{availability.get_json()}")
                 else:
                     logger.error(f"Lab assistant {row['username']} not found for availability creation")
                 

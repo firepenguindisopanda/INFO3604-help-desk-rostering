@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from flask import jsonify
 from ortools.sat.python import cp_model
 from ortools.linear_solver import pywraplp
-import logging, csv
+import logging, csv, random
 from sqlalchemy import text
 
 from App.models import (
@@ -12,7 +12,9 @@ from App.models import (
 )
 from App.database import db
 from App.controllers.course import create_course, get_all_courses
+from App.controllers.lab_assistant import *
 from App.controllers.notification import notify_schedule_published
+from App.controllers.shift import create_shift
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 
@@ -124,7 +126,7 @@ def generate_schedule(start_date=None, end_date=None):
         all_courses = get_all_courses()
         if not all_courses:
             # Create standard courses if none exist
-            with open('sample/standard_courses.csv', newline='') as csvfile:
+            with open('sample/courses.csv', newline='') as csvfile:
                 reader = csv.DictReader(csvfile)
                 for row in reader:
                     course = create_course(course_code=row['code'], course_name=row['name'])
@@ -827,21 +829,109 @@ def get_current_schedule():
         }
 
 
-def generate_lab_assistant_schedule():
+def generate_lab_assistant_schedule(start_date=None, end_date=None):
     try:
         solver = pywraplp.Solver.CreateSolver('SCIP')
         
         # --- Variables ---
-        # i = staff index (i = 1 · · · I)
-        # j = shift index (j = 1 · · · J)
-        I = 1
-        J = 1
+        
+        """ Staff Index, i = 1 · · · I """        
+        # Get all active lab assistants
+        assistants = get_active_lab_assistants()
+        if not assistants:
+            db.session.rollback()
+            return {"status": "error", "message": "No active assistants found"}
+        
+        staff_by_index = {i: assistant for i, assistant in enumerate(assistants)}
+        I = len(assistants)
+        
+        
+        """ Shift Index, j = 1 · · · J """
+        # If start_date is not provided, use the current date
+        if start_date is None:
+            start_date = trinidad_now().replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # If end_date is not provided, set it to the end of the week (Saturday)
+        if end_date is None:
+            # Get the end of the current week (Saturday)
+            days_to_saturday = 5 - start_date.weekday()  # 5 = Saturday
+            if days_to_saturday < 0:  # If today is already past Saturday
+                days_to_saturday += 7  # Go to next Friday
+            end_date = start_date + timedelta(days=days_to_saturday)
+
+        # Check if we're scheduling for a full week or partial week
+        is_full_week = start_date.weekday() == 0 and (end_date - start_date).days >= 5
+        
+        # Get or create the main schedule
+        schedule = get_schedule(1, start_date, end_date)
+        
+        # Clear existing shifts for the date range
+        clear_shifts_in_range(schedule.id, start_date, end_date)
+        
+        shifts = []
+        current_date = start_date
+        
+        while current_date <= end_date:
+            # Skip Sunday (day_of_week >= 6)
+            if current_date.weekday() < 6:  # 0=Monday through 5=Saturday
+                # Generate three shifts for this day
+                for hour in range(8, 16, 4):  # 8am through 8pm
+                    shift_start = datetime.combine(current_date.date(), datetime.min.time()) + timedelta(hours=hour)
+                    shift_end = shift_start + timedelta(hours=4)
+                    
+                    shift = create_shift(current_date, shift_start, shift_end, schedule.id)
+                    shifts.append(shift)
+            
+            # Move to the next day
+            current_date += timedelta(days=1)
+        
+        shift_by_index = {j: shift for j, shift in enumerate(shifts)}
+        J = len(shifts)  # Number of shifts
         
         n = {}
+        for i in range(I):
+            assistant = staff_by_index[i]
+            n[i] = 1 if not assistant.experience else 0
+        
         p = {}
+        for i in range(I):
+            for j in range(J):
+                p[i, j] = random.randint(0, 10)
+        
         r = {}
+        for i in range(I):
+            assistant = staff_by_index[i]
+            r[i] = 1 if not assistant.experience else 3
+        
         d = {}
+        for j in range(J):
+            d[j] = 2 # Default
+        
         a = {}
+        for i in range(I):
+            assistant = staff_by_index[i]
+            for j in range(J):
+                shift = shift_by_index[j]
+                # Get student's availability for this day and time
+                day_of_week = shift.date.weekday()  # 0=Monday, 5=Saturday
+                shift_start_time = shift.start_time.time()
+                shift_end_time = shift.end_time.time()
+                
+                # Get all availability records for this student on this day
+                availabilities = Availability.query.filter_by(
+                    username=assistant.username,
+                    day_of_week=day_of_week
+                ).all()
+                
+                # Check if any availability slot covers this shift
+                is_available = False
+                for avail in availabilities:
+                    if avail.start_time <= shift_start_time and avail.end_time >= shift_end_time:
+                        is_available = True
+                        break
+                
+                a[i, j] = 1 if is_available else 0
+        
         
         # Calculate normalized preferences (w_ij)
         w = {}
@@ -889,11 +979,52 @@ def generate_lab_assistant_schedule():
         status = solver.Solve()
         
         if status == pywraplp.Solver.OPTIMAL:
-            return
-            # return data
+            # Clear existing allocations for these shifts
+            clear_allocations_for_shifts(shifts)
+            
+            # Create allocations for the assignments
+            for i in range(I):
+                for j in range(J):
+                    if solver.Value(x[i, j]) == 1:
+                        assistant = staff_by_index[i]
+                        shift = shift_by_index[j]
+                        
+                        allocation = Allocation(assistant.username, shift.id, schedule.id)
+                        db.session.add(allocation)
+                        
+                        logger.debug(f"Assigned {assistant.username} to shift {shift.id}")
+            
+            # Commit the schedule and all related objects
+            db.session.commit()
+            
+            logger.info(f"Schedule generated successfully with status: {status}")
+            
+            return {
+                "status": "success",
+                "schedule_id": schedule.id,
+                "message": "Schedule generated successfully",
+                "details": {
+                    "start_date": start_date.strftime('%Y-%m-%d'),
+                    "end_date": end_date.strftime('%Y-%m-%d'),
+                    "is_full_week": is_full_week,
+                    "shifts_created": len(shifts),
+                    "objective_value": solver.ObjectiveValue()
+                }
+            }
         else:
-            return
-            # return no data
+            db.session.rollback()
+            message = 'No solution found.'
+            if status == pywraplp.Solver.INFEASIBLE:
+                message = 'Problem is infeasible with current constraints.'
+            elif status == pywraplp.Solver.MODEL_INVALID:
+                message = 'Model is invalid.'
+            
+            logger.error(f"Failed to generate schedule: {message}")
+            
+            return {
+                "status": "error",
+                "message": message
+            }
     except Exception as e:
         logger.error(f"Error generating schedule: {e}")
         return {

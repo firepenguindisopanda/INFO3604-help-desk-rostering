@@ -11,3 +11,7 @@ def create_lab_assistant(username, experience):
 def get_lab_assistant(username):
     return LabAssistant.query.filter_by(username=username).first()
 
+
+def get_active_lab_assistants():
+    return LabAssistant.query.filter_by(active=True).all()
+

@@ -1,5 +1,6 @@
 from App.database import db
 from datetime import datetime
+from .shift_course_demand import ShiftCourseDemand
 
 class Shift(db.Model):
     __tablename__ = 'shift'

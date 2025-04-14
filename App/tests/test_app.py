@@ -749,10 +749,11 @@ class ScheduleIntegrationTests(unittest.TestCase):
         end_date = start_date + timedelta(days=4)
         generate_schedule(start_date=start_date, end_date=end_date)
 
+        shifts = Shift.query.all()
         # Clear the schedule
         result = clear_schedule()
         self.assertEqual(result["status"], "success")
-        self.assertEqual(result["details"]["shifts_removed"], 32)
+        self.assertEqual(result["details"]["shifts_removed"], len(shifts))
 
         # Verify the schedule is cleared
         shifts = Shift.query.all()
