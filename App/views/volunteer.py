@@ -322,6 +322,85 @@ def profile():
     
     return render_template('volunteer/profile/index.html', user=user_data)
 
+@volunteer_views.route('/volunteer/update_profile', methods=['POST'])
+@jwt_required()
+@volunteer_required
+def update_profile():
+    """Update profile information including profile image"""
+    try:
+        username = current_user.username
+        
+        # Check if profile image was uploaded
+        if 'profile_image' in request.files:
+            profile_image = request.files['profile_image']
+            
+            if profile_image and profile_image.filename:
+                # Validate file type
+                allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+                file_ext = profile_image.filename.rsplit('.', 1)[1].lower() if '.' in profile_image.filename else ''
+                
+                if file_ext not in allowed_extensions:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Invalid file type. Allowed types: PNG, JPG, JPEG, GIF'
+                    })
+                
+                # Ensure upload directory exists
+                upload_dir = os.path.join('App', 'static', 'uploads', 'profile_images')
+                os.makedirs(upload_dir, exist_ok=True)
+                
+                # Generate a unique filename
+                filename = f"{username}_{secure_filename(profile_image.filename)}"
+                filepath = os.path.join(upload_dir, filename)
+                
+                # Save the file
+                profile_image.save(filepath)
+                
+                # Update the user's profile data
+                student = Student.query.get(username)
+                if student:
+                    # Get existing profile data or create new
+                    if hasattr(student, 'profile_data') and student.profile_data:
+                        try:
+                            profile_data = json.loads(student.profile_data)
+                        except:
+                            profile_data = {}
+                    else:
+                        profile_data = {}
+                    
+                    # Update image path in profile data
+                    relative_path = os.path.join('uploads', 'profile_images', filename)
+                    profile_data['image_filename'] = relative_path
+                    
+                    # Save back to database
+                    student.profile_data = json.dumps(profile_data)
+                    db.session.commit()
+                    
+                    # Return success with the new image URL
+                    return jsonify({
+                        'success': True,
+                        'message': 'Profile image updated successfully',
+                        'image_url': url_for('static', filename=relative_path)
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Student profile not found'
+                    })
+        
+        return jsonify({
+            'success': False,
+            'message': 'No profile image provided'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating profile: {e}")
+        return jsonify({
+            'success': False,
+            'message': f"Error updating profile: {str(e)}"
+        }), 500
+
 @volunteer_views.route('/volunteer/update_availability', methods=['POST'])
 @jwt_required()
 @volunteer_required

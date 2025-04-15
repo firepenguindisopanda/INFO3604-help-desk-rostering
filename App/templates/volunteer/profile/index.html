@@ -25,6 +25,13 @@
     <div class="profile-info-section">
         <div class="profile-image">
             <img src="{{ user.image_url|default(url_for('static', filename='images/DefaultAvatar.png')) }}" alt="Profile Image" id="profileDisplayImage">
+            <div class="profile-image-overlay">
+                <span class="change-image-btn">Change Photo</span>
+            </div>
+            <input type="file" id="profileImageUpload" accept="image/*" style="display: none;">
+            <div class="profile-image-loading">
+                <div class="profile-image-spinner"></div>
+            </div>
         </div>
         
         <div class="profile-details">
