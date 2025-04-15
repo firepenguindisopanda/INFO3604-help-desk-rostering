@@ -8,16 +8,10 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/layout-fixes.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive-navbar.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
     <nav class="nav-container">
-        <div class="mobile-menu-toggle">
-            <span></span>
-            <span></span>
-            <span></span>
-        </div>
         <div class="nav-links">
             <a href="{{ url_for('schedule_views.schedule') }}" class="nav-link {% if request.endpoint == 'schedule_views.schedule' %}active{% endif %}">Schedule</a>
             <a href="{{ url_for('tracking_views.time_tracking') }}" class="nav-link {% if request.endpoint.startswith('tracking') %}active{% endif %}">Time Tracking</a>
@@ -29,7 +23,6 @@
         </div>
         <a href="{{ url_for('auth_views.logout_action') }}" class="btn btn-primary">Sign Out</a>
     </nav>
-    <div class="menu-overlay"></div>
 
     <div class="content">
         {% block content %}{% endblock %}
@@ -76,9 +69,6 @@
         });
     </script>
 
-    {% block scripts %}
-    <script src="{{ url_for('static', filename='js/layout-enhancements.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/responsive-navbar.js') }}"></script>
-    {% endblock %}
+    {% block scripts %}<script src="{{ url_for('static', filename='js/layout-enhancements.js') }}"></script>{% endblock %}
 </body>
 </html>
