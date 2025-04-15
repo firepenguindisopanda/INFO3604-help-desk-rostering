@@ -21,12 +21,32 @@ tracking_views = Blueprint('tracking_views', __name__, template_folder='../templ
 @jwt_required()
 @admin_required
 def time_tracking():
+    # Import json for parsing profile data
+    import json
+    
     # Get actual staff data from the database
     staff_data = get_all_assistant_stats()
     
     # If no staff data is returned, handle the empty case
     if not staff_data:
         staff_data = []
+    
+    # Add profile pictures to staff data
+    for staff in staff_data:
+        # Get the student record to access profile_data
+        student = Student.query.get(staff['id'])
+        if student and hasattr(student, 'profile_data') and student.profile_data:
+            try:
+                profile_data = json.loads(student.profile_data)
+                image_filename = profile_data.get('image_filename', '')
+                if image_filename:
+                    staff['image_url'] = url_for('static', filename=image_filename)
+                else:
+                    staff['image_url'] = url_for('static', filename='images/DefaultAvatar.png')
+            except:
+                staff['image_url'] = url_for('static', filename='images/DefaultAvatar.png')
+        else:
+            staff['image_url'] = url_for('static', filename='images/DefaultAvatar.png')
     
     # Mark the first student as selected for initial display
     if staff_data:

@@ -54,7 +54,9 @@ def register_action():
             availability_slots = []
         
         # Get transcript file if provided
-        transcript_file = request.files.get('transcript') if 'transcript' in request.files else None
+        transcript_file = request.files.get('transcript_file') if 'transcript_file' in request.files else None
+        profile_picture_file = request.files.get('profile_picture_file') if 'profile_picture_file' in request.files else None
+        
         
         # Check terms acceptance
         if 'terms' not in request.form:
@@ -92,8 +94,9 @@ def register_action():
             return redirect(url_for('auth_views.register'))
         
         # Create registration request with password
+        profile_picture_file = request.files.get('profile_picture_file') if 'profile_picture_file' in request.files else None
         success, message = create_registration_request(
-            username, name, email, degree, reason, phone, transcript_file, selected_courses, password
+            username, name, email, degree, reason, phone, transcript_file, profile_picture_file, selected_courses, password
         )
         
         if success:

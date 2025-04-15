@@ -127,6 +127,7 @@ function showNotification(message, type = 'info') {
   }
 
 // Update styles to make the highlighting more distinct
+// Update styles to make the highlighting more distinct
 function addAvailabilityStyles() {
     const style = document.createElement('style');
     style.textContent = `
@@ -135,6 +136,24 @@ function addAvailabilityStyles() {
             background-color: #ffebee;
             border: 2px dashed #f44336;
             transition: background-color 0.2s;
+        }
+        
+        /* Additional style for unavailable cells when hovered during drag */
+        .schedule-cell.unavailable-hover {
+            box-shadow: inset 0 0 0 3px #f44336;
+            position: relative;
+        }
+        
+        .schedule-cell.unavailable-hover::before {
+            content: '⛔';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            opacity: 0.7;
+            pointer-events: none;
+            z-index: 10;
         }
         
         /* Available cells - BLUE */
@@ -1095,6 +1114,12 @@ function initializeDragAndDrop() {
             // Reset tracking variables
             draggedStaff = null;
             draggedStaffId = null;
+            
+            // Reset all cursor styles
+            document.querySelectorAll('.schedule-cell').forEach(cell => {
+                cell.style.cursor = '';
+                cell.classList.remove('unavailable-hover');
+            });
         }
     });
     
@@ -1106,15 +1131,31 @@ function initializeDragAndDrop() {
             
             const cell = e.target.closest('.schedule-cell');
             if (cell) {
-                // Add additional highlight for the current cell being hovered
+                // Remove drag-over highlight from all cells
                 document.querySelectorAll('.schedule-cell.drag-over').forEach(c => {
                     c.classList.remove('drag-over');
                 });
                 
-                // Only add hover highlight if cell isn't full
+                // Remove unavailable-hover from all cells
+                document.querySelectorAll('.schedule-cell.unavailable-hover').forEach(c => {
+                    c.classList.remove('unavailable-hover');
+                });
+                
+                // Count current staff in cell
                 const staffCount = cell.querySelectorAll('.staff-name').length;
-                if (staffCount < 3) {
+                
+                // Different visual feedback based on availability
+                if (cell.classList.contains('not-available')) {
+                    // Cell is not available - show unavailable indicators
+                    cell.classList.add('unavailable-hover');
+                    cell.style.cursor = 'not-allowed';
+                } else if (staffCount >= 3) {
+                    // Cell is full - show not allowed cursor
+                    cell.style.cursor = 'not-allowed';
+                } else {
+                    // Cell is available - show droppable highlight
                     cell.classList.add('drag-over');
+                    cell.style.cursor = 'copy';
                 }
             }
         }
@@ -1125,6 +1166,8 @@ function initializeDragAndDrop() {
         const cell = e.target.closest('.schedule-cell');
         if (cell) {
             cell.classList.remove('drag-over');
+            cell.classList.remove('unavailable-hover');
+            cell.style.cursor = ''; // Reset cursor
         }
     });
     
@@ -1136,25 +1179,34 @@ function initializeDragAndDrop() {
         const cell = e.target.closest('.schedule-cell');
         
         if (cell) {
-            // Remove all highlighting immediately
-            clearAllCellHighlights();
+            // Reset cursor styles immediately
+            cell.style.cursor = '';
+            document.querySelectorAll('.schedule-cell').forEach(c => {
+                c.style.cursor = '';
+            });
             
-            // Check if cell is already full (3 staff)
-            let staffContainer = cell.querySelector('.staff-container');
-            if (staffContainer && staffContainer.querySelectorAll('.staff-name').length >= 3) {
-                showNotification("This cell already has the maximum of 3 staff members", "warning");
-                return; // Cell is full
-            }
-            
-            // Get the staff data
             try {
+                // Parse staff data early to use in error messages
                 const staffData = JSON.parse(e.dataTransfer.getData('text/plain'));
                 
-                // Check if this cell has the "not-available" class
+                // Check if cell is unavailable before anything else
                 if (cell.classList.contains('not-available')) {
                     // Show warning if staff is not available
                     showNotification(`${staffData.name} is not available at this time`, 'warning');
-                    return;
+                    
+                    // Clear all highlighting
+                    clearAllCellHighlights();
+                    return; // Prevent drop completely
+                }
+                
+                // Now that we've handled unavailable cells, clear all highlighting
+                clearAllCellHighlights();
+                
+                // Check if cell is already full (3 staff)
+                let staffContainer = cell.querySelector('.staff-container');
+                if (staffContainer && staffContainer.querySelectorAll('.staff-name').length >= 3) {
+                    showNotification("This cell already has the maximum of 3 staff members", "warning");
+                    return; // Cell is full
                 }
                 
                 // Check if staff is already assigned to this cell
@@ -1213,6 +1265,7 @@ function initializeDragAndDrop() {
                 
             } catch (error) {
                 console.error('Error parsing staff data:', error);
+                clearAllCellHighlights();
             }
         }
     });
