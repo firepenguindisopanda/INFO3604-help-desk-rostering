@@ -28,9 +28,18 @@ def profile():
     # Format student data for the template
     formatted_students = []
     for student in students:
+        # Extract profile image from profile_data
+        profile_data = {}
+        if hasattr(student, 'profile_data') and student.profile_data:
+            try:
+                profile_data = json.loads(student.profile_data)
+            except:
+                profile_data = {}
+                
         formatted_students.append({
             'username': student.username,
-            'name': student.name if student.name else student.username
+            'name': student.name if student.name else student.username,
+            'image_filename': profile_data.get('image_filename', '')
         })
     
     return render_template('admin/profile/index.html', 
@@ -91,7 +100,8 @@ def staff_profile(username):
         'courses': [cap.course_code for cap in course_capabilities],
         'availabilities': [avail.get_json() for avail in availabilities],
         'email': profile_data.get('email', f"{username}@my.uwi.edu"),
-        'phone': profile_data.get('phone', '')  # Get phone from profile_data
+        'phone': profile_data.get('phone', ''),  # Get phone from profile_data
+        'image_filename': profile_data.get('image_filename', '')  # Add this line for the profile picture
     }
     
     # Store the referrer information to use in template for back button

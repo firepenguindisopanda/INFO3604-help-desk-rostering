@@ -14,13 +14,14 @@ class RegistrationRequest(db.Model):
     degree = db.Column(db.String(10), nullable=False)
     reason = db.Column(db.Text, nullable=True)
     transcript_path = db.Column(db.String(255), nullable=True)
+    profile_picture_path = db.Column(db.String(255), nullable=False)  # New field for profile picture
     status = db.Column(db.String(20), default='PENDING')  # PENDING, APPROVED, REJECTED
     created_at = db.Column(db.DateTime, default=trinidad_now())
     processed_at = db.Column(db.DateTime, nullable=True)
     processed_by = db.Column(db.String(20), nullable=True)
     password = db.Column(db.String(120), nullable=True)  # Store hashed password
     
-    def __init__(self, username, name, email, degree, reason=None, phone=None, transcript_path=None, password=None):
+    def __init__(self, username, name, email, degree, reason=None, phone=None, transcript_path=None, profile_picture_path=None, password=None):
         self.username = username
         self.name = name
         self.email = email
@@ -28,6 +29,7 @@ class RegistrationRequest(db.Model):
         self.degree = degree
         self.reason = reason
         self.transcript_path = transcript_path
+        self.profile_picture_path = profile_picture_path  # Initialize the new field
         self.status = 'PENDING'
         
         # Set hashed password if provided

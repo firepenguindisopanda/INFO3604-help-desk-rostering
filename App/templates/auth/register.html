@@ -29,6 +29,27 @@
                 <div class="form-section">
                     <div class="form-section-title">Personal Information</div>
                     
+                    <!-- Profile Picture Section (NEW) -->
+                    <div class="profile-picture-section">
+                        <label for="profile_picture">Profile Picture <span class="profile-picture-required">*Required</span></label>
+                        <div class="profile-picture-container">
+                            <div class="profile-picture-preview">
+                                <img id="profilePreview" src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="Profile picture preview">
+                                <div class="profile-picture-overlay">
+                                    <span>Change Picture</span>
+                                </div>
+                            </div>
+                            <div class="profile-picture-controls">
+                                <label for="profile_picture" class="custom-file-upload">
+                                    <i class="material-icons">photo_camera</i> Select Profile Picture
+                                </label>
+                                <input type="file" id="profile_picture" name="profile_picture_file" accept="image/*" required>
+                                <div class="file-name" id="profile-file-name">No file chosen</div>
+                                <div class="error-message" id="profilePictureError">Profile picture is required</div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="form-row">
                         <div class="form-group">
                             <label for="id">Student ID</label>
@@ -151,7 +172,7 @@
                     <label for="transcript" class="custom-file-upload">
                         <i class="material-icons">file_upload</i> Choose File
                     </label>
-                    <input type="file" id="transcript" name="transcript" accept=".pdf,.doc,.docx">
+                    <input type="file" id="transcript" name="transcript_file" accept=".pdf,.doc,.docx">
                     <div class="file-name" id="file-name">No file chosen</div>
                     <div class="error-message" id="transcriptError">Please upload your transcript</div>
                 </div>

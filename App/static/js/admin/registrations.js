@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add animation to registration cards
     animateRegistrationCards();
     
+    // Add profile picture preview modal
+    setupProfilePicturePreview();
+    
     // Hide flash messages after 5 seconds
     const flashMessages = document.querySelectorAll('.flash-message');
     flashMessages.forEach(message => {
@@ -19,12 +22,73 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 500);
         }, 5000);
     });
-  });
+});
+
+/**
+* Setup profile picture preview functionality
+*/
+function setupProfilePicturePreview() {
+    // Create profile preview modal and append to body
+    const body = document.querySelector('body');
+    
+    // Create profile preview modal if it doesn't exist
+    if (!document.querySelector('.profile-preview-modal')) {
+        const profilePreviewModal = document.createElement('div');
+        profilePreviewModal.className = 'profile-preview-modal';
+        profilePreviewModal.innerHTML = `
+            <div class="profile-preview-content">
+                <div class="profile-preview-close">&times;</div>
+                <img id="profilePreviewImage" src="" alt="Profile Picture Preview">
+            </div>
+        `;
+        body.appendChild(profilePreviewModal);
+    }
+    
+    // Handle click on profile image or view profile picture links
+    const profileImages = document.querySelectorAll('.registration-profile-image img, .view-profile-pic');
+    profileImages.forEach(img => {
+        img.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Get the image source
+            let imageSrc;
+            if (this.tagName.toLowerCase() === 'img') {
+                imageSrc = this.src;
+            } else { // It's a link
+                imageSrc = this.href;
+            }
+            
+            // Set the image in the modal
+            document.getElementById('profilePreviewImage').src = imageSrc;
+            
+            // Show the modal
+            document.querySelector('.profile-preview-modal').style.display = 'block';
+        });
+    });
+    
+    // Close the modal when clicking the close button
+    const closeBtn = document.querySelector('.profile-preview-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+            document.querySelector('.profile-preview-modal').style.display = 'none';
+        });
+    }
+    
+    // Close the modal when clicking outside the image
+    const profilePreviewModal = document.querySelector('.profile-preview-modal');
+    if (profilePreviewModal) {
+        profilePreviewModal.addEventListener('click', function(e) {
+            if (e.target === profilePreviewModal) {
+                profilePreviewModal.style.display = 'none';
+            }
+        });
+    }
+}
   
-  /**
-  * Initialize search functionality for registration cards
-  */
-  function initializeSearch() {
+/**
+* Initialize search functionality for registration cards
+*/
+function initializeSearch() {
     const searchInput = document.getElementById('registrationSearchInput');
     if (!searchInput) return;
     
@@ -83,12 +147,12 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if each section is now empty after filtering
         checkEmptySections(sectionCounts, searchTerm);
     });
-  }
+}
   
-  /**
-  * Highlight matching text in registration information
-  */
-  function highlightMatch(element, text, searchTerm) {
+/**
+* Highlight matching text in registration information
+*/
+function highlightMatch(element, text, searchTerm) {
     // Skip if element doesn't exist
     if (!element) return;
     
@@ -110,12 +174,12 @@ document.addEventListener('DOMContentLoaded', function() {
             `<span style="background-color: rgba(255, 243, 160, 0.5); padding: 0 2px; border-radius: 2px; font-weight: 600;">${match}</span>` + 
             suffix;
     }
-  }
+}
   
-  /**
-  * Check if sections are empty after filtering and show appropriate messages
-  */
-  function checkEmptySections(sectionCounts, searchTerm) {
+/**
+* Check if sections are empty after filtering and show appropriate messages
+*/
+function checkEmptySections(sectionCounts, searchTerm) {
     // Messages for each section
     const sections = [
         { 
@@ -158,12 +222,12 @@ document.addEventListener('DOMContentLoaded', function() {
             noResults.style.animation = 'fadeIn 0.3s ease';
         }
     });
-  }
+}
   
-  /**
-  * Add entrance animations to registration cards
-  */
-  function animateRegistrationCards() {
+/**
+* Add entrance animations to registration cards
+*/
+function animateRegistrationCards() {
     const registrationCards = document.querySelectorAll('.registration-card');
     
     registrationCards.forEach((card, index) => {
@@ -177,12 +241,12 @@ document.addEventListener('DOMContentLoaded', function() {
             card.style.transform = 'translateY(0)';
         }, 50 * index);
     });
-  }
+}
   
-  /**
-  * Custom confirmation dialog
-  */
-  function showConfirmation(message, onConfirm) {
+/**
+* Custom confirmation dialog
+*/
+function showConfirmation(message, onConfirm) {
     const modal = document.getElementById('confirmationModal');
     const confirmMessage = document.getElementById('confirmMessage');
     const confirmOk = document.getElementById('confirmOk');
@@ -214,12 +278,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add event listeners
     confirmOk.addEventListener('click', handleConfirm);
     confirmCancel.addEventListener('click', handleCancel);
-  }
+}
   
-  /**
-  * Approve registration request
-  */
-  function approveRegistration(registrationId) {
+/**
+* Approve registration request
+*/
+function approveRegistration(registrationId) {
     // Show custom confirmation dialog
     showConfirmation('Are you sure you want to approve this registration request?', () => {
         // Show loading overlay
@@ -257,12 +321,12 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification('An error occurred while approving the registration', 'error');
         });
     });
-  }
+}
   
-  /**
-  * Reject registration request
-  */
-  function rejectRegistration(registrationId) {
+/**
+* Reject registration request
+*/
+function rejectRegistration(registrationId) {
     // Show custom confirmation dialog
     showConfirmation('Are you sure you want to reject this registration request?', () => {
         // Show loading overlay
@@ -300,22 +364,22 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification('An error occurred while rejecting the registration', 'error');
         });
     });
-  }
+}
   
-  /**
-  * Show loading overlay
-  */
-  function showLoading() {
+/**
+* Show loading overlay
+*/
+function showLoading() {
     const loadingOverlay = document.getElementById('loadingOverlay');
     if (loadingOverlay) {
         loadingOverlay.style.display = 'flex';
     }
-  }
+}
   
-  /**
-  * Hide loading overlay
-  */
-  function hideLoading() {
+/**
+* Hide loading overlay
+*/
+function hideLoading() {
     const loadingOverlay = document.getElementById('loadingOverlay');
     if (loadingOverlay) {
         // Add slight delay to make loading feel more natural
@@ -323,12 +387,12 @@ document.addEventListener('DOMContentLoaded', function() {
             loadingOverlay.style.display = 'none';
         }, 300);
     }
-  }
+}
   
-  /**
-  * Show notification message with enhanced styling
-  */
-  function showNotification(message, type = 'info') {
+/**
+* Show notification message with enhanced styling
+*/
+function showNotification(message, type = 'info') {
     // Remove any existing notifications first
     document.querySelectorAll('.flash-message').forEach(el => {
         if (el.parentNode) el.parentNode.removeChild(el);
@@ -374,4 +438,4 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, 300);
     });
-  }
+}

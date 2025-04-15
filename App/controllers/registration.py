@@ -10,9 +10,9 @@ from datetime import datetime, time
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 
-def create_registration_request(username, name, email, degree, reason=None, phone=None, transcript_file=None, courses=None, password=None):
+def create_registration_request(username, name, email, degree, reason=None, phone=None, transcript_file=None, profile_picture_file=None, courses=None, password=None):
     """Create a new registration request with password"""
-    import json  # Ensure json is imported
+    import json
     import os
     
     try:
@@ -25,6 +25,19 @@ def create_registration_request(username, name, email, degree, reason=None, phon
         existing_request = RegistrationRequest.query.filter_by(username=username, status='PENDING').first()
         if existing_request:
             return False, "You already have a pending registration request"
+        
+        # Handle file uploads - FIX THE LIST ISSUE
+        # If profile_picture_file is a list, get the first item
+        if isinstance(profile_picture_file, list):
+            profile_picture_file = profile_picture_file[0] if profile_picture_file else None
+            
+        # If transcript_file is a list, get the first item
+        if isinstance(transcript_file, list):
+            transcript_file = transcript_file[0] if transcript_file else None
+        
+        # Check if profile picture is provided (required)
+        if not profile_picture_file or not profile_picture_file.filename:
+            return False, "Profile picture is required"
         
         # Handle transcript file upload
         transcript_path = None
@@ -44,6 +57,23 @@ def create_registration_request(username, name, email, degree, reason=None, phon
             transcript_file.save(file_path)
             transcript_path = f"transcripts/{filename}"
         
+        # Handle profile picture file upload
+        profile_picture_path = None
+        from werkzeug.utils import secure_filename
+        filename = secure_filename(profile_picture_file.filename)
+        timestamp = trinidad_now().strftime('%Y%m%d%H%M%S')
+        filename = f"{username}_{timestamp}_{filename}"
+        
+        # Ensure uploads directory exists
+        upload_dir = os.path.join('App', 'static', 'uploads', 'profile_pictures')
+        if not os.path.exists(upload_dir):
+            os.makedirs(upload_dir)
+        
+        # Save file
+        file_path = os.path.join(upload_dir, filename)
+        profile_picture_file.save(file_path)
+        profile_picture_path = f"uploads/profile_pictures/{filename}"
+        
         # Create registration request
         registration = RegistrationRequest(
             username=username,
@@ -52,7 +82,9 @@ def create_registration_request(username, name, email, degree, reason=None, phon
             phone=phone,
             degree=degree,
             reason=reason,
-            transcript_path=transcript_path
+            transcript_path=transcript_path,
+            profile_picture_path=profile_picture_path,
+            password=password
         )
         
         # Set password if provided
@@ -83,7 +115,7 @@ def create_registration_request(username, name, email, degree, reason=None, phon
         db.session.rollback()
         print(f"Error creating registration request: {e}")
         return False, f"An error occurred: {str(e)}"
-
+    
 def approve_registration(request_id, admin_username):
     """
     Approve a registration request and create the user account.
@@ -108,6 +140,7 @@ def approve_registration(request_id, admin_username):
         email = registration.email
         phone = registration.phone
         stored_password = registration.password  # This should be already hashed
+        profile_picture_path = registration.profile_picture_path  # Get profile picture path
         
         # Get courses for this registration
         registration_courses = RegistrationCourse.query.filter_by(registration_id=request_id).all()
@@ -137,10 +170,11 @@ def approve_registration(request_id, admin_username):
                 {"username": username, "password": hashed_password, "type": "student"}
             )
         
-        # Create profile_data with email and phone
+        # Create profile_data with email, phone, and profile picture
         profile_data = json.dumps({
             "email": email,
-            "phone": phone
+            "phone": phone,
+            "image_filename": profile_picture_path  # Include profile picture path
         })
         
         # Create student record with profile data

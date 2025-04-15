@@ -283,12 +283,23 @@ def profile():
         except:
             profile_data = {}
     
-    # Build user data dictionary
+    # Get the profile image path and create URL
+    image_filename = profile_data.get('image_filename', '')
+    if image_filename:
+        # Debug output for troubleshooting image paths
+        print(f"Profile image found: {image_filename}")
+        image_url = url_for('static', filename=image_filename)
+    else:
+        print(f"No profile image found for user {username}")
+        image_url = url_for('static', filename='images/DefaultAvatar.png')
+    
+    # Build user data dictionary with image_url
     user_data = {
         "name": student.name if student.name else username,
         "id": username,
         "phone": profile_data.get('phone', ''),
         "email": profile_data.get('email', f"{username}@my.uwi.edu"),
+        "image_url": image_url,
         "degree": student.degree,
         "enrolled_courses": [cap.course_code for cap in course_capabilities],
         "availability": availability_by_day,
@@ -310,159 +321,6 @@ def profile():
     }
     
     return render_template('volunteer/profile/index.html', user=user_data)
-
-@volunteer_views.route('/volunteer/time_tracking/fix_session', methods=['POST'])
-@jwt_required()
-@volunteer_required
-def fix_stuck_session():
-    """
-    Special endpoint to fix a stuck time tracking session.
-    This is called when a user has an active time entry but the UI shows 'Clock In'
-    button or when they can't clock in because of an existing active session.
-    """
-    username = current_user.username
-    
-    # Import the fix function
-    from App.controllers.tracking import fix_abandoned_sessions
-    
-    # Fix any abandoned sessions for this user
-    result = fix_abandoned_sessions(username)
-    
-    if result.get("success", False):
-        if result.get("fixed_count", 0) > 0:
-            return jsonify({
-                'success': True,
-                'message': f"Fixed {result['fixed_count']} stuck session(s). You can now clock in."
-            })
-        else:
-            return jsonify({
-                'success': True, 
-                'message': "No stuck sessions found. If you're still having issues, please contact support."
-            })
-    else:
-        return jsonify({
-            'success': False,
-            'message': result.get("message", "An error occurred while fixing your session.")
-        })
-
-@volunteer_views.route('/volunteer/update_profile', methods=['POST'])
-@jwt_required()
-@volunteer_required
-def update_profile():
-    try:
-        username = current_user.username
-        
-        # Get the student
-        student = Student.query.get(username)
-        if not student:
-            return jsonify({'success': False, 'message': 'Student profile not found'})
-        
-        # Update name and degree
-        student.name = request.form.get('name')
-        student.degree = request.form.get('degree')
-        
-        # Load existing profile data if available
-        profile_data = {}
-        if student.profile_data:
-            try:
-                profile_data = json.loads(student.profile_data)
-            except:
-                profile_data = {}
-        
-        # Update profile data
-        profile_data['phone'] = request.form.get('phone')
-        profile_data['email'] = request.form.get('email')
-        profile_data['street'] = request.form.get('street')
-        profile_data['city'] = request.form.get('city')
-        profile_data['country'] = request.form.get('country')
-        
-        # Track if we need to update the image URL
-        image_url = None
-        
-        # Handle profile image upload
-        if 'profile_image' in request.files:
-            file = request.files['profile_image']
-            if file and file.filename:
-                # Secure the filename
-                filename = secure_filename(file.filename)
-                # Add a timestamp to prevent filename collisions
-                timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-                filename = f"{username}_{timestamp}_{filename}"
-                
-                # Make sure the upload directory exists
-                upload_dir = os.path.join('App', 'static', 'uploads')
-                if not os.path.exists(upload_dir):
-                    os.makedirs(upload_dir)
-                
-                # Save the file
-                file_path = os.path.join(upload_dir, filename)
-                file.save(file_path)
-                
-                # Add the filename to profile data
-                profile_data['image_filename'] = f"uploads/{filename}"
-                
-                # Prepare the URL for the response
-                image_url = url_for('static', filename=f"uploads/{filename}")
-        
-        # Save profile data as JSON in the student model
-        student.profile_data = json.dumps(profile_data)
-        db.session.add(student)
-        db.session.commit()
-        
-        response_data = {'success': True, 'message': 'Profile updated successfully'}
-        
-        # Include the image URL if it was updated
-        if image_url:
-            response_data['image_url'] = image_url
-        
-        return jsonify(response_data)
-    
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error updating profile: {e}")
-        return jsonify({'success': False, 'message': str(e)})
-
-@volunteer_views.route('/volunteer/update_courses', methods=['POST'])
-@jwt_required()
-@volunteer_required
-def update_courses():
-    try:
-        username = current_user.username
-        
-        # Get the help desk assistant
-        assistant = HelpDeskAssistant.query.get(username)
-        if not assistant:
-            return jsonify({'success': False, 'message': 'Assistant profile not found'})
-        
-        # Get the list of selected courses
-        data = request.json
-        selected_courses = data.get('courses', [])
-        
-        # First, remove all existing course capabilities
-        CourseCapability.query.filter_by(assistant_username=username).delete()
-        db.session.commit()
-        
-        # Add new course capabilities
-        for course_code in selected_courses:
-            # Verify the course exists
-            course = Course.query.get(course_code)
-            if not course:
-                # Create the course if it doesn't exist
-                course = Course(course_code, f"Course {course_code}")
-                db.session.add(course)
-            
-            # Add the capability
-            capability = CourseCapability(username, course_code)
-            db.session.add(capability)
-        
-        db.session.commit()
-        
-        return jsonify({'success': True, 'message': 'Courses updated successfully'})
-    
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error updating courses: {e}")
-        return jsonify({'success': False, 'message': str(e)})
 
 @volunteer_views.route('/volunteer/update_availability', methods=['POST'])
 @jwt_required()
