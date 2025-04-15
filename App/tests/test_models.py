@@ -103,16 +103,18 @@ class StudentUnitTests(unittest.TestCase):
     
 class AdminUnitTests(unittest.TestCase):
     def test_admin_initialization(self):
-        admin = Admin(username="admin_user", password="securepassword")
+        admin = Admin(username="admin_user", password="securepassword", role="lab")
         self.assertEqual(admin.username, "admin_user")
         # Verify the hashed password
         self.assertTrue(check_password_hash(admin.password, "securepassword"))
         self.assertEqual(admin.type, "admin")
+        self.assertEqual(admin.role, "lab")
 
     def test_get_json(self):
-        admin = Admin(username="admin_user", password="securepassword")
+        admin = Admin(username="admin_user", password="securepassword", role="helpdesk")
         expected_json = {
-            'Admin ID': "admin_user"
+            'Admin ID': "admin_user",
+            'Role': "helpdesk"
         }
         self.assertEqual(admin.get_json(), expected_json)
 
@@ -327,12 +329,12 @@ class ScheduleUnitTests(unittest.TestCase):
     def test_schedule_initialization_with_all_parameters(self):
         start_date = datetime(2023, 1, 1)
         end_date = datetime(2023, 1, 7)
-        schedule = Schedule(id=1, start_date=start_date, end_date=end_date, semester_id=101)
+        schedule = Schedule(id=1, start_date=start_date, end_date=end_date, type='lab')
         
         self.assertEqual(schedule.id, 1)
         self.assertEqual(schedule.start_date, start_date)
         self.assertEqual(schedule.end_date, end_date)
-        self.assertEqual(schedule.semester_id, 101)
+        self.assertEqual(schedule.type, 'lab')
         self.assertFalse(schedule.is_published)
 
     def test_schedule_initialization_with_defaults(self):
@@ -342,8 +344,8 @@ class ScheduleUnitTests(unittest.TestCase):
         
         self.assertIsNotNone(schedule.id)
         self.assertEqual(schedule.start_date, start_date)
-        self.assertEqual(schedule.end_date, start_date + timedelta(days=6))  #
-        self.assertIsNone(schedule.semester_id)
+        self.assertEqual(schedule.end_date, start_date + timedelta(days=6))
+        self.assertEqual(schedule.type, 'helpdesk')
         self.assertFalse(schedule.is_published)
 
     def test_get_json(self):
@@ -351,16 +353,16 @@ class ScheduleUnitTests(unittest.TestCase):
         end_date = datetime(2023, 1, 7)
         generated_at = datetime(2023, 1, 1, 12, 0, 0)
         
-        schedule = Schedule(id=1, start_date=start_date, end_date=end_date, semester_id=101)
+        schedule = Schedule(id=1, start_date=start_date, end_date=end_date, type='helpdesk')
         schedule.generated_at = generated_at  # Manually set generated_at for testing
         
         expected_json = {
             'Schedule ID': 1,
             'Start Date': "2023-01-01",
             'End Date': "2023-01-07",
+            'Type': 'Help Desk',
             'Generated At': "2023-01-01 12:00:00",
             'Published': False,
-            'Semester ID': 101  # Include Semester ID in expected JSON
         }
         self.assertEqual(schedule.get_json(), expected_json)
 

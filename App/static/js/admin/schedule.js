@@ -410,8 +410,8 @@ function loadScheduleData(scheduleId) {
 }
 
 function renderSchedule(days) {
-    const scheduleBody = document.getElementById('scheduleBody');
-    scheduleBody.innerHTML = '';
+    const scheduleBodyHelpDesk = document.getElementById('scheduleBodyHelpDesk');
+    scheduleBodyHelpDesk.innerHTML = '';
     
     // For the help desk, we have hourly slots from 9am to 4pm
     const timeSlots = ["9:00 am", "10:00 am", "11:00 am", "12:00 pm", 
@@ -480,7 +480,7 @@ function renderSchedule(days) {
             row.appendChild(cell);
         });
         
-        scheduleBody.appendChild(row);
+        scheduleBodyHelpDesk.appendChild(row);
     });
     
     // After rendering is complete, attach events to all remove buttons
@@ -489,6 +489,88 @@ function renderSchedule(days) {
         button.addEventListener('click', handleStaffRemoval);
     });
 }
+
+
+function renderScheduleLab(days) {
+    const scheduleBodyLab = document.getElementById('scheduleBodyLab');
+    scheduleBodyLab.innerHTML = '';
+    
+    // For the help desk, we have hourly slots from 9am to 4pm
+    const timeSlots = ["8:00 am", "12:00 pm", "4:00 pm"];
+    
+    // Create a row for each time slot
+    timeSlots.forEach((timeSlot, timeIndex) => {
+        const row = document.createElement('tr');
+        
+        // Add time cell
+        const timeCell = document.createElement('td');
+        timeCell.className = 'time-cell';
+        timeCell.textContent = timeSlot;
+        row.appendChild(timeCell);
+        
+        // Add cells for each day (days should be Monday through Friday)
+        days.forEach((day, dayIndex) => {
+            const cell = document.createElement('td');
+            cell.className = 'schedule-cell';
+            
+            // Set unique id and data attributes for the cell
+            const cellId = `cell-${dayIndex}-${timeIndex}`;
+            cell.id = cellId;
+            cell.setAttribute('data-day', day.day);
+            cell.setAttribute('data-time', timeSlot);
+            cell.setAttribute('data-id', cellId);
+            
+            // Get shift data for this cell if it exists
+            const shift = day.shifts[timeIndex];
+            
+            const staffContainer = document.createElement('div');
+            staffContainer.className = 'staff-container';
+            
+            // Show the number of staff assigned
+            const staffIndicator = document.createElement('div');
+            staffIndicator.className = 'staff-slot-indicator';
+            
+            if (shift && shift.assistants && shift.assistants.length > 0) {
+                staffIndicator.textContent = `Staff: ${shift.assistants.length}/3`;
+                
+                // Add each staff member
+                shift.assistants.forEach(assistant => {
+                    addStaffToContainer(staffContainer, assistant.username, assistant.name);
+                });
+            } else {
+                staffIndicator.textContent = 'Staff: 0/3';
+            }
+            
+            staffContainer.appendChild(staffIndicator);
+            
+            // Add "Add Staff" button
+            const addButton = document.createElement('button');
+            addButton.className = 'add-staff-btn';
+            addButton.textContent = '+ Add Staff';
+            addButton.onclick = function(e) {
+                e.stopPropagation();
+                openStaffSearchModal(cell);
+            };
+            
+            // Only add the button if there's room for more staff
+            if (!shift || !shift.assistants || shift.assistants.length < 3) {
+                staffContainer.appendChild(addButton);
+            }
+            
+            cell.appendChild(staffContainer);
+            row.appendChild(cell);
+        });
+        
+        scheduleBodyLab.appendChild(row);
+    });
+    
+    // After rendering is complete, attach events to all remove buttons
+    document.querySelectorAll('.remove-staff').forEach(button => {
+        button.removeEventListener('click', handleStaffRemoval); // Remove any existing handlers
+        button.addEventListener('click', handleStaffRemoval);
+    });
+}
+
 
 // ==============================
 // SCHEDULE GENERATION AND MANAGEMENT
@@ -1705,8 +1787,8 @@ function clearSchedule() {
             showNotification('Schedule cleared successfully', 'success');
             
             // Clear the schedule display
-            const scheduleBody = document.getElementById('scheduleBody');
-            scheduleBody.innerHTML = `
+            const scheduleBodyHelpDesk = document.getElementById('scheduleBodyHelpDesk');
+            scheduleBodyHelpDesk.innerHTML = `
                 <tr>
                     <td colspan="6" class="empty-schedule">
                         <p>No schedule generated yet. Click "Generate Schedule" to create a new schedule.</p>

@@ -23,7 +23,7 @@
 }
 
 /* Base styles */
-.schedule-header {
+.schedule-header-helpdesk {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -37,7 +37,7 @@
   overflow: hidden;
 }
 
-.schedule-header::after {
+.schedule-header-helpdesk::after {
   content: '';
   position: absolute;
   top: 0;
@@ -48,7 +48,40 @@
   pointer-events: none;
 }
 
-.schedule-header h2 {
+.schedule-header-helpdesk h2 {
+  font-weight: 700;
+  font-size: 1.25rem;
+  margin: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.schedule-header-lab {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  margin: 1rem 0;
+  background: linear-gradient(to right, #aa00cc, #aa11ff);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-md);
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.schedule-header-lab::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+  pointer-events: none;
+}
+
+.schedule-header-lab h2 {
   font-weight: 700;
   font-size: 1.25rem;
   margin: 0;
@@ -713,7 +746,8 @@
 
 /* Responsive adjustments */
 @media (max-width: 992px) {
-  .schedule-header,
+  .schedule-header-helpdesk,
+  .schedule-header-lab,
   .date-controls {
     margin-left: 0 !important;
     margin-right: 0 !important;
@@ -803,7 +837,7 @@
   bottom: -5px;
   left: 50%;
   transform: translateX(-50%);
-  width: 40px;
+  width: 200px;
   height: 2px;
   background: linear-gradient(to right, #0066cc, #0080ff);
   border-radius: 2px;

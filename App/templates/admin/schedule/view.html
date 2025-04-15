@@ -1,15 +1,22 @@
 {% extends "admin/base.html" %}
 
-{% block title %}Schedule - Help Desk System{% endblock %}
+{% block title %}Schedule{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/schedule.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="schedule-header">
-    <h2>Help Desk Schedule</h2>
-</div>
+
+{% if current_user.role == 'helpdesk' %}
+    <div class="schedule-header-helpdesk">
+        <h2>Help Desk Schedule</h2>
+    </div>
+{% elif current_user.role == 'lab' %}
+    <div class="schedule-header-lab">
+        <h2>Lab Schedule</h2>
+    </div>
+{% endif %}
 
 <div class="date-controls">
     <div class="date-group">
@@ -67,53 +74,114 @@
     <p>Processing schedule...</p>
 </div>
 
-<div class="schedule-grid">
-    <table class="schedule-table">
-        <thead>
-            <tr>
-                <th class="time-cell">Time</th>
-                <th>
-                    <div class="day-header">
-                        <span class="day-name">Monday</span>
-                        <span class="day-date"></span>
-                    </div>
-                </th>
-                <th>
-                    <div class="day-header">
-                        <span class="day-name">Tuesday</span>
-                        <span class="day-date"></span>
-                    </div>
-                </th>
-                <th>
-                    <div class="day-header">
-                        <span class="day-name">Wednesday</span>
-                        <span class="day-date"></span>
-                    </div>
-                </th>
-                <th>
-                    <div class="day-header">
-                        <span class="day-name">Thursday</span>
-                        <span class="day-date"></span>
-                    </div>
-                </th>
-                <th>
-                    <div class="day-header">
-                        <span class="day-name">Friday</span>
-                        <span class="day-date"></span>
-                    </div>
-                </th>
-            </tr>
-        </thead>
-        <tbody id="scheduleBody">
-            <!-- Schedule will be loaded dynamically -->
-            <tr>
-                <td colspan="6" class="empty-schedule">
-                    <p>No schedule generated yet. Click "Generate Schedule" to create a new schedule.</p>
-                </td>
-            </tr>
-        </tbody>
-    </table>
-</div>
+{% if current_user.role == 'helpdesk' %}
+
+    <div class="schedule-grid">
+        <table class="schedule-table">
+            <thead>
+                <tr>
+                    <th class="time-cell">Time</th>
+                    <th>
+                        <div class="day-header">
+                            <span class="day-name">Monday</span>
+                            <span class="day-date"></span>
+                        </div>
+                    </th>
+                    <th>
+                        <div class="day-header">
+                            <span class="day-name">Tuesday</span>
+                            <span class="day-date"></span>
+                        </div>
+                    </th>
+                    <th>
+                        <div class="day-header">
+                            <span class="day-name">Wednesday</span>
+                            <span class="day-date"></span>
+                        </div>
+                    </th>
+                    <th>
+                        <div class="day-header">
+                            <span class="day-name">Thursday</span>
+                            <span class="day-date"></span>
+                        </div>
+                    </th>
+                    <th>
+                        <div class="day-header">
+                            <span class="day-name">Friday</span>
+                            <span class="day-date"></span>
+                        </div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody id="scheduleBodyHelpDesk">
+                <!-- Schedule will be loaded dynamically -->
+                <tr>
+                    <td colspan="6" class="empty-schedule">
+                        <p>No schedule generated yet. Click "Generate Schedule" to create a new schedule.</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+{% elif current_user.role == 'lab' %}
+
+    <div class="schedule-grid">
+        <table class="schedule-table">
+            <thead>
+                <tr>
+                    <th class="time-cell">Time</th>
+                    <th>
+                        <div class="day-header">
+                            <span class="day-name">Monday</span>
+                            <span class="day-date"></span>
+                        </div>
+                    </th>
+                    <th>
+                        <div class="day-header">
+                            <span class="day-name">Tuesday</span>
+                            <span class="day-date"></span>
+                        </div>
+                    </th>
+                    <th>
+                        <div class="day-header">
+                            <span class="day-name">Wednesday</span>
+                            <span class="day-date"></span>
+                        </div>
+                    </th>
+                    <th>
+                        <div class="day-header">
+                            <span class="day-name">Thursday</span>
+                            <span class="day-date"></span>
+                        </div>
+                    </th>
+                    <th>
+                        <div class="day-header">
+                            <span class="day-name">Friday</span>
+                            <span class="day-date"></span>
+                        </div>
+                    </th>
+                    <th>
+                        <div class="day-header">
+                            <span class="day-name">Saturday</span>
+                            <span class="day-date"></span>
+                        </div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody id="scheduleBodyLab">
+                <!-- Schedule will be loaded dynamically -->
+                <tr>
+                    <td colspan="6" class="empty-schedule">
+                        <p>No schedule generated yet. Click "Generate Schedule" to create a new schedule.</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+{% endif %}
+
 
 <!-- Staff search modal -->
 <div id="staffSearchModal" class="modal">

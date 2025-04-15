@@ -2,7 +2,8 @@ from flask import Blueprint, render_template, jsonify, request, flash, redirect,
 from flask_jwt_extended import jwt_required, current_user
 from datetime import datetime, timedelta
 from App.controllers.schedule import (
-    generate_schedule,
+    generate_help_desk_schedule,
+    generate_lab_schedule,
     publish_schedule,
     get_current_schedule,
     publish_and_notify,
@@ -270,6 +271,7 @@ def get_schedule_details():
 def generate_schedule_endpoint():
     """Generate a schedule with specified date range"""
     try:
+        user = current_user
         data = request.json
         
         # Parse dates
@@ -287,8 +289,15 @@ def generate_schedule_endpoint():
         if end_date_str:
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
         
+        # Filter students based on admin role
+        if user.role == 'helpdesk':
+            result = generate_help_desk_schedule(start_date, end_date)
+        elif user.role == 'lab':
+            result = generate_lab_schedule(start_date, end_date)
+        else:
+            result = generate_help_desk_schedule()
         # Call the schedule generator
-        result = generate_schedule(start_date, end_date)
+        
         return jsonify(result)
     
     except Exception as e:

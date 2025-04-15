@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 from flask import jsonify, render_template, url_for
 from ortools.sat.python import cp_model
-from ortools.linear_solver import pywraplp
 import logging, csv, random
 from sqlalchemy import text
 
@@ -86,7 +85,7 @@ def check_scheduling_feasibility():
         }
 
 
-def generate_schedule(start_date=None, end_date=None):
+def generate_help_desk_schedule(start_date=None, end_date=None):
     """
     Generate a help desk schedule with flexible date range.
     
@@ -119,7 +118,7 @@ def generate_schedule(start_date=None, end_date=None):
         is_full_week = start_date.weekday() == 0 and (end_date - start_date).days >= 4
         
         # Get or create the main schedule
-        schedule = get_schedule(1, start_date, end_date)
+        schedule = get_schedule(1, start_date, end_date, 'helpdesk')
         
         # Clear existing shifts for the date range
         clear_shifts_in_range(schedule.id, start_date, end_date)
@@ -425,13 +424,13 @@ def generate_schedule(start_date=None, end_date=None):
         }
     
 
-def get_schedule(id, start_date, end_date):
+def get_schedule(id, start_date, end_date, type='helpdesk'):
     """Get or create the main schedule object"""
     schedule = Schedule.query.get(id)
     
     if not schedule:
         # Create a new main schedule
-        schedule = create_schedule(id, start_date, end_date)
+        schedule = create_schedule(id, start_date, end_date, type)
     else:
         # Update the existing schedule's date range
         schedule.start_date = start_date
@@ -441,8 +440,8 @@ def get_schedule(id, start_date, end_date):
     return schedule
 
 
-def create_schedule(id, start_date, end_date):
-    new_schedule = Schedule(id, start_date, end_date)
+def create_schedule(id, start_date, end_date, type):
+    new_schedule = Schedule(id=id, start_date=start_date, end_date=end_date, type=type)
     db.session.add(new_schedule)
     db.session.commit()
     return new_schedule
@@ -831,9 +830,9 @@ def get_current_schedule():
         }
 
 
-def generate_lab_assistant_schedule(start_date=None, end_date=None):
+def generate_lab_schedule(start_date=None, end_date=None):
     try:
-        solver = pywraplp.Solver.CreateSolver('SCIP')
+        model = cp_model.CpModel()
         
         # --- Variables ---
         
@@ -946,41 +945,45 @@ def generate_lab_assistant_schedule(start_date=None, end_date=None):
                     w[i][j] = p[i][j]
         
         
-        x = [[solver.IntVar(0, 1, f'x_{i}_{j}') for j in range(J)] for i in range(I)]
-        L = solver.NumVar(0, solver.inifity(), 'L')
+        x = [[model.NewIntVar(0, 1, f'x_{i}_{j}') for j in range(J)] for i in range(I)]
+        L = model.NumVar(0, solver.inifity(), 'L')
         
         
         # --- Objective Function ---
-        solver.Maximize(L)
+        model.Maximize(L)
         
         
         # --- Constraints ---
         # Constraint 1: L <= sum(w_ij * x_ij) for all i
         for i in range(I):
-            solver.Add(L <= sum(w[i][j] * x[i][j] for j in range(J)))
+            model.Add(L <= sum(w[i][j] * x[i][j] for j in range(J)))
         
         # Constraint 2: x_ij <= a_ij for all i, j
         for i in range(I):
             for j in range(J):
-                solver.Add(x[i][j] <= a[i][j])
+                model.Add(x[i][j] <= a[i][j])
         
         # Constraint 3: sum(x_ij) <= d_j for all j
         for j in range(J):
-            solver.Add(sum(x[i][j] for i in range(I)) <= d[j])
+            model.Add(sum(x[i][j] for i in range(I)) <= d[j])
         
         # Constraint 4: sum(x_ij) <= 3 * (1 - n_i) + n_i for all i
         for i in range(I):
-            solver.Add(sum(x[i][j] for j in range(J)) <= 3 * (1 - n[i]) + n[i])
+            model.Add(sum(x[i][j] for j in range(J)) <= 3 * (1 - n[i]) + n[i])
         
         # Constraint 5: sum((1 - n_i) * x_ij) >= 1 for all j
         for j in range(J):
-            solver.Add(sum((1 - n[i]) * x[i][j] for i in range(I)) >= 1)
+            model.Add(sum((1 - n[i]) * x[i][j] for i in range(I)) >= 1)
         
         
         # --- Solve the Model ---
-        status = solver.Solve()
+        solver = cp_model.CpSolver()
+        solver.parameters.max_time_in_seconds = 60.0  # Increase time limit to 60 seconds
+        solver.parameters.num_search_workers = 8  # Use more worker threads
+        solver.parameters.log_search_progress = True  # Log search progress
+        status = solver.Solve(model)
         
-        if status == pywraplp.Solver.OPTIMAL:
+        if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
             # Clear existing allocations for these shifts
             clear_allocations_for_shifts(shifts)
             
@@ -1016,9 +1019,9 @@ def generate_lab_assistant_schedule(start_date=None, end_date=None):
         else:
             db.session.rollback()
             message = 'No solution found.'
-            if status == pywraplp.Solver.INFEASIBLE:
+            if status == cp_model.INFEASIBLE:
                 message = 'Problem is infeasible with current constraints.'
-            elif status == pywraplp.Solver.MODEL_INVALID:
+            elif status == cp_model.MODEL_INVALID:
                 message = 'Model is invalid.'
             
             logger.error(f"Failed to generate schedule: {message}")
@@ -1036,7 +1039,7 @@ def generate_lab_assistant_schedule(start_date=None, end_date=None):
 
 
 
-def generate_schedule_pdf(schedule_data):
+def generate_help_desk_schedule_pdf(schedule_data):
     """
     Generate a PDF of the current schedule.
     
