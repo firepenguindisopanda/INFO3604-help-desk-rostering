@@ -774,3 +774,158 @@
     min-width: 650px;
   }
 }
+
+
+
+/* Schedule Legend Styles */
+.schedule-legend {
+  background-color: white;
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--neutral-200);
+  padding: 1rem;
+  margin: 1rem 0;
+  position: relative;
+}
+
+.legend-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--neutral-700);
+  margin-bottom: 0.5rem;
+  text-align: center;
+  position: relative;
+}
+
+.legend-title::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 2px;
+  background: linear-gradient(to right, #0066cc, #0080ff);
+  border-radius: 2px;
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  justify-content: center;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--neutral-700);
+}
+
+.legend-color {
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.legend-color.available {
+  background-color: #e3f2fd;
+  border: 2px dashed #2196f3;
+}
+
+.legend-color.unavailable {
+  background-color: #ffebee;
+  border: 2px dashed #f44336;
+}
+
+.legend-color.duplicate {
+  background-color: #fff8e1;
+  border: 2px dashed #ffc107;
+}
+
+.legend-color.full {
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .legend-items {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .legend-item {
+    width: 100%;
+  }
+}
+
+/* Tooltip style that appears on hover */
+.legend-tooltip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  background-color: var(--neutral-200);
+  color: var(--neutral-600);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.legend-tooltip:hover {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.legend-tooltip-content {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  right: 0;
+  background-color: white;
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--shadow-lg);
+  padding: 0.75rem;
+  width: 200px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--neutral-700);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  pointer-events: none;
+  z-index: 10;
+  border: 1px solid var(--neutral-200);
+}
+
+.legend-tooltip:hover .legend-tooltip-content {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Animation for the legend */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.schedule-legend {
+  animation: fadeInUp 0.3s ease-out;
+}
