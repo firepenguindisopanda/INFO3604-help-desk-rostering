@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/layout-fixes.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive-navbar.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -69,6 +70,9 @@
         });
     </script>
 
-    {% block scripts %}<script src="{{ url_for('static', filename='js/layout-enhancements.js') }}"></script>{% endblock %}
+    {% block scripts %}
+    <script src="{{ url_for('static', filename='js/layout-enhancements.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/responsive-navbar.js') }}"></script>
+    {% endblock %}
 </body>
 </html>
