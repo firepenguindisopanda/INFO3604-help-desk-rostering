@@ -4,25 +4,6 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-  // Create mobile menu toggle button if it doesn't exist
-  if (!document.querySelector('.mobile-menu-toggle')) {
-    const navContainer = document.querySelector('.nav-container');
-    if (navContainer) {
-      // Create hamburger icon
-      const mobileMenuToggle = document.createElement('div');
-      mobileMenuToggle.className = 'mobile-menu-toggle';
-      mobileMenuToggle.innerHTML = '<span></span><span></span><span></span>';
-      
-      // Insert toggle before the first child of nav container
-      navContainer.insertBefore(mobileMenuToggle, navContainer.firstChild);
-      
-      // Create overlay element
-      const menuOverlay = document.createElement('div');
-      menuOverlay.className = 'menu-overlay';
-      document.body.appendChild(menuOverlay);
-    }
-  }
-  
   // Get elements
   const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
   const navLinks = document.querySelector('.nav-links');

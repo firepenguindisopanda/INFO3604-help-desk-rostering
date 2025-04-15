@@ -22,6 +22,11 @@
 </head>
 <body>
     <nav class="nav-container">
+        <div class="mobile-menu-toggle">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
         <div class="nav-links">
             <a href="{{ url_for('volunteer_views.dashboard') }}" class="nav-link {% if request.path == url_for('volunteer_views.dashboard') %}active{% endif %}">Dashboard</a>
             <a href="{{ url_for('volunteer_views.time_tracking') }}" class="nav-link {% if request.path == url_for('volunteer_views.time_tracking') %}active{% endif %}">Time Tracking</a>
@@ -33,6 +38,7 @@
         </div>
         <a href="{{ url_for('auth_views.logout_action') }}" class="btn btn-primary">Sign Out</a>
     </nav>
+    <div class="menu-overlay"></div>
 
     <div class="content">
         {% block content %}{% endblock %}
