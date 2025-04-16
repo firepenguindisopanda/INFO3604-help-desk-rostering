@@ -18,4 +18,5 @@ gevent==23.9.0
 mysqlclient==2.1.1
 Flask-Admin==1.6.1
 ortools==9.11.4210
-weasyprint==65.1
+WeasyPrint==52.5
+

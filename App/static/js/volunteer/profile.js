@@ -7,6 +7,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const cancelAvailabilityBtn = document.getElementById('cancelAvailability');
     const selectableSlots = document.querySelectorAll('.availability-grid .time-slot.selectable');
     const availabilitySpinner = document.getElementById('availabilitySpinner');
+    
+    // --- Profile Image Upload Elements ---
+    const profileImage = document.querySelector('.profile-image');
+    const profileImageOverlay = document.querySelector('.profile-image-overlay');
+    const profileImageUpload = document.getElementById('profileImageUpload');
+    const profileDisplayImage = document.getElementById('profileDisplayImage');
 
     // --- Constants ---
     // Time slots in the display
@@ -37,7 +43,60 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }, 5000);
     
-    // --- Event Listeners ---
+    // --- Profile Image Upload Functionality ---
+    if (profileImage && profileImageUpload) {
+        // Create and add loading spinner element
+        const loadingEl = document.createElement('div');
+        loadingEl.className = 'profile-image-loading';
+        loadingEl.innerHTML = '<div class="profile-image-spinner"></div>';
+        profileImage.appendChild(loadingEl);
+        
+        // Handle clicking the profile image
+        profileImage.addEventListener('click', function() {
+            profileImageUpload.click();
+        });
+        
+        // Handle file selection
+        profileImageUpload.addEventListener('change', function(e) {
+            if (this.files && this.files[0]) {
+                // Show loading spinner
+                loadingEl.classList.add('active');
+                
+                // Create FormData object for the upload
+                const formData = new FormData();
+                formData.append('profile_image', this.files[0]);
+                
+                // Send the request
+                fetch('/volunteer/update_profile', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Hide loading spinner
+                    loadingEl.classList.remove('active');
+                    
+                    if (data.success) {
+                        // Update the image if URL is returned
+                        if (data.image_url) {
+                            profileDisplayImage.src = data.image_url;
+                        }
+                        showFlashMessage('Profile picture updated successfully!', 'success');
+                    } else {
+                        showFlashMessage('Error updating profile picture: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    // Hide loading spinner
+                    loadingEl.classList.remove('active');
+                    console.error('Error updating profile picture:', error);
+                    showFlashMessage('An error occurred while updating your profile picture.', 'error');
+                });
+            }
+        });
+    }
+    
+    // --- Event Listeners for Availability ---
     
     // Availability Modal
     if (updateAvailabilityBtn) {

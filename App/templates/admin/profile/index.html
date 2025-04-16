@@ -48,7 +48,11 @@
         {% for student in students %}
         <div class="staff-item" data-username="{{ student.username }}">
             <div class="staff-avatar">
-                <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="{{ student.name }}" class="avatar avatar-sm">
+                {% if student.image_filename %}
+                    <img src="{{ url_for('static', filename=student.image_filename) }}" alt="{{ student.name }}" class="avatar avatar-sm">
+                {% else %}
+                    <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="{{ student.name }}" class="avatar avatar-sm">
+                {% endif %}
             </div>
             <div class="staff-info">
                 <h4 class="staff-name">{{ student.name }}</h4>

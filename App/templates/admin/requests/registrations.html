@@ -52,9 +52,16 @@
             {% for registration in pending_registrations %}
                 <div class="registration-card pending" data-name="{{ registration.name }}" data-id="{{ registration.username }}">
                     <div class="registration-top">
-                        <div>
+                        <div class="registration-info">
                             <div class="registration-name">{{ registration.name }}</div>
                             <div class="registration-id">ID: {{ registration.username }}</div>
+                        </div>
+                        <div class="registration-profile-image">
+                            {% if registration.profile_picture_path %}
+                                <img src="{{ url_for('static', filename=registration.profile_picture_path) }}" alt="{{ registration.name }}'s profile picture">
+                            {% else %}
+                                <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="Default profile picture">
+                            {% endif %}
                         </div>
                         <div class="registration-status">PENDING</div>
                     </div>
@@ -89,6 +96,20 @@
                             </div>
                         </div>
                     </div>
+                    
+                    {% if registration.profile_picture_path %}
+                        <div class="registration-detail-row">
+                            <div class="registration-label">Profile Picture:</div>
+                            <div class="registration-value">
+                                <a href="{{ url_for('static', filename=registration.profile_picture_path) }}" 
+                                class="file-download view-profile-pic" 
+                                target="_blank" 
+                                rel="noopener noreferrer">
+                                    <i class="material-icons">photo</i> View Full Picture
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
                     
                     {% if registration.transcript_path %}
                         <div class="registration-detail-row">
@@ -136,9 +157,16 @@
             {% for registration in approved_registrations %}
                 <div class="registration-card approved" data-name="{{ registration.name }}" data-id="{{ registration.username }}">
                     <div class="registration-top">
-                        <div>
+                        <div class="registration-info">
                             <div class="registration-name">{{ registration.name }}</div>
                             <div class="registration-id">ID: {{ registration.username }}</div>
+                        </div>
+                        <div class="registration-profile-image">
+                            {% if registration.profile_picture_path %}
+                                <img src="{{ url_for('static', filename=registration.profile_picture_path) }}" alt="{{ registration.name }}'s profile picture">
+                            {% else %}
+                                <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="Default profile picture">
+                            {% endif %}
                         </div>
                         <div class="registration-status">APPROVED</div>
                     </div>
@@ -167,6 +195,20 @@
                         <div class="registration-label">Approved by:</div>
                         <div class="registration-value">{{ registration.processed_by }}</div>
                     </div>
+                    
+                    {% if registration.profile_picture_path %}
+                        <div class="registration-detail-row">
+                            <div class="registration-label">Profile Picture:</div>
+                            <div class="registration-value">
+                                <a href="{{ url_for('static', filename=registration.profile_picture_path) }}" 
+                                class="file-download view-profile-pic" 
+                                target="_blank" 
+                                rel="noopener noreferrer">
+                                    <i class="material-icons">photo</i> View Full Picture
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
                     
                     {% if registration.transcript_path %}
                         <div class="registration-detail-row">
@@ -200,9 +242,16 @@
             {% for registration in rejected_registrations %}
                 <div class="registration-card rejected" data-name="{{ registration.name }}" data-id="{{ registration.username }}">
                     <div class="registration-top">
-                        <div>
+                        <div class="registration-info">
                             <div class="registration-name">{{ registration.name }}</div>
                             <div class="registration-id">ID: {{ registration.username }}</div>
+                        </div>
+                        <div class="registration-profile-image">
+                            {% if registration.profile_picture_path %}
+                                <img src="{{ url_for('static', filename=registration.profile_picture_path) }}" alt="{{ registration.name }}'s profile picture">
+                            {% else %}
+                                <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="Default profile picture">
+                            {% endif %}
                         </div>
                         <div class="registration-status">REJECTED</div>
                     </div>
@@ -231,6 +280,20 @@
                         <div class="registration-label">Rejected by:</div>
                         <div class="registration-value">{{ registration.processed_by }}</div>
                     </div>
+                    
+                    {% if registration.profile_picture_path %}
+                        <div class="registration-detail-row">
+                            <div class="registration-label">Profile Picture:</div>
+                            <div class="registration-value">
+                                <a href="{{ url_for('static', filename=registration.profile_picture_path) }}" 
+                                class="file-download view-profile-pic" 
+                                target="_blank" 
+                                rel="noopener noreferrer">
+                                    <i class="material-icons">photo</i> View Full Picture
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
                     
                     {% if registration.transcript_path %}
                         <div class="registration-detail-row">

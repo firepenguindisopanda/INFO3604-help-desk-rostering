@@ -15,7 +15,7 @@
     {% for staff in staff_data %}
     <div class="staff-card {% if staff.selected %}selected{% endif %}" data-staff-id="{{ staff.id }}">
         <div class="staff-header">
-            <img src="{{ staff.image }}" alt="{{ staff.name }}" class="avatar avatar-md">
+            <img src="{{ staff.image_url }}" alt="{{ staff.name }}" class="avatar avatar-md">
             <h3>{{ staff.name }}</h3>
             {% if staff.selected %}
             <small>{{ staff.id }}</small>
@@ -31,7 +31,7 @@
                 <div class="stat-label">Week</div>
             </div>
         </div>
-        <button class="profile-details-btn">Profile Details</button>
+        <button class="profile-details-btn" onclick="window.location.href='{{ url_for('profile_views.staff_profile', username=staff.id) }}'">Profile Details</button>
     </div>
     {% endfor %}
 </div>
