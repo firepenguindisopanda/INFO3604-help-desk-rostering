@@ -29,8 +29,12 @@ class RegistrationRequest(db.Model):
         self.degree = degree
         self.reason = reason
         self.transcript_path = transcript_path
-        self.profile_picture_path = profile_picture_path  # Initialize the new field
         self.status = 'PENDING'
+        
+        if profile_picture_path:
+            self.profile_picture_path = profile_picture_path  # Initialize the new field
+        else:
+            self.profile_picture_path = 'App/static/images/DefaultAvatar.png'
         
         # Set hashed password if provided
         if password:
