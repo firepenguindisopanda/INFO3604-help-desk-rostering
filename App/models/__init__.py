@@ -4,6 +4,7 @@ from .availability import *
 from .course_capability import *
 from .course import *
 from .help_desk_assistant import *
+from .lab_assistant import *
 from .notification import *
 from .password_reset import *
 from .registration_request import *

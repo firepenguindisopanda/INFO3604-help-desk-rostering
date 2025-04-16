@@ -44,6 +44,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 });
 
+// Determine current admin role (helpdesk or lab)
+const CURRENT_ROLE = document.querySelector('.schedule-header-helpdesk') ? 'helpdesk' : 'lab';
+console.log(`Current admin role: ${CURRENT_ROLE}`);
+
 // ==============================
 // UPDATED NOTIFICATION SYSTEM
 // ==============================
@@ -322,11 +326,15 @@ function loadCurrentSchedule() {
     const loadingIndicator = document.getElementById('loadingIndicator');
     loadingIndicator.style.display = 'flex';
     
+    // Determine the current user role (helpdesk or lab)
+    const currentRole = document.querySelector('.schedule-header-helpdesk') ? 'helpdesk' : 'lab';
+    console.log(`Current admin role: ${currentRole}`);
+    
     return fetch('/api/schedule/current')
         .then(response => {
             if (!response.ok) {
                 if (response.status === 404) {
-                    console.log("No existing schedule found - nothing to load");
+                    console.log(`No existing ${currentRole} schedule found - nothing to load`);
                     loadingIndicator.style.display = 'none';
                     return { status: 'error', message: 'No schedule found' };
                 }
@@ -340,7 +348,12 @@ function loadCurrentSchedule() {
             loadingIndicator.style.display = 'none';
             
             if (data.status === 'success' && data.schedule && data.schedule.schedule_id !== null) {
-                console.log("Existing schedule found, rendering:", data.schedule);
+                console.log(`Existing ${currentRole} schedule found, rendering:`, data.schedule);
+                
+                // Verify schedule type matches current role
+                if (data.schedule.type && data.schedule.type !== currentRole) {
+                    console.warn(`Schedule type mismatch! Expected ${currentRole} but got ${data.schedule.type}`);
+                }
                 
                 // FIX: Check the day alignment before rendering
                 if (data.schedule.days && data.schedule.days.length > 0) {
@@ -348,7 +361,9 @@ function loadCurrentSchedule() {
                     console.log("Days array:", data.schedule.days.map(d => d.day));
                     
                     // Make sure days are in correct order: Monday-Friday
-                    const correctOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+                    const correctOrder = currentRole === 'helpdesk' 
+                        ? ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+                        : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
                     const currentOrder = data.schedule.days.map(d => d.day);
                     
                     // Check if we need to reorder
@@ -376,18 +391,22 @@ function loadCurrentSchedule() {
                     }
                 }
                 
-                // Now render with the fixed days array
-                renderSchedule(data.schedule.days);
+                // Now render with the fixed days array using the appropriate renderer
+                if (currentRole === 'helpdesk') {
+                    renderSchedule(data.schedule.days);
+                } else {
+                    renderScheduleLab(data.schedule.days);
+                }
                 
                 return true; // Signal that we loaded an existing schedule
             } else {
-                console.log("No valid schedule data to load");
+                console.log(`No valid ${currentRole} schedule data to load`);
                 return false;
             }
         })
         .catch(error => {
             loadingIndicator.style.display = 'none';
-            console.error('Error loading schedule:', error);
+            console.error(`Error loading ${currentRole} schedule:`, error);
             return false;
         });
 }
@@ -395,6 +414,9 @@ function loadCurrentSchedule() {
 function loadScheduleData(scheduleId) {
     const loadingIndicator = document.getElementById('loadingIndicator');
     loadingIndicator.style.display = 'flex';
+    
+    // Determine the current user role (helpdesk or lab)
+    const currentRole = document.querySelector('.schedule-header-helpdesk') ? 'helpdesk' : 'lab';
     
     // Fetch the generated schedule data
     fetch(`/api/schedule/details?id=${scheduleId}`)
@@ -410,7 +432,12 @@ function loadScheduleData(scheduleId) {
             loadingIndicator.style.display = 'none';
             
             if (data.status === 'success') {
-                renderSchedule(data.schedule.days);
+                // Choose the correct render function based on role
+                if (currentRole === 'helpdesk') {
+                    renderSchedule(data.schedule.days);
+                } else {
+                    renderScheduleLab(data.schedule.days);
+                }
                 
                 // Update save button with schedule ID
                 const saveBtn = document.getElementById('saveSchedule');
@@ -429,8 +456,8 @@ function loadScheduleData(scheduleId) {
 }
 
 function renderSchedule(days) {
-    const scheduleBody = document.getElementById('scheduleBody');
-    scheduleBody.innerHTML = '';
+    const scheduleBodyHelpDesk = document.getElementById('scheduleBodyHelpDesk');
+    scheduleBodyHelpDesk.innerHTML = '';
     
     // For the help desk, we have hourly slots from 9am to 4pm
     const timeSlots = ["9:00 am", "10:00 am", "11:00 am", "12:00 pm", 
@@ -499,7 +526,7 @@ function renderSchedule(days) {
             row.appendChild(cell);
         });
         
-        scheduleBody.appendChild(row);
+        scheduleBodyHelpDesk.appendChild(row);
     });
     
     // After rendering is complete, attach events to all remove buttons
@@ -508,6 +535,100 @@ function renderSchedule(days) {
         button.addEventListener('click', handleStaffRemoval);
     });
 }
+
+
+function renderScheduleLab(days) {
+    const scheduleBodyLab = document.getElementById('scheduleBodyLab');
+    if (!scheduleBodyLab) {
+        console.error("Lab schedule body element not found!");
+        showNotification("Error loading lab schedule - please refresh the page", "error");
+        return;
+    }
+    
+    scheduleBodyLab.innerHTML = '';
+    
+    // Lab schedules have 3 time slots per day instead of hourly
+    const timeSlots = ["8:00 am - 12:00 pm", "12:00 pm - 4:00 pm", "4:00 pm - 8:00 pm"];
+    
+    // Create a row for each time slot
+    timeSlots.forEach((timeSlot, timeIndex) => {
+        const row = document.createElement('tr');
+        
+        // Add time cell
+        const timeCell = document.createElement('td');
+        timeCell.className = 'time-cell';
+        timeCell.textContent = timeSlot;
+        row.appendChild(timeCell);
+        
+        // Add cells for each day (days should be Monday through Saturday for lab)
+        days.forEach((day, dayIndex) => {
+            const cell = document.createElement('td');
+            cell.className = 'schedule-cell';
+            
+            // Set unique id and data attributes for the cell
+            const cellId = `cell-lab-${dayIndex}-${timeIndex}`;
+            cell.id = cellId;
+            cell.setAttribute('data-day', day.day);
+            cell.setAttribute('data-time', timeSlot);
+            cell.setAttribute('data-id', cellId);
+            
+            // Get shift data for this cell if it exists
+            // For lab schedules, we need to match to the correct time range
+            let shift = null;
+            if (day.shifts && day.shifts.length > 0) {
+                // Find shift that starts at either 8am, 12pm, or 4pm based on timeIndex
+                const hourToFind = timeIndex === 0 ? 8 : timeIndex === 1 ? 12 : 16;
+                shift = day.shifts.find(s => s.hour === hourToFind);
+            }
+            
+            const staffContainer = document.createElement('div');
+            staffContainer.className = 'staff-container';
+            
+            // Show the number of staff assigned
+            const staffIndicator = document.createElement('div');
+            staffIndicator.className = 'staff-slot-indicator';
+            
+            if (shift && shift.assistants && shift.assistants.length > 0) {
+                staffIndicator.textContent = `Staff: ${shift.assistants.length}/3`;
+                
+                // Add each staff member
+                shift.assistants.forEach(assistant => {
+                    addStaffToContainer(staffContainer, assistant.username, assistant.name);
+                });
+            } else {
+                staffIndicator.textContent = 'Staff: 0/3';
+            }
+            
+            staffContainer.appendChild(staffIndicator);
+            
+            // Add "Add Staff" button
+            const addButton = document.createElement('button');
+            addButton.className = 'add-staff-btn';
+            addButton.textContent = '+ Add Staff';
+            addButton.onclick = function(e) {
+                e.stopPropagation();
+                openStaffSearchModal(cell);
+            };
+            
+            // Only add the button if there's room for more staff
+            if (!shift || !shift.assistants || shift.assistants.length < 3) {
+                staffContainer.appendChild(addButton);
+            }
+            
+            cell.appendChild(staffContainer);
+            row.appendChild(cell);
+        });
+        
+        scheduleBodyLab.appendChild(row);
+    });
+    
+    // After rendering is complete, attach events to all remove buttons
+    document.querySelectorAll('.remove-staff').forEach(button => {
+        button.removeEventListener('click', handleStaffRemoval); // Remove any existing handlers
+        button.addEventListener('click', handleStaffRemoval);
+    });
+}
+
 
 // ==============================
 // SCHEDULE GENERATION AND MANAGEMENT
@@ -522,6 +643,9 @@ function initializeGenerateButton() {
     if (saveBtn) {
         saveBtn.style.display = 'block';
     }
+    
+    // Determine the current user role (helpdesk or lab)
+    const currentRole = document.querySelector('.schedule-header-helpdesk') ? 'helpdesk' : 'lab';
 
     generateBtn.addEventListener('click', function() {
         // Show loading indicator
@@ -1758,8 +1882,8 @@ function clearSchedule() {
             showNotification('Schedule cleared successfully', 'success');
             
             // Clear the schedule display
-            const scheduleBody = document.getElementById('scheduleBody');
-            scheduleBody.innerHTML = `
+            const scheduleBodyHelpDesk = document.getElementById('scheduleBodyHelpDesk');
+            scheduleBodyHelpDesk.innerHTML = `
                 <tr>
                     <td colspan="6" class="empty-schedule">
                         <p>No schedule generated yet. Click "Generate Schedule" to create a new schedule.</p>

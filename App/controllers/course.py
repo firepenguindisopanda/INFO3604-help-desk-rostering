@@ -1,4 +1,4 @@
-from App.models import Course
+from App.models import Course, CourseCapability
 from App.database import db
 
 def create_course(code, name):
@@ -37,3 +37,10 @@ def get_courses_dict():
 # Helper function to validate a course code
 def is_valid_course(course_code):
     return course_code in get_all_course_codes()
+
+
+def create_course_capability(username, code):
+    new_course = CourseCapability(assistant_username=username, course_code=code)
+    db.session.add(new_course)
+    db.session.commit()
+    return new_course

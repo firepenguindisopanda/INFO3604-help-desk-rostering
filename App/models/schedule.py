@@ -8,15 +8,16 @@ class Schedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     start_date = db.Column(db.DateTime, nullable=False)
     end_date = db.Column(db.DateTime, nullable=False)
+    type = db.Column(db.String(20), nullable=False)
     generated_at = db.Column(db.DateTime, default=trinidad_now())
     is_published = db.Column(db.Boolean, default=False)
-    semester_id = db.Column(db.Integer, db.ForeignKey('semester.id'))
+    # semester_id = db.Column(db.Integer, db.ForeignKey('semester.id'))
     
     # Relationships
     shifts = db.relationship('Shift', backref='schedule', lazy=True, cascade="all, delete-orphan")
-    semester = db.relationship('Semester', backref='schedules')
+    # semester = db.relationship('Semester', backref='schedules')
     
-    def __init__(self, id=None, start_date=None, end_date=None, semester_id=None):
+    def __init__(self, id=None, start_date=None, end_date=None, type='helpdesk'):
         if id is not None:
             self.id = id
             
@@ -27,8 +28,9 @@ class Schedule(db.Model):
             self.end_date = self.start_date + timedelta(days=6)
         else:
             self.end_date = end_date
-            
-        self.semester_id = semester_id
+        
+        self.type = type
+        # self.semester_id = semester_id
         self.is_published = False
     
     def get_json(self):
@@ -36,9 +38,9 @@ class Schedule(db.Model):
             'Schedule ID': self.id,
             'Start Date': self.start_date.strftime('%Y-%m-%d'),
             'End Date': self.end_date.strftime('%Y-%m-%d'),
+            'Type': 'Help Desk' if self.type == 'helpdesk' else 'Lab' if self.type == 'lab' else 'Other',
             'Generated At': self.generated_at.strftime('%Y-%m-%d %H:%M:%S'),
             'Published': self.is_published,
-            'Semester ID': self.semester_id
         }
     
     def publish(self):

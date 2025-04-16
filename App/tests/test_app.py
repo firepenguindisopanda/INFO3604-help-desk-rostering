@@ -262,12 +262,18 @@ class InitializeIntegrationTests(unittest.TestCase):
         courses = Course.query.filter_by(code='COMP3602').all()
         self.assertEqual(len(courses), 1)
 
-    def test_create_student_assistants_handles_errors(self):
+    def test_create_help_desk_assistants_handles_errors(self):
         with patch('App.database.db.session.add', side_effect=Exception("Database error")):
             with self.assertLogs('App.controllers.initialize', level='ERROR') as log:
-                create_student_assistants()
-            self.assertTrue(any("Error creating student" in message for message in log.output))
+                create_help_desk_assistants()
+            self.assertTrue(any("Error creating help desk assistant" in message for message in log.output))
     
+    def test_create_lab_assistants_handles_errors(self):
+        with patch('App.database.db.session.add', side_effect=Exception("Database error")):
+            with self.assertLogs('App.controllers.initialize', level='ERROR') as log:
+                create_lab_assistants()
+            self.assertTrue(any("Error creating lab assistant" in message for message in log.output))
+
 class NotificationIntegrationTests(unittest.TestCase):
     def setUp(self):
         # Set up an in-memory SQLite database for testing
@@ -277,7 +283,7 @@ class NotificationIntegrationTests(unittest.TestCase):
         create_db()
 
         # Create a test user with a password
-        self.test_user = create_admin(username='testuser', password='testpass')
+        self.test_user = create_admin(username='testuser', password='testpass', role='helpdesk')
         db.session.add(self.test_user)
         db.session.commit()
 
@@ -379,7 +385,7 @@ class RegistrationIntegrationTests(unittest.TestCase):
         create_db()
 
         # Create a test admin user
-        self.admin_user = create_admin('admin', 'adminpass')
+        self.admin_user = create_admin('admin', 'adminpass', 'helpdesk')
         db.session.add(self.admin_user)
         db.session.commit()
 
@@ -509,7 +515,7 @@ class RequestIntegrationTests(unittest.TestCase):
 
         # Create test data
         self.student = create_student("student1", "securepassword", "BSc", "John Doe")
-        self.admin = create_admin("admin", "adminpass")
+        self.admin = create_admin("admin", "adminpass", "helpdesk")
         db.session.add(self.student)
         db.session.add(self.admin)
         db.session.commit()
@@ -684,23 +690,7 @@ class ScheduleIntegrationTests(unittest.TestCase):
         self.app_context = self.app.app_context()
         self.app_context.push()
         create_db()
-
-        # Create test data
-        self.assistant = HelpDeskAssistant(username="assistant1")
-        self.assistant.active = True
-        self.assistant.hours_minimum = 4
-
-        self.course = Course(code="CS101", name="Introduction to Computer Science")
-        self.availability = Availability(
-            username="assistant1",
-            day_of_week=0,
-            start_time=datetime.strptime("09:00", "%H:%M").time(),
-            end_time=datetime.strptime("17:00", "%H:%M").time()
-        )
-        self.capability = CourseCapability(assistant_username="assistant1", course_code="CS101")
-
-        db.session.add_all([self.assistant, self.course, self.availability, self.capability])
-        db.session.commit()
+        initialize()
 
     def tearDown(self):
         db.session.remove()
@@ -715,10 +705,10 @@ class ScheduleIntegrationTests(unittest.TestCase):
         self.assertEqual(result["stats"]["assistants_with_availability"], 1)
         self.assertEqual(result["stats"]["assistants_with_capabilities"], 1)
 
-    def test_generate_schedule(self):
+    def test_generate_help_desk_schedule(self):
         start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = start_date + timedelta(days=4)  # Full week
-        result = generate_schedule(start_date=start_date, end_date=end_date)
+        result = generate_help_desk_schedule(start_date=start_date, end_date=end_date)
 
         self.assertEqual(result["status"], "success")
         self.assertEqual(result["details"]["shifts_created"], 32)  
@@ -735,7 +725,7 @@ class ScheduleIntegrationTests(unittest.TestCase):
         # Generate a schedule
         start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = start_date + timedelta(days=4)
-        generate_schedule(start_date=start_date, end_date=end_date)
+        generate_help_desk_schedule(start_date=start_date, end_date=end_date)
 
         # Fetch the current schedule
         schedule = get_current_schedule()
@@ -747,7 +737,7 @@ class ScheduleIntegrationTests(unittest.TestCase):
         # Generate a schedule
         start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = start_date + timedelta(days=4)
-        generate_schedule(start_date=start_date, end_date=end_date)
+        generate_help_desk_schedule(start_date=start_date, end_date=end_date)
 
         # Publish the schedule
         schedule = Schedule.query.first()
@@ -763,12 +753,13 @@ class ScheduleIntegrationTests(unittest.TestCase):
         # Generate a schedule
         start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = start_date + timedelta(days=4)
-        generate_schedule(start_date=start_date, end_date=end_date)
+        generate_help_desk_schedule(start_date=start_date, end_date=end_date)
 
+        shifts = Shift.query.all()
         # Clear the schedule
         result = clear_schedule()
         self.assertEqual(result["status"], "success")
-        self.assertEqual(result["details"]["shifts_removed"], 24)
+        self.assertEqual(result["details"]["shifts_removed"], len(shifts))
 
         # Verify the schedule is cleared
         shifts = Shift.query.all()
@@ -825,8 +816,8 @@ class TrackingIntegrationTests(unittest.TestCase):
         self.assertEqual(stats['semester']['hours'], 8.0)
         self.assertEqual(stats['absences'], 0)
 
-    def test_get_all_assistant_stats(self):
-        stats = get_all_assistant_stats()
+    def test_get_help_desk_assistant_stats(self):
+        stats = get_help_desk_assistant_stats()
         self.assertEqual(len(stats), 1)
         self.assertEqual(stats[0]['id'], "student1")
         self.assertEqual(stats[0]['semester_attendance'], "0.0")

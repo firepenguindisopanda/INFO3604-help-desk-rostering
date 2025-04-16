@@ -14,24 +14,12 @@ Usage:
 """
 
 from App.controllers.admin import create_admin
-from App.controllers.course import create_course, get_all_courses
+from App.controllers.availability import create_availability
+from App.controllers.course import create_course, create_course_capability, get_all_courses
+from App.controllers.help_desk_assistant import create_help_desk_assistant, get_help_desk_assistant
+from App.controllers.lab_assistant import create_lab_assistant, get_lab_assistant
+from App.controllers.notification import *
 from App.controllers.student import create_student
-from App.controllers.notification import (
-    create_notification,
-    notify_shift_approval,
-    notify_clock_in,
-    notify_clock_out,
-    notify_schedule_published,
-    notify_shift_reminder,
-    notify_request_submitted,
-    notify_missed_shift,
-    notify_availability_updated
-)
-from App.models import (
-    Notification, Student, HelpDeskAssistant, User, Shift, TimeEntry, 
-    Request, Course, RegistrationRequest, RegistrationCourse,
-    CourseCapability, Availability, Schedule, Allocation
-)
 from App.database import db
 from datetime import datetime, timedelta, time
 from sqlalchemy import text
@@ -53,14 +41,23 @@ def initialize():
     db.create_all()
     
     # Create default admin account
-    admin = create_admin('a', '123')
+    admin = create_admin('a', '123', 'helpdesk')
+    logger.info(f"Created admin user: {admin.username}")
+    
+    admin = create_admin('b', '123', 'lab')
     logger.info(f"Created admin user: {admin.username}")
     
     # Create standard courses
     create_standard_courses()
     
-    # Create all student assistants with availability
-    create_student_assistants()
+    # Create all help desk assistants with availability
+    create_help_desk_assistants()
+    create_help_desk_assistants_availability()
+    create_help_desk_assistants_course_capabilities()
+    
+    # Create all lab asistants with availability
+    create_lab_assistants()
+    create_lab_assistants_availability()
     
     logger.info('Database initialized successfully with all sample data')
 
@@ -70,7 +67,7 @@ def create_standard_courses():
     logger.info("Creating standard courses")
     
     # First, check if courses already exist
-    existing_courses = Course.query.all()
+    existing_courses = get_all_courses()
     if existing_courses:
         for course in existing_courses:
             db.session.delete(course)
@@ -78,7 +75,7 @@ def create_standard_courses():
     
     # Create all courses from the standardized list
     try:
-        with open('sample/course_constants.csv', newline='') as csvfile:
+        with open('sample/courses.csv', newline='') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 course = create_course(code=row['code'], name=row['name'])
@@ -90,227 +87,111 @@ def create_standard_courses():
         logger.error(f"Error creating standard courses: {e}")
 
 
-def create_student_assistants():
-    """Create all student assistant accounts with their availability and course capabilities"""
-    logger.info("Creating student assistants with availability data")
-
-    # Define the student data with availability from the Excel sheet
-    student_data = [
-        {
-            'username': '816031001',
-            'name': 'Daniel Rasheed',
-            'password': 'password123',
-            'degree': 'BSc',
-            'email': 'daniel.rasheed@my.uwi.edu',
-            'courses': ['COMP3602', 'COMP3603', 'COMP3605'],
-            'availabilities': [
-                {'day_of_week': 0, 'start_time': '9:00:00', 'end_time': '10:00:00'},
-                {'day_of_week': 2, 'start_time': '9:00:00', 'end_time': '10:00:00'},
-                {'day_of_week': 0, 'start_time': '10:00:00', 'end_time': '11:00:00'},
-                {'day_of_week': 2, 'start_time': '10:00:00', 'end_time': '11:00:00'},
-                {'day_of_week': 2, 'start_time': '11:00:00', 'end_time': '12:00:00'}
-            ]
-        },
-        {
-            'username': '816031002',
-            'name': 'Michelle Liu',
-            'password': 'password123',
-            'degree': 'BSc',
-            'email': 'michelle.liu@my.uwi.edu',
-            'courses': ['COMP3602', 'COMP3607', 'COMP3613'],
-            'availabilities': [
-                {'day_of_week': 0, 'start_time': '10:00:00', 'end_time': '11:00:00'},
-                {'day_of_week': 3, 'start_time': '10:00:00', 'end_time': '11:00:00'},
-                {'day_of_week': 0, 'start_time': '11:00:00', 'end_time': '12:00:00'},
-                {'day_of_week': 3, 'start_time': '11:00:00', 'end_time': '12:00:00'}
-            ]
-        },
-        {
-            'username': '816031003',
-            'name': 'Stayaan Maharaj',
-            'password': 'password123',
-            'degree': 'MSc',
-            'email': 'stayaan.maharaj@my.uwi.edu',
-            'courses': ['COMP3605', 'COMP3607', 'COMP3609', 'COMP3613'],
-            'availabilities': [
-                {'day_of_week': 3, 'start_time': '9:00:00', 'end_time': '10:00:00'},
-                {'day_of_week': 0, 'start_time': '10:00:00', 'end_time': '11:00:00'},
-                {'day_of_week': 1, 'start_time': '10:00:00', 'end_time': '11:00:00'},
-                {'day_of_week': 3, 'start_time': '10:00:00', 'end_time': '11:00:00'},
-                {'day_of_week': 4, 'start_time': '10:00:00', 'end_time': '11:00:00'},
-                {'day_of_week': 0, 'start_time': '11:00:00', 'end_time': '12:00:00'},
-                {'day_of_week': 1, 'start_time': '11:00:00', 'end_time': '12:00:00'},
-                {'day_of_week': 3, 'start_time': '11:00:00', 'end_time': '12:00:00'},
-                {'day_of_week': 4, 'start_time': '11:00:00', 'end_time': '12:00:00'},
-                {'day_of_week': 2, 'start_time': '12:00:00', 'end_time': '13:00:00'},
-                {'day_of_week': 2, 'start_time': '13:00:00', 'end_time': '14:00:00'},
-                {'day_of_week': 3, 'start_time': '13:00:00', 'end_time': '14:00:00'},
-                {'day_of_week': 0, 'start_time': '14:00:00', 'end_time': '15:00:00'},
-                {'day_of_week': 3, 'start_time': '14:00:00', 'end_time': '15:00:00'},
-                {'day_of_week': 0, 'start_time': '15:00:00', 'end_time': '16:00:00'},
-                {'day_of_week': 1, 'start_time': '15:00:00', 'end_time': '16:00:00'},
-                {'day_of_week': 2, 'start_time': '15:00:00', 'end_time': '16:00:00'},
-                {'day_of_week': 3, 'start_time': '15:00:00', 'end_time': '16:00:00'},
-                {'day_of_week': 1, 'start_time': '16:00:00', 'end_time': '17:00:00'},
-                {'day_of_week': 2, 'start_time': '16:00:00', 'end_time': '17:00:00'},
-                {'day_of_week': 3, 'start_time': '16:00:00', 'end_time': '17:00:00'}
-            ]
-        },
-        {
-            'username': '816031004',
-            'name': 'Daniel Yatali',
-            'password': 'password123',
-            'degree': 'BSc',
-            'email': 'daniel.yatali@my.uwi.edu',
-            'courses': ['COMP3603', 'COMP3609', 'COMP2611'],
-            'availabilities': [
-                {'day_of_week': 4, 'start_time': '10:00:00', 'end_time': '11:00:00'},
-                {'day_of_week': 1, 'start_time': '11:00:00', 'end_time': '12:00:00'},
-                {'day_of_week': 4, 'start_time': '11:00:00', 'end_time': '12:00:00'},
-                {'day_of_week': 0, 'start_time': '13:00:00', 'end_time': '14:00:00'},
-                {'day_of_week': 1, 'start_time': '13:00:00', 'end_time': '14:00:00'}
-            ]
-        },
-        {
-            'username': '816031005',
-            'name': 'Satish Maharaj',
-            'password': 'password123',
-            'degree': 'MSc',
-            'email': 'satish.maharaj@my.uwi.edu',
-            'courses': ['COMP3602', 'COMP3610', 'COMP2611'],
-            'availabilities': [
-                {'day_of_week': 3, 'start_time': '9:00:00', 'end_time': '10:00:00'},
-                {'day_of_week': 3, 'start_time': '10:00:00', 'end_time': '11:00:00'},
-                {'day_of_week': 0, 'start_time': '13:00:00', 'end_time': '14:00:00'},
-                {'day_of_week': 0, 'start_time': '14:00:00', 'end_time': '15:00:00'},
-                {'day_of_week': 0, 'start_time': '15:00:00', 'end_time': '16:00:00'},
-                {'day_of_week': 4, 'start_time': '15:00:00', 'end_time': '16:00:00'},
-                {'day_of_week': 4, 'start_time': '16:00:00', 'end_time': '17:00:00'}
-            ]
-        },
-        {
-            'username': '816031006',
-            'name': 'Selena Madrey',
-            'password': 'password123',
-            'degree': 'BSc',
-            'email': 'selena.madrey@my.uwi.edu',
-            'courses': ['COMP3605', 'COMP3607', 'COMP3613'],
-            'availabilities': [
-                {'day_of_week': 4, 'start_time': '10:00:00', 'end_time': '11:00:00'},
-                {'day_of_week': 0, 'start_time': '13:00:00', 'end_time': '14:00:00'},
-                {'day_of_week': 3, 'start_time': '13:00:00', 'end_time': '14:00:00'},
-                {'day_of_week': 0, 'start_time': '14:00:00', 'end_time': '15:00:00'},
-                {'day_of_week': 3, 'start_time': '14:00:00', 'end_time': '15:00:00'},
-                {'day_of_week': 0, 'start_time': '15:00:00', 'end_time': '16:00:00'},
-                {'day_of_week': 3, 'start_time': '15:00:00', 'end_time': '16:00:00'}
-            ]
-        },
-        {
-            'username': '816031007',
-            'name': 'Veron Ramkissoon',
-            'password': 'password123',
-            'degree': 'BSc',
-            'email': 'veron.ramkissoon@my.uwi.edu',
-            'courses': ['COMP3603', 'COMP3610', 'COMP2611'],
-            'availabilities': [
-                {'day_of_week': 0, 'start_time': '14:00:00', 'end_time': '15:00:00'},
-                {'day_of_week': 0, 'start_time': '15:00:00', 'end_time': '16:00:00'},
-                {'day_of_week': 1, 'start_time': '15:00:00', 'end_time': '16:00:00'},
-                {'day_of_week': 2, 'start_time': '15:00:00', 'end_time': '16:00:00'},
-                {'day_of_week': 2, 'start_time': '16:00:00', 'end_time': '17:00:00'}
-            ]
-        },
-        {
-            'username': '816031008',
-            'name': 'Tamika Ramkissoon',
-            'password': 'password123',
-            'degree': 'BSc',
-            'email': 'tamika.ramkissoon@my.uwi.edu',
-            'courses': ['COMP3605', 'COMP3607', 'COMP2611'],
-            'availabilities': [
-                {'day_of_week': 4, 'start_time': '11:00:00', 'end_time': '12:00:00'},
-                {'day_of_week': 4, 'start_time': '12:00:00', 'end_time': '13:00:00'},
-                {'day_of_week': 2, 'start_time': '13:00:00', 'end_time': '14:00:00'},
-                {'day_of_week': 0, 'start_time': '14:00:00', 'end_time': '15:00:00'},
-                {'day_of_week': 2, 'start_time': '14:00:00', 'end_time': '15:00:00'},
-                {'day_of_week': 0, 'start_time': '15:00:00', 'end_time': '16:00:00'},
-                {'day_of_week': 2, 'start_time': '15:00:00', 'end_time': '16:00:00'}
-            ]
-        },
-        {
-            'username': '816031009',
-            'name': 'Samuel Mahadeo',
-            'password': 'password123',
-            'degree': 'BSc',
-            'email': 'samuel.mahadeo@my.uwi.edu',
-            'courses': ['COMP3602', 'COMP3609', 'COMP3610'],
-            'availabilities': [
-                {'day_of_week': 3, 'start_time': '9:00:00', 'end_time': '10:00:00'},
-                {'day_of_week': 1, 'start_time': '10:00:00', 'end_time': '11:00:00'},
-                {'day_of_week': 4, 'start_time': '10:00:00', 'end_time': '11:00:00'}
-            ]
-        },
-        {
-            'username': '816031010',
-            'name': 'Neha Maharaj',
-            'password': 'password123',
-            'degree': 'MSc',
-            'email': 'neha.maharaj@my.uwi.edu',
-            'courses': ['COMP3603', 'COMP3605', 'COMP3613'],
-            'availabilities': [
-                {'day_of_week': 2, 'start_time': '12:00:00', 'end_time': '13:00:00'},
-                {'day_of_week': 2, 'start_time': '13:00:00', 'end_time': '14:00:00'},
-                {'day_of_week': 3, 'start_time': '13:00:00', 'end_time': '14:00:00'},
-                {'day_of_week': 2, 'start_time': '14:00:00', 'end_time': '15:00:00'},
-                {'day_of_week': 3, 'start_time': '14:00:00', 'end_time': '15:00:00'},
-                {'day_of_week': 2, 'start_time': '15:00:00', 'end_time': '16:00:00'},
-                {'day_of_week': 3, 'start_time': '15:00:00', 'end_time': '16:00:00'}
-            ]
-        }
-    ]
+def create_help_desk_assistants():
+    logger.info("Creating help desk assistants")
     
-    # Create users and their associated data
-    for student in student_data:
-        try:
-            # Create student account
-            user = create_student(student['username'], student['password'], student['degree'], student['name'])
-            logger.info(f"Created user: {user.username}")
-            
-            # Create help desk assistant record
-            rate = 35.00 if student['degree'] == 'MSc' else 20.00  # Higher rate for MSc students
-            db.session.execute(
-                text("INSERT OR IGNORE INTO help_desk_assistant (username, rate, active, hours_worked, hours_minimum) VALUES (:username, :rate, :active, :hours_worked, :hours_minimum)"),
-                {"username": student['username'], "rate": rate, "active": 1, "hours_worked": 0, "hours_minimum": 4}
-            )
-            
-            # Add course capabilities
-            for course_code in student['courses']:
-                db.session.execute(
-                    text("INSERT OR IGNORE INTO course_capability (assistant_username, course_code) VALUES (:username, :course_code)"),
-                    {"username": student['username'], "course_code": course_code}
-                )
-                
-            # Add availabilities
-            for avail in student['availabilities']:
+    # Create help desk assistants from the csv
+    try:
+        with open('sample/help_desk_assistants.csv', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                # Create student record
+                student = create_student(row['username'], row['password'], row['degree'], row['name'])
+                # Create help desk assistant record
+                assistant = create_help_desk_assistant(student.username)
+                logger.info(f"Successfully created help desk assistant: {student.name}")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating help desk assistants: {e}")
+
+
+def create_help_desk_assistants_availability():
+    logger.info("Creating help desk assistants availability data")
+    
+    # Create help desk assistant availability from the csv
+    try:
+        with open('sample/help_desk_assistants_availability.csv', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
                 # Parse time strings
-                start_time_parts = avail['start_time'].split(':')
-                end_time_parts = avail['end_time'].split(':')
+                start_time_parts = row['start_time'].split(':')
+                end_time_parts = row['end_time'].split(':')
                 
                 # Create time objects
-                start_time_obj = time(int(start_time_parts[0]), int(start_time_parts[1]), int(start_time_parts[2]) if len(start_time_parts) > 2 else 0)
-                end_time_obj = time(int(end_time_parts[0]), int(end_time_parts[1]), int(end_time_parts[2]) if len(end_time_parts) > 2 else 0)
+                start_time= time(int(start_time_parts[0]), int(start_time_parts[1]), int(start_time_parts[2]) if len(start_time_parts) > 2 else 0)
+                end_time = time(int(end_time_parts[0]), int(end_time_parts[1]), int(end_time_parts[2]) if len(end_time_parts) > 2 else 0)
                 
-                # Create availability record
-                availability = Availability(student['username'], avail['day_of_week'], start_time_obj, end_time_obj)
-                db.session.add(availability)
-                
-            db.session.commit()
-            logger.info(f"Successfully created student assistant: {student['name']}")
-            
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Error creating student {student['username']}: {e}")
-            
-    logger.info(f"Created {len(student_data)} student assistants with availability data")
+                assistant = get_help_desk_assistant(row['username'])
+                if assistant:
+                    # Create availability record
+                    availability = create_availability(row['username'], row['day_of_week'], start_time, end_time)
+                else:
+                    logger.error(f"Help Desk assistant {row['username']} not found for availability creation")         
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating help desk assistant availability: {e}")
 
+
+def create_help_desk_assistants_course_capabilities():
+    logger.info("Creating help desk assistants course capability data")
     
+    # Create help desk assistant course capabilities from the csv
+    try:
+        with open('sample/help_desk_assistants_courses.csv', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                assistant = get_help_desk_assistant(row['username'])
+                if assistant:
+                    # Create course capability record
+                    capability = create_course_capability(row['username'], row['code'])
+                else:
+                    logger.error(f"Help Desk assistant {row['username']} not found for course capability creation")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating help desk assistant course capabilities: {e}")
+    
+
+def create_lab_assistants():
+    logger.info("Creating lab assistants")
+    
+    # Create lab assistants from the csv
+    try:
+        with open('sample/lab_assistants.csv', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                # Create student record
+                student = create_student(row['username'], row['password'], row['degree'], row['name'])
+                # Create lab assistant record
+                assistant = create_lab_assistant(student.username, row['experience'])
+                logger.info(f"Successfully created lab assistant: {student.name}")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating lab assistants: {e}")
+
+
+def create_lab_assistants_availability():
+    logger.info("Creating lab assistants availability data")
+    
+    # Create lab assistant availability from the csv
+    try:
+        with open('sample/lab_assistants_availability.csv', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                # Parse time strings
+                start_time_parts = row['start_time'].split(':')
+                end_time_parts = row['end_time'].split(':')
+                
+                # Create time objects
+                start_time= time(int(start_time_parts[0]), int(start_time_parts[1]), int(start_time_parts[2]) if len(start_time_parts) > 2 else 0)
+                end_time = time(int(end_time_parts[0]), int(end_time_parts[1]), int(end_time_parts[2]) if len(end_time_parts) > 2 else 0)
+                
+                assistant = get_lab_assistant(row['username'])
+                if assistant:
+                    # Create availability record
+                    availability = create_availability(row['username'], row['day_of_week'], start_time, end_time)
+                else:
+                    logger.error(f"Lab assistant {row['username']} not found for availability creation")             
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating lab assistant availability: {e}")
+

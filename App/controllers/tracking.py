@@ -1,4 +1,4 @@
-from App.models import Student, HelpDeskAssistant, User, Shift, Allocation, TimeEntry
+from App.models import Student, HelpDeskAssistant, LabAssistant, Shift, Allocation, TimeEntry
 from App.database import db
 from datetime import datetime, timedelta, time
 from App.controllers.notification import (
@@ -66,7 +66,7 @@ def get_student_stats(username):
         'absences': absences
     }
 
-def get_all_assistant_stats():
+def get_help_desk_assistant_stats():
     """Get attendance stats for all assistants"""
     assistants = HelpDeskAssistant.query.filter_by(active=True).all()
     
@@ -88,6 +88,31 @@ def get_all_assistant_stats():
             })
     
     return stats
+
+
+def get_lab_assistant_stats():
+    """Get attendance stats for all assistants"""
+    assistants = LabAssistant.query.filter_by(active=True).all()
+    
+    stats = []
+    for assistant in assistants:
+        student = Student.query.get(assistant.username)
+        if student:
+            assistant_stats = get_student_stats(assistant.username) or {
+                'semester': {'hours': 0},
+                'weekly': {'hours': 0}
+            }
+            
+            stats.append({
+                'id': assistant.username,
+                'name': student.get_name(),
+                'image': '/static/images/DefaultAvatar.png',
+                'semester_attendance': f"{assistant_stats['semester']['hours']:.1f}",
+                'week_attendance': f"{assistant_stats['weekly']['hours']:.1f}"
+            })
+    
+    return stats
+
 
 def get_today_shift(username):
     """

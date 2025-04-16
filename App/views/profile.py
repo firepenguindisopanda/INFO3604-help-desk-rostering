@@ -1,6 +1,9 @@
 from flask import Blueprint, render_template, jsonify, request, abort, flash, redirect, url_for
 from flask_jwt_extended import jwt_required, current_user
 from App.controllers.user import get_user_profile
+from App.controllers.help_desk_assistant import get_active_help_desk_assistants
+from App.controllers.lab_assistant import get_active_lab_assistants
+from App.controllers.student import get_student
 from App.models import Student, HelpDeskAssistant, CourseCapability, Availability, User, Course
 from App.database import db
 from App.middleware import admin_required
@@ -11,6 +14,7 @@ profile_views = Blueprint('profile_views', __name__, template_folder='../templat
 
 @profile_views.route('/profile')
 @jwt_required()
+@admin_required
 def profile():
     # Get the current user from JWT
     user = current_user
@@ -19,15 +23,22 @@ def profile():
     admin_profile = {
         'name': user.username,
         'username': user.username,
-        'email': f"{user.username}@admin.uwi.edu"
+        'email': f"{user.username}@admin.uwi.edu",
+        'role': user.role
     }
     
-    # Get all students for the staff section
-    students = Student.query.all()
+    # Filter students based on admin role
+    if user.role == 'helpdesk':
+        assistants = get_active_help_desk_assistants()
+    elif user.role == 'lab':
+        assistants = get_active_lab_assistants()
+    else:
+        assistants = []
     
     # Format student data for the template
     formatted_students = []
-    for student in students:
+    for assistant in assistants:
+        student = get_student(assistant.username)
         # Extract profile image from profile_data
         profile_data = {}
         if hasattr(student, 'profile_data') and student.profile_data:
@@ -45,7 +56,7 @@ def profile():
     return render_template('admin/profile/index.html', 
                           admin_profile=admin_profile,
                           students=formatted_students)
-
+  
 @profile_views.route('/admin/staff/<username>/profile')
 @jwt_required()
 @admin_required

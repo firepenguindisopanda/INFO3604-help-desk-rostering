@@ -2,7 +2,8 @@ from flask import Blueprint, render_template, jsonify, request, flash, redirect,
 from flask_jwt_extended import jwt_required, current_user
 from datetime import datetime, timedelta
 from App.controllers.tracking import (
-    get_all_assistant_stats,
+    get_help_desk_assistant_stats,
+    get_lab_assistant_stats,
     get_shift_attendance_records,
     get_student_stats,
     clock_in,
@@ -21,11 +22,17 @@ tracking_views = Blueprint('tracking_views', __name__, template_folder='../templ
 @jwt_required()
 @admin_required
 def time_tracking():
-    # Import json for parsing profile data
-    import json
+
+    # Get the current user from JWT
+    user = current_user
     
-    # Get actual staff data from the database
-    staff_data = get_all_assistant_stats()
+    # Filter staff data based on admin role
+    if user.role == 'helpdesk':
+        staff_data = get_help_desk_assistant_stats()
+    elif user.role == 'lab':
+        staff_data = get_lab_assistant_stats()
+    else:
+        staff_data = []
     
     # If no staff data is returned, handle the empty case
     if not staff_data:
