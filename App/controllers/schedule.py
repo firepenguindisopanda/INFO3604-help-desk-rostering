@@ -425,12 +425,15 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
     
 
 def get_schedule(id, start_date, end_date, type='helpdesk'):
-    """Get or create the main schedule object"""
-    schedule = Schedule.query.get(id)
+    """Get or create the main schedule object based on type"""
+    # Use different IDs for different schedule types
+    schedule_id = 1 if type == 'helpdesk' else 2
+    
+    schedule = Schedule.query.filter_by(id=schedule_id, type=type).first()
     
     if not schedule:
-        # Create a new main schedule
-        schedule = create_schedule(id, start_date, end_date, type)
+        # Create a new schedule
+        schedule = create_schedule(schedule_id, start_date, end_date, type)
     else:
         # Update the existing schedule's date range
         schedule.start_date = start_date
@@ -846,6 +849,8 @@ def generate_lab_schedule(start_date=None, end_date=None):
         staff_by_index = {i: assistant for i, assistant in enumerate(assistants)}
         I = len(assistants)
         
+        if I == 0:
+            return {"status": "error", "message": "No active lab assistants available for scheduling"}
         
         """ Shift Index, j = 1 · · · J """
         # If start_date is not provided, use the current date
@@ -857,14 +862,14 @@ def generate_lab_schedule(start_date=None, end_date=None):
             # Get the end of the current week (Saturday)
             days_to_saturday = 5 - start_date.weekday()  # 5 = Saturday
             if days_to_saturday < 0:  # If today is already past Saturday
-                days_to_saturday += 7  # Go to next Friday
+                days_to_saturday += 7  # Go to next Saturday
             end_date = start_date + timedelta(days=days_to_saturday)
 
         # Check if we're scheduling for a full week or partial week
         is_full_week = start_date.weekday() == 0 and (end_date - start_date).days >= 5
         
         # Get or create the main schedule
-        schedule = get_schedule(1, start_date, end_date)
+        schedule = get_schedule(1, start_date, end_date, 'lab')  # Change type to 'lab'
         
         # Clear existing shifts for the date range
         clear_shifts_in_range(schedule.id, start_date, end_date)
@@ -875,8 +880,8 @@ def generate_lab_schedule(start_date=None, end_date=None):
         while current_date <= end_date:
             # Skip Sunday (day_of_week >= 6)
             if current_date.weekday() < 6:  # 0=Monday through 5=Saturday
-                # Generate three shifts for this day
-                for hour in range(8, 16, 4):  # 8am through 8pm
+                # Generate three shifts for this day (8am-12pm, 12pm-4pm, 4pm-8pm)
+                for hour in range(8, 17, 4):  # 8am, 12pm, 4pm
                     shift_start = datetime.combine(current_date.date(), datetime.min.time()) + timedelta(hours=hour)
                     shift_end = shift_start + timedelta(hours=4)
                     
@@ -889,25 +894,33 @@ def generate_lab_schedule(start_date=None, end_date=None):
         shift_by_index = {j: shift for j, shift in enumerate(shifts)}
         J = len(shifts)  # Number of shifts
         
+        if J == 0:
+            return {"status": "error", "message": "No shifts were created for the selected date range"}
+        
+        # n_i = 1 if staff i is new, 0 otherwise
         n = {}
         for i in range(I):
             assistant = staff_by_index[i]
             n[i] = 1 if not assistant.experience else 0
         
+        # p_ij = preference of staff i for shift j (random for demo)
         p = {}
         for i in range(I):
             for j in range(J):
                 p[i, j] = random.randint(0, 10)
         
+        # r_i = max shifts for staff i (1 for new, 3 for experienced)
         r = {}
         for i in range(I):
             assistant = staff_by_index[i]
             r[i] = 1 if not assistant.experience else 3
         
+        # d_j = desired number of tutors for shift j
         d = {}
         for j in range(J):
-            d[j] = 2 # Default
+            d[j] = 2  # Default is 2 assistants per shift
         
+        # a_ij = 1 if staff i is available for shift j, 0 otherwise
         a = {}
         for i in range(I):
             assistant = staff_by_index[i]
@@ -933,48 +946,64 @@ def generate_lab_schedule(start_date=None, end_date=None):
                 
                 a[i, j] = 1 if is_available else 0
         
-        
-        # Calculate normalized preferences (w_ij)
+        # Use integer-scaled preferences (multiply by 10 and round to avoid floating point)
         w = {}
-        w = [[0 for _ in range(J)] for _ in range(I)]
         for i in range(I):
             for j in range(J):
                 if n[i] == 1:  # New staff
-                    w[i][j] = (1 / r[i])(p[i][j] - (1 / J) * sum(p[i][j] + 5 for j in range(J)))
+                    avg_preference = sum(p[i, j_prime] for j_prime in range(J)) / J if J > 0 else 0
+                    normalized_preference = p[i, j] - avg_preference + 5
+                    # Scale by 10 and convert to integer to avoid floating point issues
+                    w[i, j] = int((10 / r[i]) * normalized_preference) if r[i] > 0 else 0
                 else:
-                    w[i][j] = p[i][j]
+                    w[i, j] = p[i, j] * 10  # Scale by 10 to keep consistent scale
         
+        # Decision variables: x_ij = 1 if staff i is assigned to shift j, 0 otherwise
+        x = {}
+        for i in range(I):
+            for j in range(J):
+                x[i, j] = model.NewBoolVar(f'x_{i}_{j}')
         
-        x = [[model.NewIntVar(0, 1, f'x_{i}_{j}') for j in range(J)] for i in range(I)]
-        L = model.NumVar(0, solver.inifity(), 'L')
-        
+        # Fairness variable: L = min utility across all staff (scaled by 10)
+        L = model.NewIntVar(0, 1000, 'L')  # Increased bounds due to scaling
         
         # --- Objective Function ---
         model.Maximize(L)
         
-        
         # --- Constraints ---
-        # Constraint 1: L <= sum(w_ij * x_ij) for all i
+        # Constraint 1: L <= sum(w_ij * x_ij) for all i (fairness)
         for i in range(I):
-            model.Add(L <= sum(w[i][j] * x[i][j] for j in range(J)))
+            utility = sum(w[i, j] * x[i, j] for j in range(J))
+            model.Add(L <= utility)
         
-        # Constraint 2: x_ij <= a_ij for all i, j
+        # Constraint 2: x_ij <= a_ij for all i, j (availability)
         for i in range(I):
             for j in range(J):
-                model.Add(x[i][j] <= a[i][j])
+                model.Add(x[i, j] <= a[i, j])
         
-        # Constraint 3: sum(x_ij) <= d_j for all j
+        # Constraint 3: sum(x_ij for i) <= d_j for all j (shift capacity)
         for j in range(J):
-            model.Add(sum(x[i][j] for i in range(I)) <= d[j])
+            model.Add(sum(x[i, j] for i in range(I)) <= d[j])
         
-        # Constraint 4: sum(x_ij) <= 3 * (1 - n_i) + n_i for all i
+        # Constraint 4: sum(x_ij for j) <= r_i for all i (max shifts per staff)
         for i in range(I):
-            model.Add(sum(x[i][j] for j in range(J)) <= 3 * (1 - n[i]) + n[i])
+            max_shifts = r[i]
+            model.Add(sum(x[i, j] for j in range(J)) <= max_shifts)
         
-        # Constraint 5: sum((1 - n_i) * x_ij) >= 1 for all j
+        # Constraint 5: At least one experienced staff per shift
         for j in range(J):
-            model.Add(sum((1 - n[i]) * x[i][j] for i in range(I)) >= 1)
+            experienced_staff_sum = sum((1 - n[i]) * x[i, j] for i in range(I))
+            model.Add(experienced_staff_sum >= 1)
         
+        # Add statistics for debugging and context
+        problem_stats = {
+            "assistants": I,
+            "shifts": J,
+            "total_shift_slots": I * J,
+            "total_availability": sum(a[i, j] for i in range(I) for j in range(J)),
+            "coverage_ratio": sum(a[i, j] for i in range(I) for j in range(J)) / (I * J) if I * J > 0 else 0
+        }
+        logger.info(f"Lab schedule statistics: {problem_stats}")
         
         # --- Solve the Model ---
         solver = cp_model.CpSolver()
@@ -1004,6 +1033,7 @@ def generate_lab_schedule(start_date=None, end_date=None):
             
             logger.info(f"Schedule generated successfully with status: {status}")
             
+            # Return format that exactly matches help_desk_schedule
             return {
                 "status": "success",
                 "schedule_id": schedule.id,
@@ -1031,12 +1061,12 @@ def generate_lab_schedule(start_date=None, end_date=None):
                 "message": message
             }
     except Exception as e:
+        db.session.rollback()
         logger.error(f"Error generating schedule: {e}")
         return {
             "status": "error",
             "message": str(e)
         }
-
 
 
 def generate_help_desk_schedule_pdf(schedule_data):

@@ -295,9 +295,15 @@ def generate_schedule_endpoint():
         elif user.role == 'lab':
             result = generate_lab_schedule(start_date, end_date)
         else:
-            result = generate_help_desk_schedule()
-        # Call the schedule generator
-        
+            return jsonify({
+                'status': 'error',
+                'message': 'Invalid admin role for schedule generation'
+            }), 400
+            
+        # Add the schedule type to the result for frontend reference
+        if result.get('status') == 'success':
+            result['schedule_type'] = user.role
+            
         return jsonify(result)
     
     except Exception as e:
@@ -342,14 +348,20 @@ def publish_schedule_with_sync(schedule_id):
 @schedule_views.route('/api/schedule/current', methods=['GET'])
 @jwt_required()
 def get_current_schedule_endpoint():
-    """Get the current schedule"""
+    """Get the current schedule based on admin role"""
     try:
-        print("Getting current schedule")
-        # Get the main schedule (id=1)
-        schedule = Schedule.query.get(1)
+        # Get user role and determine schedule type and ID
+        role = current_user.role
+        schedule_type = role  # 'helpdesk' or 'lab'
+        schedule_id = 1 if role == 'helpdesk' else 2
+        
+        print(f"Getting current {schedule_type} schedule (ID: {schedule_id})")
+        
+        # Get the appropriate schedule based on role
+        schedule = Schedule.query.filter_by(id=schedule_id, type=schedule_type).first()
         
         if not schedule:
-            print("No schedule found")
+            print(f"No {schedule_type} schedule found")
             return jsonify({'status': 'error', 'message': 'No schedule found'}), 404
         
         print(f"Found schedule: id={schedule.id}, start={schedule.start_date}, end={schedule.end_date}")
@@ -363,6 +375,7 @@ def get_current_schedule_endpoint():
             "schedule_id": schedule.id,
             "date_range": f"{schedule.start_date.strftime('%d %b')} - {schedule.end_date.strftime('%d %b, %Y')}",
             "is_published": schedule.is_published,
+            "type": schedule_type,  # Add the type for frontend reference
             "days": []
         }
         
