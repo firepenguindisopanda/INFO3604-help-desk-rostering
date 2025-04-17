@@ -1,9 +1,18 @@
 # Help Desk Rostering & Claiming Project
+
+## Overview
 The UWI DCIT Help Desk is currently managed manually, and our project aims to create a website that, with the help of a model, can generate the weekly schedules needed automate the other parts of Help Desk management.
 
 To achieve this goal, we created a framework that can accept an optimization model to generate schedules, this framework is made in such a way that different models can be swapped in and out to deal with different situations.
 
 Currently the Lab Assistant Sheduler model is also implemented, however only the schedule generation is set up for that at the moment.
+
+## Key Features
+- Automated schedule generation using optimization models.
+- Role-based access for admins and volunteers.
+- Time tracking with clock-in/clock-out functionality.
+- Notification system for shift approvals, missed shifts, etc.
+- PDF generation for attendance and schedule reports.
 
 ## The Help Desk Model
 This is currently the model that is being used for the Help Desk website:  
