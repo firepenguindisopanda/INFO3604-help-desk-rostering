@@ -84,6 +84,9 @@ Where:
 *x<sub>i,j</sub>* = 1 if staff *i* is assigned to shift *j*, 0 otherwise  
 *L* ∈ ℝ<sup>+</sup> the lowest sum of assigned preferences of any staff *i* over all sessions *j*  
 
+## Startup
+When the website is first opened you need to add /init to the url so the admin accounts are created, then you can login with the login info below.
+
 ## Login Information
 The following accounts are created on initialization:  
 
