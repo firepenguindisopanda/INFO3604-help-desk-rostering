@@ -260,16 +260,20 @@ function setDefaultDates() {
     // Calculate Monday of current week
     const monday = getMonday(today);
     
-    // Calculate Friday (Monday + 4 days)
-    const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
+    // Determine the current user role (helpdesk or lab)
+    const currentRole = document.querySelector('.schedule-header-helpdesk') ? 'helpdesk' : 'lab';
+    
+    // Calculate end date based on role (Friday for helpdesk, Saturday for lab)
+    const daysToAdd = currentRole === 'helpdesk' ? 4 : 5; // 4 days from Monday = Friday, 5 days = Saturday
+    const endDay = new Date(monday);
+    endDay.setDate(monday.getDate() + daysToAdd);
     
     // Log the calculated dates
-    console.log("Setting date range:", monday.toDateString(), "to", friday.toDateString());
+    console.log(`Setting date range for ${currentRole}:`, monday.toDateString(), "to", endDay.toDateString());
     
     // Set form values
     startDate.valueAsDate = monday;
-    endDate.valueAsDate = friday;
+    endDate.valueAsDate = endDay;
 }
 
 /**
@@ -346,55 +350,17 @@ function loadCurrentSchedule() {
         })
         .then(data => {
             loadingIndicator.style.display = 'none';
+            console.log("Received schedule data:", data);
             
             if (data.status === 'success' && data.schedule && data.schedule.schedule_id !== null) {
                 console.log(`Existing ${currentRole} schedule found, rendering:`, data.schedule);
                 
-                // Verify schedule type matches current role
-                if (data.schedule.type && data.schedule.type !== currentRole) {
-                    console.warn(`Schedule type mismatch! Expected ${currentRole} but got ${data.schedule.type}`);
-                }
-                
-                // FIX: Check the day alignment before rendering
-                if (data.schedule.days && data.schedule.days.length > 0) {
-                    // Debug the days array to see what's happening
-                    console.log("Days array:", data.schedule.days.map(d => d.day));
-                    
-                    // Make sure days are in correct order: Monday-Friday
-                    const correctOrder = currentRole === 'helpdesk' 
-                        ? ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-                        : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-                    const currentOrder = data.schedule.days.map(d => d.day);
-                    
-                    // Check if we need to reorder
-                    if (JSON.stringify(currentOrder) !== JSON.stringify(correctOrder)) {
-                        console.warn("Day order mismatch, fixing alignment");
-                        
-                        // Create a properly ordered days array
-                        const reorderedDays = [];
-                        for (const dayName of correctOrder) {
-                            const dayData = data.schedule.days.find(d => d.day === dayName);
-                            if (dayData) {
-                                reorderedDays.push(dayData);
-                            } else {
-                                // Create empty day if missing
-                                reorderedDays.push({
-                                    day: dayName,
-                                    date: "",
-                                    shifts: []
-                                });
-                            }
-                        }
-                        
-                        // Replace with corrected order
-                        data.schedule.days = reorderedDays;
-                    }
-                }
-                
                 // Now render with the fixed days array using the appropriate renderer
                 if (currentRole === 'helpdesk') {
+                    console.log("Rendering helpdesk schedule on page load");
                     renderSchedule(data.schedule.days);
                 } else {
+                    console.log("Rendering lab schedule on page load");
                     renderScheduleLab(data.schedule.days);
                 }
                 
@@ -538,6 +504,7 @@ function renderSchedule(days) {
 
 
 function renderScheduleLab(days) {
+    console.log("Rendering lab schedule with days:", days);
     const scheduleBodyLab = document.getElementById('scheduleBodyLab');
     if (!scheduleBodyLab) {
         console.error("Lab schedule body element not found!");
@@ -547,7 +514,7 @@ function renderScheduleLab(days) {
     
     scheduleBodyLab.innerHTML = '';
     
-    // Lab schedules have 3 time slots per day instead of hourly
+    // Lab schedules have 3 time slots per day
     const timeSlots = ["8:00 am - 12:00 pm", "12:00 pm - 4:00 pm", "4:00 pm - 8:00 pm"];
     
     // Create a row for each time slot
@@ -572,13 +539,30 @@ function renderScheduleLab(days) {
             cell.setAttribute('data-time', timeSlot);
             cell.setAttribute('data-id', cellId);
             
-            // Get shift data for this cell if it exists
-            // For lab schedules, we need to match to the correct time range
-            let shift = null;
-            if (day.shifts && day.shifts.length > 0) {
-                // Find shift that starts at either 8am, 12pm, or 4pm based on timeIndex
-                const hourToFind = timeIndex === 0 ? 8 : timeIndex === 1 ? 12 : 16;
-                shift = day.shifts.find(s => s.hour === hourToFind);
+            // First, build a mapping from time slot index to shift
+            let shiftForThisTimeSlot = null;
+            
+            if (day.shifts && Array.isArray(day.shifts)) {
+                // Method 1: Direct index matching (if shifts are ordered by time)
+                if (day.shifts[timeIndex]) {
+                    shiftForThisTimeSlot = day.shifts[timeIndex];
+                }
+                
+                // Method 2: Try to find by hour property
+                if (!shiftForThisTimeSlot) {
+                    const hourToFind = timeIndex === 0 ? 8 : timeIndex === 1 ? 12 : 16;
+                    shiftForThisTimeSlot = day.shifts.find(s => s.hour === hourToFind);
+                }
+                
+                // Method 3: Try to find by time string if available
+                if (!shiftForThisTimeSlot) {
+                    const timeMatch = timeIndex === 0 ? "8:00" : 
+                                     timeIndex === 1 ? "12:00" : "4:00";
+                    shiftForThisTimeSlot = day.shifts.find(s => 
+                        (s.time && s.time.includes(timeMatch)) || 
+                        (s.start_time && s.start_time.includes(timeMatch))
+                    );
+                }
             }
             
             const staffContainer = document.createElement('div');
@@ -588,12 +572,14 @@ function renderScheduleLab(days) {
             const staffIndicator = document.createElement('div');
             staffIndicator.className = 'staff-slot-indicator';
             
-            if (shift && shift.assistants && shift.assistants.length > 0) {
-                staffIndicator.textContent = `Staff: ${shift.assistants.length}/3`;
+            if (shiftForThisTimeSlot && shiftForThisTimeSlot.assistants && shiftForThisTimeSlot.assistants.length > 0) {
+                staffIndicator.textContent = `Staff: ${shiftForThisTimeSlot.assistants.length}/3`;
                 
                 // Add each staff member
-                shift.assistants.forEach(assistant => {
-                    addStaffToContainer(staffContainer, assistant.username, assistant.name);
+                shiftForThisTimeSlot.assistants.forEach(assistant => {
+                    const staffId = assistant.id || assistant.username || assistant.user_id;
+                    const staffName = assistant.name || staffId;
+                    addStaffToContainer(staffContainer, staffId, staffName);
                 });
             } else {
                 staffIndicator.textContent = 'Staff: 0/3';
@@ -611,7 +597,7 @@ function renderScheduleLab(days) {
             };
             
             // Only add the button if there's room for more staff
-            if (!shift || !shift.assistants || shift.assistants.length < 3) {
+            if (!shiftForThisTimeSlot || !shiftForThisTimeSlot.assistants || shiftForThisTimeSlot.assistants.length < 3) {
                 staffContainer.appendChild(addButton);
             }
             
@@ -624,7 +610,7 @@ function renderScheduleLab(days) {
     
     // After rendering is complete, attach events to all remove buttons
     document.querySelectorAll('.remove-staff').forEach(button => {
-        button.removeEventListener('click', handleStaffRemoval); // Remove any existing handlers
+        button.removeEventListener('click', handleStaffRemoval);
         button.addEventListener('click', handleStaffRemoval);
     });
 }
@@ -639,6 +625,11 @@ function initializeGenerateButton() {
     const saveBtn = document.getElementById('saveSchedule');
     const loadingIndicator = document.getElementById('loadingIndicator');
   
+    if (!generateBtn) {
+        console.error("Generate button not found");
+        return;
+    }
+    
     // Make save button always visible
     if (saveBtn) {
         saveBtn.style.display = 'block';
@@ -646,6 +637,7 @@ function initializeGenerateButton() {
     
     // Determine the current user role (helpdesk or lab)
     const currentRole = document.querySelector('.schedule-header-helpdesk') ? 'helpdesk' : 'lab';
+    console.log(`Initialize button for ${currentRole} role`);
 
     generateBtn.addEventListener('click', function() {
         // Show loading indicator
@@ -655,7 +647,9 @@ function initializeGenerateButton() {
         const startDate = document.getElementById('startDate').value;
         const endDate = document.getElementById('endDate').value;
         
-        // Call the schedule generation API
+        console.log(`Generating ${currentRole} schedule for dates ${startDate} to ${endDate}`);
+        
+        // STEP 1: Generate the schedule
         fetch('/api/schedule/generate', {
             method: 'POST',
             headers: {
@@ -667,6 +661,7 @@ function initializeGenerateButton() {
             })
         })
         .then(response => {
+            console.log(`Got response from generate endpoint: ${response.status}`);
             if (!response.ok) {
                 return response.json().then(errorData => {
                     throw new Error(errorData.message || 'Failed to generate schedule.');
@@ -675,26 +670,61 @@ function initializeGenerateButton() {
             return response.json();
         })
         .then(data => {
-            loadingIndicator.style.display = 'none';
+            console.log(`Schedule generation results:`, data);
             
             if (data.status === 'success') {
-                // Load the schedule data after successful generation
-                loadScheduleData(data.schedule_id);
+                const scheduleId = data.schedule_id;
+                
+                // Set the schedule ID on the save button
+                if (saveBtn) {
+                    saveBtn.setAttribute('data-schedule-id', scheduleId);
+                }
                 
                 // Show success message
                 showNotification('Schedule generated successfully', 'success');
                 
-                // Set the schedule ID on the save button
-                if (saveBtn) {
-                    saveBtn.setAttribute('data-schedule-id', data.schedule_id);
+                // STEP 2: CRITICAL FIX - Force a direct page reload
+                // This ensures the schedule is properly loaded with fresh data
+                if (currentRole === 'lab') {
+                    console.log("Lab schedule generated - reloading page to ensure proper rendering");
+                    window.location.reload();
+                    return;
                 }
+                
+                // For helpdesk, continue with the normal flow (fetch and render)
+                console.log(`Fetching schedule details for ID: ${scheduleId}`);
+                return fetch(`/api/schedule/details?id=${scheduleId}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch schedule details.');
+                        }
+                        return response.json();
+                    })
+                    .then(scheduleData => {
+                        loadingIndicator.style.display = 'none';
+                        
+                        if (scheduleData.status === 'success') {
+                            console.log(`Successfully fetched ${currentRole} schedule:`, scheduleData.schedule);
+                            
+                            // Render the appropriate schedule
+                            if (currentRole === 'helpdesk') {
+                                console.log("Rendering helpdesk schedule");
+                                renderSchedule(scheduleData.schedule.days);
+                            } else {
+                                console.log("Rendering lab schedule");
+                                renderScheduleLab(scheduleData.schedule.days);
+                            }
+                        } else {
+                            throw new Error(`Failed to load schedule: ${scheduleData.message}`);
+                        }
+                    });
             } else {
-                showNotification(`Failed to generate schedule: ${data.message}`, 'error');
+                throw new Error(`Failed to generate schedule: ${data.message}`);
             }
         })
         .catch(error => {
             loadingIndicator.style.display = 'none';
-            console.error('Error generating schedule:', error);
+            console.error('Error generating or loading schedule:', error);
             showNotification(`An error occurred: ${error.message || 'Unknown error'}`, 'error');
         });
     });
@@ -713,9 +743,18 @@ function saveScheduleChanges() {
     const loadingIndicator = document.getElementById('loadingIndicator');
     loadingIndicator.style.display = 'flex';
     
+    // Determine current role
+    const currentRole = document.querySelector('.schedule-header-helpdesk') ? 'helpdesk' : 'lab';
+    
+    // Get the appropriate schedule body element based on role
+    const scheduleCells = document.querySelectorAll(currentRole === 'helpdesk' ? 
+        '#scheduleBodyHelpDesk .schedule-cell' : 
+        '#scheduleBodyLab .schedule-cell');
+    
+    console.log(`Found ${scheduleCells.length} schedule cells for ${currentRole} schedule`);
+    
     // Collect ALL shift cells, including those with no staff assigned
     const assignments = [];
-    const scheduleCells = document.querySelectorAll('.schedule-cell');
     
     scheduleCells.forEach(cell => {
         // Get day and time data
@@ -768,7 +807,8 @@ function saveScheduleChanges() {
     const payload = {
         start_date: startDate,
         end_date: endDate,
-        assignments: assignments
+        assignments: assignments,
+        schedule_type: currentRole // Add schedule type to payload
     };
     
     console.log("Sending save request with payload:", payload);
@@ -801,6 +841,13 @@ function saveScheduleChanges() {
                 document.querySelectorAll('[data-schedule-id]').forEach(elem => {
                     elem.setAttribute('data-schedule-id', data.schedule_id);
                 });
+            }
+            
+            // For lab schedules, reload the page to ensure consistent view
+            if (currentRole === 'lab') {
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500); // Delay the reload a bit to show the success message
             }
         } else {
             console.error("Failed to save schedule:", data);
@@ -1861,11 +1908,19 @@ function clearSchedule() {
     const loadingIndicator = document.getElementById('loadingIndicator');
     loadingIndicator.style.display = 'flex';
     
+    // Determine the current role
+    const currentRole = document.querySelector('.schedule-header-helpdesk') ? 'helpdesk' : 'lab';
+    const scheduleId = currentRole === 'helpdesk' ? 1 : 2; // Helpdesk = 1, Lab = 2
+    
     fetch('/api/schedule/clear', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-        }
+        },
+        body: JSON.stringify({
+            schedule_type: currentRole,
+            schedule_id: scheduleId
+        })
     })
     .then(response => {
         if (!response.ok) {
@@ -1881,15 +1936,30 @@ function clearSchedule() {
         if (data.status === 'success') {
             showNotification('Schedule cleared successfully', 'success');
             
-            // Clear the schedule display
-            const scheduleBodyHelpDesk = document.getElementById('scheduleBodyHelpDesk');
-            scheduleBodyHelpDesk.innerHTML = `
-                <tr>
-                    <td colspan="6" class="empty-schedule">
-                        <p>No schedule generated yet. Click "Generate Schedule" to create a new schedule.</p>
-                    </td>
-                </tr>
-            `;
+            // Clear the appropriate schedule body based on role
+            if (currentRole === 'helpdesk') {
+                const scheduleBody = document.getElementById('scheduleBodyHelpDesk');
+                if (scheduleBody) {
+                    scheduleBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="empty-schedule">
+                                <p>No schedule generated yet. Click "Generate Schedule" to create a new schedule.</p>
+                            </td>
+                        </tr>
+                    `;
+                }
+            } else {
+                const scheduleBody = document.getElementById('scheduleBodyLab');
+                if (scheduleBody) {
+                    scheduleBody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="empty-schedule">
+                                <p>No schedule generated yet. Click "Generate Schedule" to create a new schedule.</p>
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
             
             // Clear any cached data in the UI
             if (window.availabilityCache) {
@@ -1900,10 +1970,6 @@ function clearSchedule() {
             document.querySelectorAll('[data-schedule-id]').forEach(elem => {
                 elem.removeAttribute('data-schedule-id');
             });
-            
-            // Force reload of the page to ensure everything is fresh
-            // Uncomment this if needed:
-            // window.location.reload();
         } else {
             showNotification(`Failed to clear schedule: ${data.message}`, 'error');
         }

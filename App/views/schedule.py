@@ -7,7 +7,8 @@ from App.controllers.schedule import (
     publish_schedule,
     get_current_schedule,
     publish_and_notify,
-    clear_schedule
+    clear_schedule,
+    get_schedule_data
 )
 from App.models import Schedule, Shift, Allocation, Student
 from App.database import db
@@ -40,7 +41,11 @@ def save_schedule():
         end_date_str = data.get('end_date')
         assignments = data.get('assignments', [])
         
-        print(f"Save request: start={start_date_str}, end={end_date_str}, assignments={len(assignments)}")
+        # Determine schedule type and ID
+        schedule_type = data.get('schedule_type', current_user.role)
+        schedule_id = 2 if schedule_type == 'lab' else 1
+        
+        print(f"Save request: type={schedule_type}, id={schedule_id}, start={start_date_str}, end={end_date_str}, assignments={len(assignments)}")
         
         # Validate
         if not start_date_str or not end_date_str:
@@ -59,16 +64,18 @@ def save_schedule():
                 'message': 'Invalid date format. Use YYYY-MM-DD.'
             }), 400
             
-        # Get or create the main schedule
-        schedule = Schedule.query.get(1)
+        # Get or create the schedule based on type
+        schedule = Schedule.query.get(schedule_id)
         if not schedule:
-            print("Creating new main schedule")
-            schedule = Schedule(1, start_date, end_date)
+            print(f"Creating new {schedule_type} schedule with ID {schedule_id}")
+            schedule = Schedule(schedule_id, start_date, end_date, type=schedule_type)
             db.session.add(schedule)
         else:
-            print(f"Updating existing schedule: id={schedule.id}")
+            print(f"Updating existing {schedule_type} schedule: id={schedule.id}")
             schedule.start_date = start_date
             schedule.end_date = end_date
+            if hasattr(schedule, 'type'):
+                schedule.type = schedule_type
             db.session.add(schedule)
             
         db.session.flush()
@@ -102,39 +109,84 @@ def save_schedule():
             print(f"Processing assignment: day={day}, time={time_str}, staff={len(staff_list)}")
                 
             # Convert day name to index (0=Monday, 1=Tuesday, etc.)
-            day_map = {'MON': 0, 'TUE': 1, 'WED': 2, 'THUR': 3, 'FRI': 4, 
-                       'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4}
+            # Include Saturday for lab schedules
+            day_map = {
+                'MON': 0, 'TUE': 1, 'WED': 2, 'THUR': 3, 'FRI': 4, 'SAT': 5,
+                'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5
+            }
             day_idx = day_map.get(day, 0)
             
             # Calculate shift date based on start_date and day index
             shift_date = start_date + timedelta(days=day_idx)
             
-            # Parse shift time
+            # Parse shift time based on schedule type
             try:
-                # Time format is like "9:00 am" or "9:00 - 10:00"
-                if '-' in time_str:
-                    # Format is "9:00 - 10:00"
-                    start_time_str = time_str.split('-')[0].strip()
+                # For lab schedules, handle time ranges differently (8:00 am - 12:00 pm)
+                if schedule_type == 'lab':
+                    # Time format is like "8:00 am - 12:00 pm"
+                    if '-' in time_str:
+                        parts = time_str.split('-')
+                        start_time_str = parts[0].strip().lower()
+                        end_time_str = parts[1].strip().lower()
+                        
+                        # Extract start hour
+                        if 'am' in start_time_str:
+                            start_time_str = start_time_str.replace('am', '').strip()
+                        elif 'pm' in start_time_str:
+                            start_time_str = start_time_str.replace('pm', '').strip()
+                            
+                        hour = int(start_time_str.split(':')[0])
+                        
+                        # Adjust hour for PM if needed (but not for 12pm)
+                        if 'pm' in time_str.lower() and hour < 12:
+                            hour += 12
+                            
+                        # Calculate end time from the string
+                        if 'am' in end_time_str:
+                            end_time_str = end_time_str.replace('am', '').strip()
+                        elif 'pm' in end_time_str:
+                            end_time_str = end_time_str.replace('pm', '').strip()
+                            
+                        end_hour = int(end_time_str.split(':')[0])
+                        
+                        # Adjust end hour for PM if needed
+                        if 'pm' in parts[1].lower() and end_hour < 12:
+                            end_hour += 12
+                            
+                        # Calculate duration in hours
+                        duration = end_hour - hour
+                    else:
+                        # Default to 4-hour shifts if format is unexpected
+                        hour = 8 if '8:00' in time_str else (12 if '12:00' in time_str else 16)
+                        duration = 4
                 else:
-                    # Format is "9:00 am"
-                    start_time_str = time_str
-                
-                # Remove am/pm and just get the hour
-                start_time_str = start_time_str.lower()
-                if 'am' in start_time_str:
-                    start_time_str = start_time_str.replace('am', '').strip()
-                elif 'pm' in start_time_str:
-                    start_time_str = start_time_str.replace('pm', '').strip()
-                
-                # Extract hour
-                hour = int(start_time_str.split(':')[0])
-                
-                # Adjust hour for PM if needed (but not for 12pm)
-                if 'pm' in time_str.lower() and hour < 12:
-                    hour += 12
+                    # For helpdesk, handle hourly shifts (original code)
+                    if '-' in time_str:
+                        # Format is "9:00 - 10:00"
+                        start_time_str = time_str.split('-')[0].strip()
+                    else:
+                        # Format is "9:00 am"
+                        start_time_str = time_str
+                    
+                    # Remove am/pm and just get the hour
+                    start_time_str = start_time_str.lower()
+                    if 'am' in start_time_str:
+                        start_time_str = start_time_str.replace('am', '').strip()
+                    elif 'pm' in start_time_str:
+                        start_time_str = start_time_str.replace('pm', '').strip()
+                    
+                    # Extract hour
+                    hour = int(start_time_str.split(':')[0])
+                    
+                    # Adjust hour for PM if needed (but not for 12pm)
+                    if 'pm' in time_str.lower() and hour < 12:
+                        hour += 12
+                        
+                    # Set duration to 1 hour for helpdesk
+                    duration = 1
                     
                 # Log parsed time details
-                print(f"Parsed time: original='{time_str}', extracted hour={hour}")
+                print(f"Parsed time: original='{time_str}', extracted hour={hour}, duration={duration}")
                 
                 # Create lookup key for existing shifts
                 shift_key = f"{shift_date.strftime('%Y-%m-%d')}_{hour}"
@@ -146,7 +198,7 @@ def save_schedule():
                 if not shift:
                     print(f"Creating new shift for {shift_key}")
                     shift_start = datetime.combine(shift_date.date(), datetime.min.time().replace(hour=hour, minute=0))
-                    shift_end = shift_start + timedelta(hours=1)
+                    shift_end = shift_start + timedelta(hours=duration)
                     
                     shift = Shift(shift_date, shift_start, shift_end, schedule.id)
                     db.session.add(shift)
@@ -155,6 +207,12 @@ def save_schedule():
                     shift_lookup[shift_key] = shift
                 else:
                     print(f"Using existing shift {shift.id} for {shift_key}")
+                    
+                    # Update shift end time if duration has changed
+                    current_duration = (shift.end_time - shift.start_time).total_seconds() / 3600
+                    if current_duration != duration:
+                        shift.end_time = shift.start_time + timedelta(hours=duration)
+                        db.session.add(shift)
                 
                 # Track this shift as processed
                 processed_shift_ids.add(shift.id)
@@ -203,12 +261,13 @@ def save_schedule():
         # Commit changes
         db.session.commit()
         
-        print(f"Schedule saved successfully with {successful_assignments} assignments")
+        print(f"{schedule_type.capitalize()} schedule saved successfully with {successful_assignments} assignments")
         
         return jsonify({
             'status': 'success',
-            'message': 'Schedule saved successfully',
+            'message': f'{schedule_type.capitalize()} schedule saved successfully',
             'schedule_id': schedule.id,
+            'schedule_type': schedule_type,
             'assignments_saved': successful_assignments,
             'shifts_cleared': len(unprocessed_shifts)
         })
@@ -289,6 +348,9 @@ def generate_schedule_endpoint():
         if end_date_str:
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
         
+        # Log details about the request
+        print(f"Generating {user.role} schedule from {start_date} to {end_date}")
+        
         # Filter students based on admin role
         if user.role == 'helpdesk':
             result = generate_help_desk_schedule(start_date, end_date)
@@ -300,6 +362,9 @@ def generate_schedule_endpoint():
                 'message': 'Invalid admin role for schedule generation'
             }), 400
             
+        # Log the result
+        print(f"Schedule generation result: {result}")
+        
         # Add the schedule type to the result for frontend reference
         if result.get('status') == 'success':
             result['schedule_type'] = user.role
@@ -307,6 +372,8 @@ def generate_schedule_endpoint():
         return jsonify(result)
     
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'status': 'error',
             'message': str(e)
@@ -326,8 +393,14 @@ def publish_schedule_endpoint(schedule_id):
 def clear_schedule_endpoint():
     """Clear the entire schedule from the database"""
     try:
+        # Get data from request body
+        data = request.json or {}
+        
+        # Get schedule ID (default to 1 for helpdesk if not specified)
+        schedule_id = data.get('schedule_id', 1)
+        
         # Call the controller function to clear the schedule
-        result = clear_schedule()
+        result = clear_schedule()  # This function now handles the schedule ID
         return jsonify(result)
     
     except Exception as e:
@@ -780,14 +853,34 @@ def check_staff_availability():
 def download_schedule_pdf():
     """Generate and download current schedule as PDF"""
     try:
+        # Determine the schedule type from user role
+        schedule_type = current_user.role
+        
+        # Determine the schedule ID based on type
+        schedule_id = 2 if schedule_type == 'lab' else 1
+        
+        print(f"Generating PDF for {schedule_type} schedule (ID: {schedule_id})")
+        
+        # Get the schedule data based on correct schedule_id
+        schedule = Schedule.query.get(schedule_id)
+        if not schedule:
+            return jsonify({
+                'status': 'error',
+                'message': f'No {schedule_type} schedule found'
+            }), 404
+            
         # Get the current schedule data
-        schedule_data = get_current_schedule()
+        # We need to modify get_current_schedule to accept a schedule_id parameter
+        schedule_data = get_schedule_data(schedule_id)
         
         if not schedule_data:
             return jsonify({
                 'status': 'error',
-                'message': 'No schedule found'
+                'message': 'Failed to load schedule data'
             }), 404
+        
+        # Explicitly set the schedule type
+        schedule_data['type'] = schedule_type
         
         # Create a temporary HTML file
         with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as f:
@@ -817,9 +910,9 @@ def download_schedule_pdf():
         pdf_bytes = BytesIO(pdf)
         pdf_bytes.seek(0)
         
-        # Generate a filename with current date
-        from datetime import datetime
-        filename = f"help_desk_schedule_{datetime.now().strftime('%Y-%m-%d')}.pdf"
+        # Generate a filename with current date and type
+        schedule_name = "lab_schedule" if schedule_type == "lab" else "help_desk_schedule"
+        filename = f"{schedule_name}_{datetime.now().strftime('%Y-%m-%d')}.pdf"
         
         # Send the PDF file
         return send_file(
