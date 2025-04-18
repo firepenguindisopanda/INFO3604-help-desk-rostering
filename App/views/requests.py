@@ -24,6 +24,8 @@ from App.controllers.password_reset import (
 )
 import os
 from datetime import datetime
+from App.models import RegistrationRequest
+
 
 requests_views = Blueprint('requests_views', __name__, template_folder='../templates')
 
@@ -220,8 +222,7 @@ def reject_registration_endpoint(registration_id):
 @admin_required
 def download_transcript(registration_id):
     """Download a transcript file for a registration request"""
-    from App.models import RegistrationRequest
-    import os
+
     
     registration = RegistrationRequest.query.get(registration_id)
     if not registration or not registration.transcript_path:

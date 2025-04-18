@@ -1,5 +1,6 @@
 from sqlalchemy import text
 from werkzeug.security import generate_password_hash
+from werkzeug.utils import secure_filename
 from App.models import RegistrationRequest, RegistrationCourse, Student, User, HelpDeskAssistant, CourseCapability, Notification, Availability
 from App.database import db
 from App.controllers.user import create_user
@@ -42,7 +43,7 @@ def create_registration_request(username, name, email, degree, reason=None, phon
         # Handle transcript file upload
         transcript_path = None
         if transcript_file and transcript_file.filename:
-            from werkzeug.utils import secure_filename
+            
             filename = secure_filename(transcript_file.filename)
             timestamp = trinidad_now().strftime('%Y%m%d%H%M%S')
             filename = f"{username}_{timestamp}_{filename}"
@@ -59,7 +60,7 @@ def create_registration_request(username, name, email, degree, reason=None, phon
         
         # Handle profile picture file upload
         profile_picture_path = None
-        from werkzeug.utils import secure_filename
+        
         filename = secure_filename(profile_picture_file.filename)
         timestamp = trinidad_now().strftime('%Y%m%d%H%M%S')
         filename = f"{username}_{timestamp}_{filename}"

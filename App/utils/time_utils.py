@@ -6,31 +6,25 @@ def trinidad_now():
     Note: This returns a 'naive' datetime object (no explicit timezone info attached).
     For timezone-aware objects, consider using timezone/zoneinfo.
     """
-    # 1. Get the current time in UTC
-    utc_now = datetime.utcnow() # Or datetime.now(timezone.utc) for aware object
+    utc_now = datetime.utcnow() 
 
-    # 2. Define the offset for Trinidad (UTC-4)
     trinidad_offset = timedelta(hours=-4)
 
-    # 3. Apply the offset to the UTC time
     trinidad_time_now = utc_now + trinidad_offset
 
-    # 4. Return the calculated time
     return trinidad_time_now
 
-# Your other functions seem logically correct for naive datetime conversion:
+
 def convert_to_trinidad_time(utc_time):
     """
     Converts a naive UTC datetime object to naive Trinidad time (UTC-4)
     """
     if utc_time is None:
         return None
-    # Ensure input is naive if mixing aware/naive (or handle appropriately)
+
     if utc_time.tzinfo is not None:
-         # Decide how to handle aware datetime input. Convert to UTC naive? Raise error?
-         # Example: Convert aware time to naive UTC before applying offset
          utc_time = utc_time.astimezone(timezone.utc).replace(tzinfo=None)
-         # Or raise ValueError("Input utc_time should be naive")
+ 
 
     trinidad_offset = timedelta(hours=-4)  # UTC-4
     return utc_time + trinidad_offset
@@ -43,22 +37,17 @@ def convert_to_utc(trinidad_time):
         return None
     # Ensure input is naive
     if trinidad_time.tzinfo is not None:
-        # Decide how to handle aware datetime input. Treat as UTC-4? Raise error?
-        # Example: Assume it's already UTC-4 aware, convert to UTC aware, then make naive
-        # fixed_offset = timezone(timedelta(hours=-4))
-        # utc_time = trinidad_time.astimezone(timezone.utc).replace(tzinfo=None)
-        # return utc_time
          raise ValueError("Input trinidad_time should be naive")
 
 
     utc_offset = timedelta(hours=4)  # UTC+4 (to reverse UTC-4)
     return trinidad_time + utc_offset
 
-# --- Example Usage ---
+
 now_in_trinidad = trinidad_now()
 print(f"Current time in Trinidad (naive UTC-4): {now_in_trinidad}")
 
-# Example conversion
+
 some_utc_time = datetime.utcnow()
 print(f"Original UTC time: {some_utc_time}")
 
@@ -72,13 +61,9 @@ print(f"Converted back to UTC: {converted_back_to_utc}")
 time_difference = abs(some_utc_time - converted_back_to_utc)
 print(f"Difference after round trip: {time_difference}")
 
-# --- Note on Timezone Aware Objects (Recommended Practice) ---
-# Using timezone objects is generally better as it avoids ambiguity.
-# Requires Python 3.9+ and 'tzdata' package for zoneinfo, or use 'pytz' package.
 
-# Example using timezone (Python 3.2+) or zoneinfo (Python 3.9+)
 try:
-    # Preferred way using zoneinfo (Python 3.9+)
+
     import zoneinfo
     trinidad_tz = zoneinfo.ZoneInfo("America/Port_of_Spain")
 except (ImportError, zoneinfo.ZoneInfoNotFoundError):

@@ -504,15 +504,7 @@ def add_course_demand_to_shift(shift_id, course_code, tutors_required=2, weight=
 
 
 def get_course_demands_for_shift(shift_id):
-    """
-    Get course demands for a shift using text() SQL
-    
-    Args:
-        shift_id: ID of the shift
-        
-    Returns:
-        List of dictionaries with course demand information
-    """
+
     try:
         # Use text() for SQL queries to avoid the error
         result = db.session.execute(
@@ -536,13 +528,7 @@ def get_course_demands_for_shift(shift_id):
 
 
 def sync_schedule_data():
-    """
-    Ensure schedule data is synced between admin and volunteer views.
-    This ensures both views are looking at the same database information.
-    
-    Returns:
-        bool: True if successful, False otherwise
-    """
+
     try:
         # The main schedule is stored with ID 1
         schedule = Schedule.query.get(1)
@@ -588,16 +574,7 @@ def sync_schedule_data():
 
 
 def publish_and_notify(schedule_id):
-    """
-    Publish the schedule and notify all assigned staff.
-    Also ensures data is synced between admin and volunteer views.
-    
-    Args:
-        schedule_id: ID of the schedule to publish
-        
-    Returns:
-        dict: Result of the operation
-    """
+
     try:
         # First publish the schedule
         result = publish_schedule(schedule_id)
@@ -668,15 +645,7 @@ def get_assistants_for_shift(shift_id):
 
 
 def clear_schedule_by_id(schedule_id):
-    """
-    Clear a specific schedule by ID, removing all shifts, allocations, and course demands.
-    
-    Args:
-        schedule_id: ID of the schedule to clear
-    
-    Returns:
-        Dictionary with operation status
-    """
+
     try:
         # Get the schedule
         schedule = Schedule.query.get(schedule_id)
@@ -741,13 +710,7 @@ def clear_schedule_by_id(schedule_id):
 
 
 def clear_schedule():
-    """
-    Clear the entire schedule, removing all shifts, allocations, and course demands.
-    Uses direct database operations to ensure complete removal.
-    
-    Returns:
-        Dictionary with operation status
-    """
+
     try:
         # Get the main schedule
         schedule = Schedule.query.get(1)
@@ -809,7 +772,7 @@ def clear_schedule():
         }
 
 def get_schedule_data(schedule_id):
-    """Get formatted schedule data for a specific schedule ID"""
+
     try:
         # Get the schedule
         schedule = Schedule.query.get(schedule_id)

@@ -285,12 +285,7 @@ function loadNotifications() {
     });
 }
 
-/**
- * Display a notification message to the user
- * @param {string} message - Message to display
- * @param {string} type - Message type: 'success', 'error', 'info' or 'warning'
- * @param {number} duration - How long to display the message (in ms)
- */
+
 function showNotification(message, type = 'info', duration = 5000) {
   // Remove any existing notifications
   const existingNotifications = document.querySelectorAll('.notification-message');

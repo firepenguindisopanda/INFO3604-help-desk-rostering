@@ -1,5 +1,3 @@
-// App/static/js/admin-schedule.js
-
 // ==============================
 // INITIALIZATION AND SETUP
 // ==============================
@@ -130,8 +128,7 @@ function showNotification(message, type = 'info') {
     }, 5000);
   }
 
-// Update styles to make the highlighting more distinct
-// Update styles to make the highlighting more distinct
+
 function addAvailabilityStyles() {
     const style = document.createElement('style');
     style.textContent = `
@@ -276,11 +273,7 @@ function setDefaultDates() {
     endDate.valueAsDate = endDay;
 }
 
-/**
- * Helper function to get Monday of the week containing the specified date
- * @param {Date} date - The reference date
- * @return {Date} - Monday of the same week
- */
+
 function getMonday(date) {
     const day = date.getDay();
     const monday = new Date(date);
@@ -648,8 +641,7 @@ function initializeGenerateButton() {
         const endDate = document.getElementById('endDate').value;
         
         console.log(`Generating ${currentRole} schedule for dates ${startDate} to ${endDate}`);
-        
-        // STEP 1: Generate the schedule
+
         fetch('/api/schedule/generate', {
             method: 'POST',
             headers: {
@@ -683,8 +675,6 @@ function initializeGenerateButton() {
                 // Show success message
                 showNotification('Schedule generated successfully', 'success');
                 
-                // STEP 2: CRITICAL FIX - Force a direct page reload
-                // This ensures the schedule is properly loaded with fresh data
                 if (currentRole === 'lab') {
                     console.log("Lab schedule generated - reloading page to ensure proper rendering");
                     window.location.reload();
@@ -1032,10 +1022,6 @@ function updateStaffCounter(cell) {
 // DRAG AND DROP FUNCTIONALITY
 // ==============================
 
-/**
- * Highlight all cells based on staff availability
- * @param {string} staffId - ID of the staff member being dragged
- */
 function highlightAllCellsForStaff(staffId) {
     if (!staffId) return;
     
@@ -1467,14 +1453,8 @@ function clearAllCellHighlights() {
     });
 }
 
-/**
- * Highlight all schedule cells based on staff availability
- * @param {string} staffId - ID of the staff being dragged
- */
-// Add this function to run on page load to get the drag and drop feel faster
+
 function prefetchCommonAvailabilityData() {
-    // We'll perform a quick prefetch of availability data for common staff
-    // This will make the drag and drop feel more responsive
     
     // Get all staff currently in the schedule
     const staffIds = new Set();

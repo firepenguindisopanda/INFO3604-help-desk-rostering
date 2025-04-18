@@ -1,5 +1,3 @@
-// Volunteer Requests Page JavaScript
-
 document.addEventListener('DOMContentLoaded', function() {
   // Initialize form validation
   initializeFormValidation();

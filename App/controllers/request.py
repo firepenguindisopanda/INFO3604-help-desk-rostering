@@ -10,6 +10,9 @@ from App.controllers.notification import (
     Notification
 )
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
+from App.models import Allocation, Shift
+from datetime import datetime, timedelta
+from App.models import HelpDeskAssistant
 
 def get_all_requests():
     """Get all requests grouped by student"""
@@ -190,8 +193,6 @@ def cancel_request(request_id, username):
 
 def get_available_shifts_for_student(username):
     """Get shifts the student is assigned to for creating requests"""
-    from App.models import Allocation, Shift
-    from datetime import datetime, timedelta
     
     # Get future allocations for this student (next 2 weeks)
     now = trinidad_now()
@@ -228,7 +229,6 @@ def get_available_shifts_for_student(username):
 
 def get_available_replacements(username):
     """Get potential replacement assistants"""
-    from App.models import HelpDeskAssistant
     
     # Get all active assistants except the current user
     assistants = db.session.query(Student, HelpDeskAssistant).join(

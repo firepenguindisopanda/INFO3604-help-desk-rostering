@@ -19,6 +19,16 @@ import os
 import json
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 from datetime import datetime, timedelta, time
+from App.controllers.tracking import check_and_complete_abandoned_entry
+from App.controllers.dashboard import get_dashboard_data
+from App.controllers.tracking import auto_complete_time_entries
+from App.controllers.tracking import get_student_stats
+from App.controllers.request import (
+    get_student_requests,
+    get_available_shifts_for_student,
+    get_available_replacements
+)
+from App.controllers.request import create_student_request
 
 volunteer_views = Blueprint('volunteer_views', __name__, template_folder='../templates')
 
@@ -29,13 +39,10 @@ def dashboard():
     # Get current user's username
     username = current_user.username
     
-    # Check for abandoned time entries and auto-complete them
-    from App.controllers.tracking import check_and_complete_abandoned_entry
+
+
     check_and_complete_abandoned_entry(username)
-    
-    # Import the dashboard data controller functions
-    from App.controllers.dashboard import get_dashboard_data
-    
+
     # Get all the data needed for the dashboard (with the latest published schedule)
     dashboard_data = get_dashboard_data(username)
     
@@ -68,7 +75,7 @@ def time_tracking():
     username = current_user.username
     
     # Auto-complete any expired sessions first
-    from App.controllers.tracking import auto_complete_time_entries
+
     auto_complete_time_entries()
     
     # Get student stats
@@ -266,7 +273,7 @@ def profile():
             print(f"Error processing availability {avail.id}: {e}")
     
     # Get stats
-    from App.controllers.tracking import get_student_stats
+
     stats = get_student_stats(username) or {
         'daily': {'hours': 0, 'date': trinidad_now().strftime('%Y-%m-%d')},
         'weekly': {'hours': 0, 'start_date': (trinidad_now() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'), 'end_date': trinidad_now().strftime('%Y-%m-%d')},
@@ -512,13 +519,7 @@ def get_courses():
 @jwt_required()
 @volunteer_required
 def requests():
-    # Use the real controller to get the user's requests
-    from App.controllers.request import (
-        get_student_requests,
-        get_available_shifts_for_student,
-        get_available_replacements
-    )
-    
+
     username = current_user.username
     
     # Get the student's requests
@@ -547,7 +548,7 @@ def requests():
 @volunteer_required
 def submit_request():
     """Submit a new shift change request"""
-    from App.controllers.request import create_student_request
+
     
     data = request.form
     

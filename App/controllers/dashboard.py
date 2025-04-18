@@ -5,6 +5,8 @@ from App.models import Student, HelpDeskAssistant, Shift, Allocation, TimeEntry
 from App.database import db
 from datetime import datetime, timedelta
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
+from App.controllers.schedule import get_current_schedule
+from App.models import Schedule
 
 def get_dashboard_data(username):
     """Get all required data for the volunteer dashboard"""
@@ -31,7 +33,7 @@ def get_dashboard_data(username):
         
         print(f"Fetching full schedule...")
         # 3. Get the full schedule from the same source used by the admin view
-        from App.controllers.schedule import get_current_schedule
+        
         schedule_data = get_current_schedule()
         
         # If no schedule exists, create a minimal structure
@@ -208,7 +210,7 @@ def get_my_upcoming_shifts(username, today):
         next_two_weeks = today + timedelta(days=14)
         
         # Get all published schedules first
-        from App.models import Schedule
+
         published_schedules = Schedule.query.filter(
             Schedule.is_published == True
         ).order_by(Schedule.id.desc()).all()

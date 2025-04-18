@@ -248,8 +248,6 @@ def save_schedule():
                 traceback.print_exc()
                 continue
         
-        # Handle shifts that weren't included in the assignments
-        # This is important for when you remove all staff from a shift
         unprocessed_shifts = [shift for shift in current_shifts if shift.id not in processed_shift_ids]
         print(f"Found {len(unprocessed_shifts)} shifts in date range not processed in assignments")
         
@@ -504,11 +502,6 @@ def get_current_schedule_endpoint():
                         # "username": student.username # Optional: include username if needed
                     })
             
-            # Format time - Use a consistent method. Assuming shift model handles duration.
-            # If shift.formatted_time() exists and is smart enough, use it.
-            # Otherwise, determine based on type or shift duration.
-            # For simplicity, let's assume shift.start_time.hour is reliable for grouping.
-            # The actual display time string will be handled later when creating placeholders.
             
             # Add shift data including the start hour for matching later
             shifts_by_day[day_idx].append({
