@@ -150,7 +150,9 @@ $ flask test app int # Run integration tests only
 To run the performance tests, you can use the following command
 
 ```bash
-$ locust -f App/tests/test_performance.py --host=http://info3604.onrender.com
+$ locust -f App/tests/test_performance.py --host={host_url}
+$ locust -f App/tests/test_performance.py --host=http://info3604.onrender.com # production
+$ locust -f App/tests/test_performance.py --host=http://localhost:808 # development
 ```
 
 The locust web dashboard can then be accessed through the following
