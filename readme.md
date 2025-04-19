@@ -9,7 +9,7 @@ The UWI DCIT Help Desk is currently managed manually, and our project aims to cr
 
 To achieve this goal, we created a framework that can accept an optimization model to generate schedules, this framework is made in such a way that different models can be swapped in and out to deal with different situations.
 
-Currently the Lab Assistant Sheduler model is also implemented, however only the schedule generation is set up for that at the moment.
+Currently the Lab Assistant Sheduler model is also implemented, however only the schedule generation is optimised for that at the moment.
 
 ## Key Features
 - Automated schedule generation using optimization models.
@@ -138,3 +138,12 @@ You can run all application tests with the following command
 ```bash
 $ pytest
 ```
+
+Alternatively, you can run all app tests with the following commands
+
+```bash
+$ flask test app
+$ flask test app unit # Run unit tests only
+$ flask test app int # Run integration tests only
+```
+

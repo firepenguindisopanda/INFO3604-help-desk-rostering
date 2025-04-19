@@ -6,17 +6,17 @@ from datetime import time, datetime, timedelta
 from App.main import create_app
 from App.database import db, create_db
 from App.models import *
-from App.controllers import (
-    create_user,
-    get_all_users_json,
-    login,
-    get_user,
-    update_user,
-    get_course_name,
-    get_all_course_codes,
-    get_courses_dict,
-    is_valid_course
-)
+# from App.controllers import (
+#     create_user,
+#     get_all_users_json,
+#     login,
+#     get_user,
+#     update_user,
+#     get_course_name,
+#     get_all_course_codes,
+#     get_courses_dict,
+#     is_valid_course
+# )
 
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
@@ -501,6 +501,17 @@ class ShiftUnitTests(unittest.TestCase):
         self.assertEqual(self.shift.course_demands[0].weight, 5)'''
 
 class HelpDeskAssistantModelUnitTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Create all tables before running tests
+        db.create_all()
+    
+    @classmethod
+    def tearDownClass(cls):
+        # Drop all tables after running tests
+        db.session.remove()
+        db.drop_all()
+    
     def test_create_help_desk_assistant_default_values(self):
         Student.query = MagicMock()
         Student.query.get.return_value = None
