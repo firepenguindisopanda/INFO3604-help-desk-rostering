@@ -5,7 +5,7 @@ from flask.cli import with_appcontext, AppGroup
 from App.database import db, get_migrate
 from App.models import User
 from App.main import create_app
-from App.controllers import ( create_user, get_all_users_json, get_all_users, initialize, 
+from App.controllers import (create_user, get_all_users_json, get_all_users, initialize, 
     generate_help_desk_schedule)
 
 # This commands file allow you to create convenient CLI commands for testing controllers
@@ -54,14 +54,14 @@ app.cli.add_command(user_cli) # add the group to the cli
 Scheduling Commands
 '''
 
-schedule = AppGroup('schedule', help='Scheduling algorithm commands')
+# schedule = AppGroup('schedule', help='Scheduling algorithm commands')
 
-# This command will be flask schedule hdesk
-@schedule.command("help", help="Creates an optimal solution for the help desk scheduler")
-def schedule_help_desk_command():
-    print(generate_help_desk_schedule(10, 45, 1))
+# # This command will be flask schedule hdesk
+# @schedule.command("help", help="Creates an optimal solution for the help desk scheduler")
+# def schedule_help_desk_command():
+#     print(generate_help_desk_schedule(10, 45, 1))
 
-app.cli.add_command(schedule) # add the group to the cli
+# app.cli.add_command(schedule) # add the group to the cli
 
 
 
@@ -71,14 +71,14 @@ Test Commands
 
 test = AppGroup('test', help='Testing commands') 
 
-@test.command("user", help="Run User tests")
+@test.command("app", help="Run App tests")
 @click.argument("type", default="all")
-def user_tests_command(type):
+def app_tests_command(type):
     if type == "unit":
-        sys.exit(pytest.main(["-k", "UserUnitTests"]))
+        sys.exit(pytest.main(["-k", "UnitTests"]))
     elif type == "int":
-        sys.exit(pytest.main(["-k", "UserIntegrationTests"]))
+        sys.exit(pytest.main(["-k", "IntegrationTests"]))
     else:
-        sys.exit(pytest.main(["-k", "App"]))
+        sys.exit(pytest.main([]))
 
 app.cli.add_command(test)

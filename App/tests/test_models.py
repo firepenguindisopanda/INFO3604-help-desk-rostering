@@ -6,17 +6,17 @@ from datetime import time, datetime, timedelta
 from App.main import create_app
 from App.database import db, create_db
 from App.models import *
-from App.controllers import (
-    create_user,
-    get_all_users_json,
-    login,
-    get_user,
-    update_user,
-    get_course_name,
-    get_all_course_codes,
-    get_courses_dict,
-    is_valid_course
-)
+# from App.controllers import (
+#     create_user,
+#     get_all_users_json,
+#     login,
+#     get_user,
+#     update_user,
+#     get_course_name,
+#     get_all_course_codes,
+#     get_courses_dict,
+#     is_valid_course
+# )
 
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
@@ -500,7 +500,18 @@ class ShiftUnitTests(unittest.TestCase):
         self.assertEqual(self.shift.course_demands[0].tutors_required, 3)
         self.assertEqual(self.shift.course_demands[0].weight, 5)'''
 
-class HelpDeskAssistantModelUnitTests(unittest.TestCase):
+class HelpDeskAssistantUnitTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Create all tables before running tests
+        db.create_all()
+    
+    @classmethod
+    def tearDownClass(cls):
+        # Drop all tables after running tests
+        db.session.remove()
+        db.drop_all()
+    
     def test_create_help_desk_assistant_default_values(self):
         Student.query = MagicMock()
         Student.query.get.return_value = None
@@ -578,7 +589,48 @@ class HelpDeskAssistantModelUnitTests(unittest.TestCase):
         # Ensure the capability was added
         self.assertIn(mock_capability, assistant.course_capabilities)
         self.assertEqual(assistant.course_capabilities[0].course_code, "INFO3604")
+
+
+class LabAssistantUnitTests(unittest.TestCase):
+    def test_create_lab_assistant(self):
+        mock_student = MagicMock()
+        mock_student.degree = "MSc"
+        Student.query = MagicMock()
+        Student.query.get.return_value = mock_student
+        
+        assistant = LabAssistant("student1", False)
+        self.assertEqual(assistant.username, "student1")
+        self.assertEqual(assistant.active, True)
+        self.assertEqual(assistant.experience, False)
     
+    def test_activate(self):
+        assistant = LabAssistant("student1", True)
+        assistant.active = False
+        assistant.activate()
+        self.assertTrue(assistant.active)
+
+    def test_deactivate(self):
+        assistant = LabAssistant("student1", True)
+        assistant.active = True
+        assistant.deactivate()
+        self.assertFalse(assistant.active)
+    
+    def test_get_json(self):
+        # Mock the Student.query.get method to return None
+        Student.query = MagicMock()
+        Student.query.get.return_value = None
+
+        assistant = LabAssistant("student1", False)
+        assistant.active = False
+
+        expected_json = {
+            'Student ID': "student1",
+            'Account State': 'Inactive',
+            'Experience': 'New'
+        }
+        self.assertDictEqual(assistant.get_json(), expected_json)
+
+
 class NotificationUnitTests(unittest.TestCase):
     def setUp(self):
         db.create_all()

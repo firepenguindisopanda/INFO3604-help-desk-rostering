@@ -9,7 +9,7 @@ The UWI DCIT Help Desk is currently managed manually, and our project aims to cr
 
 To achieve this goal, we created a framework that can accept an optimization model to generate schedules, this framework is made in such a way that different models can be swapped in and out to deal with different situations.
 
-Currently the Lab Assistant Sheduler model is also implemented, however only the schedule generation is set up for that at the moment.
+Currently the Lab Assistant Sheduler model is also implemented, however only the schedule generation is optimised for that at the moment.
 
 ## Key Features
 - Automated schedule generation using optimization models.
@@ -122,7 +122,6 @@ $ pip install -r requirements.txt
 ```
 
 ## Running the Project
-
 When opening the project initialise the database and then run using the flask commands:
 
 ```bash
@@ -138,3 +137,27 @@ You can run all application tests with the following command
 ```bash
 $ pytest
 ```
+
+Alternatively, you can run all app tests with the following commands
+
+```bash
+$ flask test app
+$ flask test app unit # Run unit tests only
+$ flask test app int # Run integration tests only
+```
+
+### Performance Testing
+To run the performance tests, you can use the following command
+
+```bash
+$ locust -f App/tests/test_performance.py --host={host_url}
+$ locust -f App/tests/test_performance.py --host=http://info3604.onrender.com # production
+$ locust -f App/tests/test_performance.py --host=http://localhost:808 # development
+```
+
+The locust web dashboard can then be accessed through the following
+
+```
+http://localhost:8089
+```
+
