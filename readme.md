@@ -122,7 +122,6 @@ $ pip install -r requirements.txt
 ```
 
 ## Running the Project
-
 When opening the project initialise the database and then run using the flask commands:
 
 ```bash
@@ -145,5 +144,18 @@ Alternatively, you can run all app tests with the following commands
 $ flask test app
 $ flask test app unit # Run unit tests only
 $ flask test app int # Run integration tests only
+```
+
+### Performance Testing
+To run the performance tests, you can use the following command
+
+```bash
+$ locust -f App/tests/test_performance.py --host=http://info3604.onrender.com
+```
+
+The locust web dashboard can then be accessed through the following
+
+```
+http://localhost:8089
 ```
 
