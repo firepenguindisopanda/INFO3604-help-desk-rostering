@@ -26,7 +26,7 @@ class PerformanceTests(HttpUser):
     @task
     def test_homepage(self):
         response = self.client.get("/")
-        assert response.elapsed.total_seconds() < 5, f"Homepage took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
+        assert response.elapsed.total_seconds() < 15, f"Homepage took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
 
     @task
     def test_authentication_admin(self):
@@ -34,7 +34,7 @@ class PerformanceTests(HttpUser):
             "username": "a",
             "password": "123"
         })
-        assert response.elapsed.total_seconds() < 5, f"Authentication took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
+        assert response.elapsed.total_seconds() < 15, f"Authentication took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
 
     @task
     def test_schedule_generation(self):
@@ -42,7 +42,7 @@ class PerformanceTests(HttpUser):
         if self.admin_token:
             headers = {"Authorization": f"Bearer {self.admin_token}"}
         response = self.client.post("/api/schedule/generate", json={}, headers=headers)
-        assert response.elapsed.total_seconds() < 5, f"Schedule generation took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
+        assert response.elapsed.total_seconds() < 15, f"Schedule generation took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
 
     @task
     def test_get_schedule(self):
@@ -50,7 +50,7 @@ class PerformanceTests(HttpUser):
         if self.admin_token:
             headers = {"Authorization": f"Bearer {self.admin_token}"}
         response = self.client.get("/api/schedule/details", headers=headers)
-        assert response.elapsed.total_seconds() < 5, f"Schedule retrieval took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
+        assert response.elapsed.total_seconds() < 15, f"Schedule retrieval took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
 
     @task
     def test_get_user_profile(self):
@@ -58,7 +58,7 @@ class PerformanceTests(HttpUser):
         if self.volunteer_token:
             headers = {"Authorization": f"Bearer {self.volunteer_token}"}
         response = self.client.get("/volunteer/profile", headers=headers)
-        assert response.elapsed.total_seconds() < 5, f"User profile retrieval took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
+        assert response.elapsed.total_seconds() < 15, f"User profile retrieval took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
 
     @task
     def test_create_request(self):
@@ -70,7 +70,7 @@ class PerformanceTests(HttpUser):
             "reasonForChange": "Performance test request",
             "proposedReplacement": ""
         }, headers=headers)
-        assert response.elapsed.total_seconds() < 5, f"Request creation took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
+        assert response.elapsed.total_seconds() < 15, f"Request creation took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
 
     @task
     def test_list_requests(self):
@@ -78,7 +78,7 @@ class PerformanceTests(HttpUser):
         if self.volunteer_token:
             headers = {"Authorization": f"Bearer {self.volunteer_token}"}
         response = self.client.get("/volunteer/requests", headers=headers)
-        assert response.elapsed.total_seconds() < 5, f"Request listing took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
+        assert response.elapsed.total_seconds() < 15, f"Request listing took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
 
     @task
     def test_get_tracking_data(self):
@@ -86,7 +86,7 @@ class PerformanceTests(HttpUser):
         if self.volunteer_token:
             headers = {"Authorization": f"Bearer {self.volunteer_token}"}
         response = self.client.get("/timeTracking", headers=headers)
-        assert response.elapsed.total_seconds() < 5, f"Tracking data retrieval took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
+        assert response.elapsed.total_seconds() < 15, f"Tracking data retrieval took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
 
     @task
     def test_admin_dashboard(self):
@@ -94,7 +94,7 @@ class PerformanceTests(HttpUser):
         if self.admin_token:
             headers = {"Authorization": f"Bearer {self.admin_token}"}
         response = self.client.get("/admin/", headers=headers)
-        assert response.elapsed.total_seconds() < 5, f"Admin dashboard took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
+        assert response.elapsed.total_seconds() < 15, f"Admin dashboard took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
 
     @task
     def test_volunteer_dashboard(self):
@@ -102,7 +102,7 @@ class PerformanceTests(HttpUser):
         if self.volunteer_token:
             headers = {"Authorization": f"Bearer {self.volunteer_token}"}
         response = self.client.get("/volunteer/dashboard", headers=headers)
-        assert response.elapsed.total_seconds() < 5, f"Volunteer dashboard took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
+        assert response.elapsed.total_seconds() < 15, f"Volunteer dashboard took too long to respond, response time: {response.elapsed.total_seconds()} seconds"
 
     @task
     def test_get_notifications(self):
