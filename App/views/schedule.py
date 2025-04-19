@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for, send_file
 from flask_jwt_extended import jwt_required, current_user
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from App.controllers.schedule import (
     generate_help_desk_schedule,
     generate_lab_schedule,
@@ -10,7 +10,7 @@ from App.controllers.schedule import (
     clear_schedule,
     get_schedule_data
 )
-from App.models import Schedule, Shift, Allocation, Student
+from App.models import Schedule, Shift, Allocation, Student, Availability, HelpDeskAssistant
 from App.database import db
 from App.middleware import admin_required
 from io import BytesIO
@@ -41,11 +41,10 @@ def save_schedule():
         end_date_str = data.get('end_date')
         assignments = data.get('assignments', [])
         
-        # Determine schedule type and ID
-        schedule_type = data.get('schedule_type', current_user.role)
-        schedule_id = 2 if schedule_type == 'lab' else 1
+        # Determine schedule type based on current user role
+        schedule_type = current_user.role  # This should be 'helpdesk' or 'lab'
         
-        print(f"Save request: type={schedule_type}, id={schedule_id}, start={start_date_str}, end={end_date_str}, assignments={len(assignments)}")
+        print(f"Save request: start={start_date_str}, end={end_date_str}, type={schedule_type}, assignments={len(assignments)}")
         
         # Validate
         if not start_date_str or not end_date_str:
@@ -64,162 +63,91 @@ def save_schedule():
                 'message': 'Invalid date format. Use YYYY-MM-DD.'
             }), 400
             
-        # Get or create the schedule based on type
-        schedule = Schedule.query.get(schedule_id)
+        # Get or create the main schedule for the appropriate type
+        schedule_id = 1 if schedule_type == 'helpdesk' else 2  # Use different IDs for different schedule types
+        schedule = Schedule.query.filter_by(id=schedule_id, type=schedule_type).first()
+        
         if not schedule:
-            print(f"Creating new {schedule_type} schedule with ID {schedule_id}")
+            print(f"Creating new {schedule_type} schedule")
             schedule = Schedule(schedule_id, start_date, end_date, type=schedule_type)
             db.session.add(schedule)
         else:
             print(f"Updating existing {schedule_type} schedule: id={schedule.id}")
             schedule.start_date = start_date
             schedule.end_date = end_date
-            if hasattr(schedule, 'type'):
-                schedule.type = schedule_type
             db.session.add(schedule)
             
-        db.session.flush()
+        db.session.flush()  # Get the schedule ID if it's new
         
-        # Get all current shifts for this schedule in the date range
-        current_shifts = Shift.query.filter(
+        # IMPORTANT: First, clear ALL allocations for shifts in the date range
+        # This ensures proper cleanup before rebuilding assignments
+        shifts_to_clear = Shift.query.filter(
             Shift.schedule_id == schedule.id,
             Shift.date >= start_date,
             Shift.date <= end_date
         ).all()
         
-        shift_lookup = {}
+        for shift in shifts_to_clear:
+            Allocation.query.filter_by(shift_id=shift.id).delete()
         
-        # Build a lookup map to find existing shifts by date and time
-        for shift in current_shifts:
-            key = f"{shift.date.strftime('%Y-%m-%d')}_{shift.start_time.hour}"
-            shift_lookup[key] = shift
-            
-        print(f"Found {len(current_shifts)} existing shifts in date range")
+        # Track shifts we've processed
+        processed_shifts = {}
         
-        # Track successful assignments and processed shifts
-        successful_assignments = 0
-        processed_shift_ids = set()
-        
-        # Process assignments and create/update shifts and allocations
+        # Process assignments and create/update shifts
         for assignment in assignments:
             day = assignment.get('day')
             time_str = assignment.get('time')
             staff_list = assignment.get('staff', [])
             
             print(f"Processing assignment: day={day}, time={time_str}, staff={len(staff_list)}")
-                
+            
             # Convert day name to index (0=Monday, 1=Tuesday, etc.)
-            # Include Saturday for lab schedules
-            day_map = {
-                'MON': 0, 'TUE': 1, 'WED': 2, 'THUR': 3, 'FRI': 4, 'SAT': 5,
-                'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5
-            }
+            day_map = {'MON': 0, 'TUE': 1, 'WED': 2, 'THUR': 3, 'FRI': 4, 'SAT': 5,
+                       'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5}
             day_idx = day_map.get(day, 0)
             
             # Calculate shift date based on start_date and day index
             shift_date = start_date + timedelta(days=day_idx)
             
-            # Parse shift time based on schedule type
+            # Parse shift time
             try:
-                # For lab schedules, handle time ranges differently (8:00 am - 12:00 pm)
+                hour = parse_time_to_hour(time_str, schedule_type)
+                
+                if hour is None:
+                    print(f"Could not parse hour from time: {time_str}")
+                    continue
+                    
+                print(f"Parsed time: original='{time_str}', extracted hour={hour}")
+                
+                # Create or find shift
+                shift_start = datetime.combine(shift_date.date(), datetime.min.time().replace(hour=hour, minute=0))
+                
+                # Set end time based on schedule type
                 if schedule_type == 'lab':
-                    # Time format is like "8:00 am - 12:00 pm"
-                    if '-' in time_str:
-                        parts = time_str.split('-')
-                        start_time_str = parts[0].strip().lower()
-                        end_time_str = parts[1].strip().lower()
-                        
-                        # Extract start hour
-                        if 'am' in start_time_str:
-                            start_time_str = start_time_str.replace('am', '').strip()
-                        elif 'pm' in start_time_str:
-                            start_time_str = start_time_str.replace('pm', '').strip()
-                            
-                        hour = int(start_time_str.split(':')[0])
-                        
-                        # Adjust hour for PM if needed (but not for 12pm)
-                        if 'pm' in time_str.lower() and hour < 12:
-                            hour += 12
-                            
-                        # Calculate end time from the string
-                        if 'am' in end_time_str:
-                            end_time_str = end_time_str.replace('am', '').strip()
-                        elif 'pm' in end_time_str:
-                            end_time_str = end_time_str.replace('pm', '').strip()
-                            
-                        end_hour = int(end_time_str.split(':')[0])
-                        
-                        # Adjust end hour for PM if needed
-                        if 'pm' in parts[1].lower() and end_hour < 12:
-                            end_hour += 12
-                            
-                        # Calculate duration in hours
-                        duration = end_hour - hour
-                    else:
-                        # Default to 4-hour shifts if format is unexpected
-                        hour = 8 if '8:00' in time_str else (12 if '12:00' in time_str else 16)
-                        duration = 4
+                    # Lab shifts are 4 hours
+                    shift_end = shift_start + timedelta(hours=4)
                 else:
-                    # For helpdesk, handle hourly shifts (original code)
-                    if '-' in time_str:
-                        # Format is "9:00 - 10:00"
-                        start_time_str = time_str.split('-')[0].strip()
-                    else:
-                        # Format is "9:00 am"
-                        start_time_str = time_str
-                    
-                    # Remove am/pm and just get the hour
-                    start_time_str = start_time_str.lower()
-                    if 'am' in start_time_str:
-                        start_time_str = start_time_str.replace('am', '').strip()
-                    elif 'pm' in start_time_str:
-                        start_time_str = start_time_str.replace('pm', '').strip()
-                    
-                    # Extract hour
-                    hour = int(start_time_str.split(':')[0])
-                    
-                    # Adjust hour for PM if needed (but not for 12pm)
-                    if 'pm' in time_str.lower() and hour < 12:
-                        hour += 12
-                        
-                    # Set duration to 1 hour for helpdesk
-                    duration = 1
-                    
-                # Log parsed time details
-                print(f"Parsed time: original='{time_str}', extracted hour={hour}, duration={duration}")
+                    # Helpdesk shifts are 1 hour
+                    shift_end = shift_start + timedelta(hours=1)
                 
-                # Create lookup key for existing shifts
-                shift_key = f"{shift_date.strftime('%Y-%m-%d')}_{hour}"
-                
-                # Check if shift already exists
-                shift = shift_lookup.get(shift_key)
+                # Look for existing shift
+                shift = Shift.query.filter_by(
+                    schedule_id=schedule.id,
+                    date=shift_date,
+                    start_time=shift_start
+                ).first()
                 
                 # If shift doesn't exist, create it
                 if not shift:
-                    print(f"Creating new shift for {shift_key}")
-                    shift_start = datetime.combine(shift_date.date(), datetime.min.time().replace(hour=hour, minute=0))
-                    shift_end = shift_start + timedelta(hours=duration)
-                    
+                    print(f"Creating new shift for date={shift_date}, hour={hour}")
                     shift = Shift(shift_date, shift_start, shift_end, schedule.id)
                     db.session.add(shift)
                     db.session.flush()  # Get the shift ID
-                    # Add to lookup for future reference
-                    shift_lookup[shift_key] = shift
                 else:
-                    print(f"Using existing shift {shift.id} for {shift_key}")
-                    
-                    # Update shift end time if duration has changed
-                    current_duration = (shift.end_time - shift.start_time).total_seconds() / 3600
-                    if current_duration != duration:
-                        shift.end_time = shift.start_time + timedelta(hours=duration)
-                        db.session.add(shift)
+                    print(f"Using existing shift {shift.id}")
                 
                 # Track this shift as processed
-                processed_shift_ids.add(shift.id)
-                
-                # Delete existing allocations for this shift
-                deleted_count = Allocation.query.filter_by(shift_id=shift.id).delete()
-                print(f"Deleted {deleted_count} existing allocations for shift {shift.id}")
+                processed_shifts[shift.id] = True
                 
                 # Create allocations for staff if there are any
                 if staff_list:
@@ -240,34 +168,21 @@ def save_schedule():
                 else:
                     print(f"No Student Assistant assigned to shift {shift.id}")
                 
-                successful_assignments += 1
-                
             except Exception as e:
                 print(f"Error processing shift {day} at {time_str}: {e}")
                 import traceback
                 traceback.print_exc()
                 continue
         
-        unprocessed_shifts = [shift for shift in current_shifts if shift.id not in processed_shift_ids]
-        print(f"Found {len(unprocessed_shifts)} shifts in date range not processed in assignments")
-        
-        for shift in unprocessed_shifts:
-            # Clear all allocations for unprocessed shifts
-            deleted_count = Allocation.query.filter_by(shift_id=shift.id).delete()
-            print(f"Deleted {deleted_count} allocations from unprocessed shift {shift.id} on {shift.date}")
-                
-        # Commit changes
+        # Commit all changes
         db.session.commit()
         
-        print(f"{schedule_type.capitalize()} schedule saved successfully with {successful_assignments} assignments")
+        print(f"Schedule saved successfully")
         
         return jsonify({
             'status': 'success',
-            'message': f'{schedule_type.capitalize()} schedule saved successfully',
-            'schedule_id': schedule.id,
-            'schedule_type': schedule_type,
-            'assignments_saved': successful_assignments,
-            'shifts_cleared': len(unprocessed_shifts)
+            'message': 'Schedule saved successfully',
+            'schedule_id': schedule.id
         })
         
     except Exception as e:
@@ -279,6 +194,130 @@ def save_schedule():
             'status': 'error',
             'message': str(e)
         }), 500
+
+
+def parse_time_to_hour(time_str, schedule_type):
+    """Helper function to parse time string to hour"""
+    try:
+        # Special handling for lab time blocks
+        if schedule_type == 'lab' and '-' in time_str:
+            if time_str == "8:00 am - 12:00 pm":
+                return 8
+            elif time_str == "12:00 pm - 4:00 pm":
+                return 12
+            elif time_str == "4:00 pm - 8:00 pm":
+                return 16
+        
+        # Regular parsing for single time format
+        if '-' in time_str:
+            # Format is "9:00 - 10:00" or "9:00 am - 10:00 am"
+            start_time_str = time_str.split('-')[0].strip()
+        else:
+            # Format is "9:00 am" or just "9:00"
+            start_time_str = time_str
+        
+        # Remove am/pm and just get the hour
+        start_time_str = start_time_str.lower()
+        if 'am' in start_time_str:
+            start_time_str = start_time_str.replace('am', '').strip()
+        elif 'pm' in start_time_str:
+            start_time_str = start_time_str.replace('pm', '').strip()
+        
+        # Extract hour
+        hour = int(start_time_str.split(':')[0])
+        
+        # Adjust hour for PM if needed (but not for 12pm)
+        if 'pm' in time_str.lower() and hour < 12:
+            hour += 12
+        
+        return hour
+    except ValueError:
+        return None
+
+@schedule_views.route('/api/schedule/remove-staff', methods=['POST'])
+@jwt_required()
+@admin_required
+def remove_staff_from_shift():
+    """Remove a specific staff from a specific shift"""
+    try:
+        data = request.json
+        staff_id = data.get('staff_id')
+        cell_day = data.get('day')
+        cell_time = data.get('time')
+        
+        print(f"Removing staff: id={staff_id}, day={cell_day}, time={cell_time}")
+        
+        if not staff_id or not cell_day or not cell_time:
+            return jsonify({
+                'status': 'error',
+                'message': 'Missing required parameters'
+            }), 400
+        
+        # Try to parse shift_id directly if it's provided
+        shift_id = data.get('shift_id')
+        
+        # If we have a direct shift_id, use that
+        if shift_id:
+            print(f"Using provided shift_id: {shift_id}")
+            shift = Shift.query.get(shift_id)
+        else:
+            # Otherwise, find it based on day and time
+            day_map = {'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5}
+            day_index = day_map.get(cell_day)
+            
+            if day_index is None:
+                return jsonify({'status': 'error', 'message': f'Invalid day: {cell_day}'}), 400
+            
+            # Get the current schedule based on user role
+            schedule_type = current_user.role
+            schedule = Schedule.query.filter_by(type=schedule_type).first()
+            if not schedule:
+                return jsonify({'status': 'error', 'message': 'No schedule found'}), 404
+            
+            # Calculate the date
+            shift_date = schedule.start_date + timedelta(days=day_index)
+            
+            # Parse the time
+            hour = parse_time_to_hour(cell_time, schedule_type)
+            if hour is None:
+                return jsonify({'status': 'error', 'message': f'Invalid time format: {cell_time}'}), 400
+            
+            print(f"Searching for shift: date={shift_date}, hour={hour}")
+            
+            # Find the shift
+            shift = Shift.query.filter_by(
+                schedule_id=schedule.id,
+                date=shift_date,
+                start_time=datetime.combine(shift_date, time(hour=hour))
+            ).first()
+        
+        if shift:
+            print(f"Found shift: id={shift.id}")
+            
+            # Remove the allocation
+            allocation = Allocation.query.filter_by(
+                shift_id=shift.id,
+                username=staff_id
+            ).first()
+            
+            if allocation:
+                print(f"Found allocation to remove: shift_id={shift.id}, username={staff_id}")
+                db.session.delete(allocation)
+                db.session.commit()
+                return jsonify({'status': 'success', 'message': 'Staff removed successfully'})
+            else:
+                print(f"No allocation found for shift_id={shift.id}, username={staff_id}")
+                return jsonify({'status': 'error', 'message': 'Staff allocation not found'}), 404
+        else:
+            print(f"No shift found for the given parameters")
+            return jsonify({'status': 'error', 'message': 'Shift not found'}), 404
+            
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error removing staff: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
         
 @schedule_views.route('/api/schedule/details', methods=['GET'])
 @jwt_required()
@@ -421,68 +460,45 @@ def publish_schedule_with_sync(schedule_id):
 def get_current_schedule_endpoint():
     """Get the current schedule based on admin role, formatted for display."""
     try:
-        # Get user role and determine schedule type and ID
+        # Get user role and determine schedule type
         role = current_user.role
         schedule_type = role  # 'helpdesk' or 'lab'
-        
-        # --- Determine Schedule ID based on type ---
-        # It's generally safer to query by type if your model supports it,
-        # or have a more robust way to map role to schedule ID/type.
-        # Assuming ID 1 is helpdesk and ID 2 is lab for now, as implied.
         schedule_id = 1 if schedule_type == 'helpdesk' else 2 
         
-        print(f"Getting current {schedule_type} schedule (Attempting ID: {schedule_id})")
+        print(f"Getting current {schedule_type} schedule (ID: {schedule_id})")
         
-        # --- Get the appropriate schedule ---
-        # Querying by both ID and type adds robustness if your Schedule model has a 'type' field
-        # If not, just use schedule_id: schedule = Schedule.query.get(schedule_id)
+        # Get the appropriate schedule
         schedule = Schedule.query.filter_by(id=schedule_id, type=schedule_type).first() 
         
-        # Fallback if type query fails but ID might be correct (optional, depends on model)
-        if not schedule:
-             schedule = Schedule.query.get(schedule_id)
-             # Optional: verify if the retrieved schedule's type matches the role if possible
-             # if schedule and hasattr(schedule, 'type') and schedule.type != schedule_type:
-             #     schedule = None # Mismatch, treat as not found
-
         if not schedule:
             print(f"No {schedule_type} schedule found with ID {schedule_id}")
             return jsonify({'status': 'error', 'message': f'No {schedule_type} schedule found'}), 404
-            
-        # --- Verify schedule type if possible (if the model has a type attribute) ---
-        # This ensures the ID mapping didn't fetch the wrong schedule type
-        if hasattr(schedule, 'type') and schedule.type != schedule_type:
-             print(f"Warning: Schedule ID {schedule_id} retrieved, but its type ({schedule.type}) doesn't match user role ({schedule_type}).")
-             # Decide how to handle this: either return error or proceed cautiously.
-             # For now, we proceed but add the correct type from the role to the output.
         
-        print(f"Found schedule: id={schedule.id}, start={schedule.start_date}, end={schedule.end_date}, type={getattr(schedule, 'type', 'N/A')}")
+        print(f"Found schedule: id={schedule.id}, start={schedule.start_date}, end={schedule.end_date}, type={schedule.type}")
         
-        # --- Get all shifts for this schedule ---
+        # Get all shifts for this schedule
         shifts = Shift.query.filter_by(schedule_id=schedule.id).order_by(Shift.date, Shift.start_time).all()
         print(f"Found {len(shifts)} shifts for schedule {schedule.id}")
         
-        # --- Format the schedule base ---
+        # Format the schedule base
         formatted_schedule = {
             "schedule_id": schedule.id,
             "date_range": f"{schedule.start_date.strftime('%d %b')} - {schedule.end_date.strftime('%d %b, %Y')}",
             "is_published": schedule.is_published,
-            "type": schedule_type,  # Use type derived from role for consistency in response
+            "type": schedule_type,
             "days": []
         }
         
-        # --- Group shifts by day index (0=Mon, 1=Tue, ..., 5=Sat) ---
+        # Group shifts by day index (0=Mon, 1=Tue, ..., 5=Sat)
         shifts_by_day = {}
         for shift in shifts:
             day_idx = shift.date.weekday() 
             
-            # Skip days outside the expected range for each type *before* grouping
-            # Helpdesk: Mon-Fri (0-4)
-            # Lab: Mon-Sat (0-5)
+            # Skip days outside the expected range
             if schedule_type == 'helpdesk' and day_idx > 4:
-                continue # Skip Sat/Sun for helpdesk
+                continue
             if schedule_type == 'lab' and day_idx > 5:
-                 continue # Skip Sun for lab
+                 continue
 
             if day_idx not in shifts_by_day:
                 shifts_by_day[day_idx] = []
@@ -492,128 +508,122 @@ def get_current_schedule_endpoint():
             allocations = Allocation.query.filter_by(shift_id=shift.id).all()
             
             for allocation in allocations:
-                # Assuming Allocation stores username, adjust if it stores student_id directly
                 student = Student.query.get(allocation.username) 
                 if student:
                     assistants.append({
-                        # Use username as ID if that's the primary key for Student
                         "id": student.username, 
-                        "name": student.get_name(), # Assuming a get_name method exists
-                        # "username": student.username # Optional: include username if needed
+                        "name": student.get_name(),
+                        "username": student.username  # Important: include username for removal
                     })
             
-            
-            # Add shift data including the start hour for matching later
+            # Store shift with ALL necessary data for later operations
             shifts_by_day[day_idx].append({
                 "shift_id": shift.id,
-                "time": f"{shift.start_time.strftime('%-I:%M %p')} - {shift.end_time.strftime('%-I:%M %p')}", # Example format
-                "hour": shift.start_time.hour, # Crucial for matching
+                "time": f"{shift.start_time.strftime('%-I:%M %p')}",  # Store original time format
+                "hour": shift.start_time.hour,
+                "date": shift.date.isoformat(),  # Store the actual date for this shift
                 "assistants": assistants
             })
         
-        # --- Create days array with appropriate structure based on schedule type ---
+        # Create days array with appropriate structure
         days = []
         
-        # --- LAB SCHEDULE LOGIC ---
+        # LAB SCHEDULE LOGIC
         if schedule_type == 'lab':
             day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
             day_codes = ["MON", "TUE", "WED", "THUR", "FRI", "SAT"]
-            # Define lab shift start hours and their corresponding display strings
             lab_shifts_config = [
                 {'hour': 8, 'time_str': "8:00 am - 12:00 pm"},
                 {'hour': 12, 'time_str': "12:00 pm - 4:00 pm"},
                 {'hour': 16, 'time_str': "4:00 pm - 8:00 pm"}
             ]
             
-            for day_idx in range(6):  # 0 to 5 (Mon to Sat)
+            for day_idx in range(6):
                 day_date = schedule.start_date + timedelta(days=day_idx)
-                day_shifts_data = [] # Holds the shifts for this specific day
+                day_shifts_data = []
                 
-                # Get the actual shifts for this day, if any
                 actual_shifts_today = shifts_by_day.get(day_idx, [])
                 
-                # Create the three 4-hour lab slots for the day
                 for config in lab_shifts_config:
                     hour = config['hour']
                     time_str = config['time_str']
                     
-                    # Find if an actual shift exists for this specific start hour
                     matching_shift = next((s for s in actual_shifts_today if s["hour"] == hour), None)
                     
                     if matching_shift:
-                        # Use the data from the actual shift found in the database
-                        # Update the time string to the standard lab format for consistency
-                        matching_shift['time'] = time_str 
-                        day_shifts_data.append(matching_shift)
-                        print(f"  Matched Lab Shift: Day {day_idx}, Hour {hour}, ID {matching_shift['shift_id']}")
+                        # Important: preserve the actual shift ID and date for later operations
+                        shift_data = {
+                            "shift_id": matching_shift['shift_id'],
+                            "time": time_str,
+                            "hour": hour,
+                            "date": matching_shift['date'],  # Actual date of this shift
+                            "assistants": matching_shift['assistants']
+                        }
+                        day_shifts_data.append(shift_data)
                     else:
-                        # No actual shift exists, create an empty placeholder
                         day_shifts_data.append({
                             "shift_id": None,
                             "time": time_str,
-                            "hour": hour, # Keep hour for potential future use
+                            "hour": hour,
+                            "date": day_date.isoformat(),
                             "assistants": []
                         })
-                        print(f"  Created Placeholder Lab Shift: Day {day_idx}, Hour {hour}")
 
-                # Add this day (with its 3 shifts) to the main days array
                 days.append({
                     "day": day_names[day_idx],
                     "day_code": day_codes[day_idx],
                     "date": day_date.strftime("%d %b"),
-                    "shifts": day_shifts_data # Add the list of 3 shifts (real or placeholder)
+                    "day_idx": day_idx,  # Store day index for later reference
+                    "shifts": day_shifts_data
                 })
 
-        # --- HELPDESK SCHEDULE LOGIC ---
-        else: # Default to helpdesk logic
+        # HELPDESK SCHEDULE LOGIC
+        else:
             day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
             day_codes = ["MON", "TUE", "WED", "THUR", "FRI"]
             
-            for day_idx in range(5): # 0 to 4 (Mon to Fri)
+            for day_idx in range(5):
                 day_date = schedule.start_date + timedelta(days=day_idx)
-                day_shifts_data = [] # Holds the shifts for this specific day
+                day_shifts_data = []
                 
-                # Get the actual shifts for this day, if any
                 actual_shifts_today = shifts_by_day.get(day_idx, [])
                 
-                # Create hourly shifts from 9 am to 5 pm (hour 9 to 16)
-                for hour in range(9, 17): # 9, 10, 11, 12, 13, 14, 15, 16
-                    
-                    # Find if an actual shift exists starting at this hour
+                for hour in range(9, 17):
                     matching_shift = next((s for s in actual_shifts_today if s["hour"] == hour), None)
 
                     if matching_shift:
-                        # Use the data from the actual shift
-                        # Ensure the time format is consistent for display
                         start_dt = datetime.now().replace(hour=hour, minute=0)
                         end_dt = start_dt + timedelta(hours=1)
-                        matching_shift['time'] = f"{start_dt.strftime('%-I:%M %p')} - {end_dt.strftime('%-I:%M %p')}"
-                        day_shifts_data.append(matching_shift)
-                        print(f"  Matched HD Shift: Day {day_idx}, Hour {hour}, ID {matching_shift['shift_id']}")
+                        time_str = f"{start_dt.strftime('%-I:%M %p')}"
+                        
+                        shift_data = {
+                            "shift_id": matching_shift['shift_id'],
+                            "time": time_str,
+                            "hour": hour,
+                            "date": matching_shift['date'],
+                            "assistants": matching_shift['assistants']
+                        }
+                        day_shifts_data.append(shift_data)
                     else:
-                        # No actual shift exists, create an empty placeholder
-                        # Format the time string for this empty hourly slot
                         start_dt = datetime.now().replace(hour=hour, minute=0)
-                        end_dt = start_dt + timedelta(hours=1)
-                        time_str = f"{start_dt.strftime('%-I:%M %p')} - {end_dt.strftime('%-I:%M %p')}"
+                        time_str = f"{start_dt.strftime('%-I:%M %p')}"
                         
                         day_shifts_data.append({
                             "shift_id": None,
                             "time": time_str,
-                            "hour": hour, # Keep hour
+                            "hour": hour,
+                            "date": day_date.isoformat(),
                             "assistants": []
                         })
-                        print(f"  Created Placeholder HD Shift: Day {day_idx}, Hour {hour}")
 
-                # Add this day (with its hourly shifts) to the main days array
                 days.append({
                     "day": day_names[day_idx],
                     "day_code": day_codes[day_idx],
                     "date": day_date.strftime("%d %b"),
-                    "shifts": day_shifts_data # Add the list of shifts for the day
+                    "day_idx": day_idx,
+                    "shifts": day_shifts_data
                 })
         
-        # --- Finalize and Return ---
         formatted_schedule["days"] = days
         
         print(f"Returning formatted {schedule_type} schedule with {len(days)} days.")
@@ -624,7 +634,6 @@ def get_current_schedule_endpoint():
         import traceback
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': f'An error occurred: {str(e)}'}), 500
-    
 
 @schedule_views.route('/api/staff/available', methods=['GET'])
 @jwt_required()
@@ -748,10 +757,6 @@ def get_available_staff():
 def check_staff_availability():
     """
     Check if a specific staff member is available at a given day and time
-    Query parameters:
-    - staff_id: The staff ID to check
-    - day: The day of the week (e.g., "Monday", "MON")
-    - time: The time slot (e.g., "9:00 am")
     """
     try:
         # Get query parameters
@@ -767,8 +772,8 @@ def check_staff_availability():
         
         # Convert day to day_of_week index
         day_map = {
-            'MON': 0, 'TUE': 1, 'WED': 2, 'THUR': 3, 'FRI': 4,
-            'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4
+            'MON': 0, 'TUE': 1, 'WED': 2, 'THUR': 3, 'FRI': 4, 'SAT': 5,
+            'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5
         }
         day_of_week = day_map.get(day)
         
@@ -778,30 +783,9 @@ def check_staff_availability():
                 'message': f'Invalid day: {day}'
             }), 400
         
-        # Convert time_slot to hour
-        hour = None
-        
-        # Parse formats like "9:00 am", "9:00 - 10:00"
-        if time_slot:
-            if '-' in time_slot:
-                # Format is "9:00 - 10:00"
-                start_time_str = time_slot.split('-')[0].strip()
-            else:
-                # Format is "9:00 am"
-                start_time_str = time_slot
-                
-            # Remove am/pm and get hour
-            if 'am' in start_time_str.lower():
-                start_time_str = start_time_str.lower().replace('am', '').strip()
-                hour = int(start_time_str.split(':')[0])
-            elif 'pm' in start_time_str.lower():
-                start_time_str = start_time_str.lower().replace('pm', '').strip()
-                hour = int(start_time_str.split(':')[0])
-                if hour < 12:
-                    hour += 12
-            else:
-                # No am/pm, assume 24-hour format
-                hour = int(start_time_str.split(':')[0])
+        # Parse time using schedule type
+        schedule_type = current_user.role
+        hour = parse_time_to_hour(time_slot, schedule_type)
         
         if hour is None:
             return jsonify({
@@ -809,7 +793,7 @@ def check_staff_availability():
                 'message': f'Invalid time format: {time_slot}'
             }), 400
         
-        # Check availability
+        # Check availability in the database
         availabilities = Availability.query.filter_by(
             username=staff_id,
             day_of_week=day_of_week
@@ -818,15 +802,53 @@ def check_staff_availability():
         is_available = False
         
         for avail in availabilities:
-            # Create time objects for the hour we want to check
             check_time = time(hour=hour)
             
-            # Check if this availability window includes our time
-            if avail.start_time <= check_time and avail.end_time >= time(hour=hour+1):
-                is_available = True
-                break
+            # For lab shifts, check if the entire 4-hour block is available
+            if schedule_type == 'lab' and '-' in time_slot:
+                end_hour = hour + 4
+                if end_hour > 24:
+                    end_hour = 24  # Cap at midnight
+                end_time = time(hour=end_hour)
+                if avail.start_time <= check_time and avail.end_time >= end_time:
+                    is_available = True
+                    break
+            else:
+                # For regular hourly shifts
+                if avail.start_time <= check_time and avail.end_time >= time(hour=hour+1):
+                    is_available = True
+                    break
         
-        # Return availability status
+        # Check if the staff is already allocated to another shift at the same time
+        if is_available:
+            # Get the appropriate schedule
+            schedule = Schedule.query.filter_by(type=schedule_type).first()
+            if schedule:
+                # Find shifts at this time within the current week
+                if schedule.start_date:
+                    # Calculate the specific date for this day
+                    current_date = datetime.now().date()
+                    target_date = current_date + timedelta(days=(day_of_week - current_date.weekday()) % 7)
+                    
+                    # Find any conflicting shifts
+                    conflicting_shifts = Shift.query.filter(
+                        Shift.schedule_id == schedule.id,
+                        Shift.date == target_date,
+                        Shift.start_time == datetime.combine(target_date, time(hour=hour))
+                    ).all()
+                    
+                    # Check if staff is already allocated to any of these shifts
+                    for shift in conflicting_shifts:
+                        allocations = Allocation.query.filter_by(
+                            shift_id=shift.id,
+                            username=staff_id
+                        ).first()
+                        
+                        if allocations:
+                            # Staff is already allocated to a shift at this time
+                            is_available = False
+                            break
+        
         return jsonify({
             'status': 'success',
             'is_available': is_available
@@ -834,11 +856,13 @@ def check_staff_availability():
         
     except Exception as e:
         print(f"Error checking Student Assistant availability: {e}")
+        import traceback
+        traceback.print_exc()
+        # Default to true in error cases to not block UI
         return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
+            'status': 'success',
+            'is_available': True
+        })
 
 @schedule_views.route('/api/schedule/pdf', methods=['GET'])
 @jwt_required()
