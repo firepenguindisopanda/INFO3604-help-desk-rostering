@@ -40,7 +40,6 @@ function initializeShiftCards() {
 
 /**
  * Update any relative time displays in the UI
- * For example: "Starts in 5 hours" or "Starts in 10 minutes"
  */
 function updateRelativeTimesDisplay() {
   const timeUntilElements = document.querySelectorAll('.time-until');

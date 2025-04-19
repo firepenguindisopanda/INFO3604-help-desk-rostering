@@ -504,15 +504,7 @@ def add_course_demand_to_shift(shift_id, course_code, tutors_required=2, weight=
 
 
 def get_course_demands_for_shift(shift_id):
-    """
-    Get course demands for a shift using text() SQL
-    
-    Args:
-        shift_id: ID of the shift
-        
-    Returns:
-        List of dictionaries with course demand information
-    """
+
     try:
         # Use text() for SQL queries to avoid the error
         result = db.session.execute(
@@ -536,13 +528,7 @@ def get_course_demands_for_shift(shift_id):
 
 
 def sync_schedule_data():
-    """
-    Ensure schedule data is synced between admin and volunteer views.
-    This ensures both views are looking at the same database information.
-    
-    Returns:
-        bool: True if successful, False otherwise
-    """
+
     try:
         # The main schedule is stored with ID 1
         schedule = Schedule.query.get(1)
@@ -588,16 +574,7 @@ def sync_schedule_data():
 
 
 def publish_and_notify(schedule_id):
-    """
-    Publish the schedule and notify all assigned staff.
-    Also ensures data is synced between admin and volunteer views.
-    
-    Args:
-        schedule_id: ID of the schedule to publish
-        
-    Returns:
-        dict: Result of the operation
-    """
+
     try:
         # First publish the schedule
         result = publish_schedule(schedule_id)
@@ -666,14 +643,74 @@ def get_assistants_for_shift(shift_id):
     return assistants
 
 
+
+def clear_schedule_by_id(schedule_id):
+
+    try:
+        # Get the schedule
+        schedule = Schedule.query.get(schedule_id)
+        
+        if not schedule:
+            return {
+                "status": "success",
+                "message": f"No schedule exists with ID {schedule_id} to clear"
+            }
+        
+        # Perform deletions in the correct order to avoid foreign key constraint violations
+        
+        # 1. First delete all allocations for this schedule
+        allocation_count = Allocation.query.filter_by(schedule_id=schedule_id).delete()
+        
+        # 2. Get all shift IDs for this schedule
+        shifts = Shift.query.filter_by(schedule_id=schedule_id).all()
+        shift_ids = [shift.id for shift in shifts]
+        shift_count = len(shifts)
+        
+        # 3. Delete all shift course demands using raw SQL
+        if shift_ids:
+            # Convert list to comma-separated string for SQL IN clause
+            shift_ids_str = ','.join(str(id) for id in shift_ids)
+            db.session.execute(
+                text(f"DELETE FROM shift_course_demand WHERE shift_id IN ({shift_ids_str})")
+            )
+        
+        # 4. Delete all shifts for this schedule
+        Shift.query.filter_by(schedule_id=schedule_id).delete()
+        
+        # 5. Reset schedule published status but keep the schedule record
+        schedule.is_published = False
+        db.session.add(schedule)
+        
+        # Commit all changes
+        db.session.commit()
+        
+        # 6. Force database synchronization
+        db.session.expire_all()
+        
+        logger.info(f"Schedule {schedule_id} cleared successfully: {shift_count} shifts and {allocation_count} allocations removed")
+        
+        return {
+            "status": "success",
+            "message": "Schedule cleared successfully",
+            "details": {
+                "schedule_id": schedule_id,
+                "shifts_removed": shift_count,
+                "allocations_removed": allocation_count
+            }
+        }
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error clearing schedule: {e}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+
 def clear_schedule():
-    """
-    Clear the entire schedule, removing all shifts, allocations, and course demands.
-    Uses direct database operations to ensure complete removal.
-    
-    Returns:
-        Dictionary with operation status
-    """
+
     try:
         # Get the main schedule
         schedule = Schedule.query.get(1)
@@ -734,7 +771,94 @@ def clear_schedule():
             "message": str(e)
         }
 
+def get_schedule_data(schedule_id):
 
+    try:
+        # Get the schedule
+        schedule = Schedule.query.get(schedule_id)
+        if not schedule:
+            logger.error(f"No schedule found with ID {schedule_id}")
+            return None
+            
+        # Determine schedule type
+        schedule_type = getattr(schedule, 'type', 'helpdesk')
+        if schedule_id == 2:
+            schedule_type = 'lab'
+        
+        # Get all shifts for this schedule
+        shifts = Shift.query.filter_by(schedule_id=schedule_id).order_by(Shift.date, Shift.start_time).all()
+        
+        # Format the schedule
+        formatted_schedule = {
+            "schedule_id": schedule.id,
+            "date_range": f"{schedule.start_date.strftime('%d %b')} - {schedule.end_date.strftime('%d %b, %Y')}",
+            "is_published": schedule.is_published,
+            "type": schedule_type,
+            "days": []
+        }
+        
+        # Group shifts by day
+        shifts_by_day = {}
+        for shift in shifts:
+            day_idx = shift.date.weekday()
+            
+            # Skip days outside expected range
+            if schedule_type == 'helpdesk' and day_idx > 4:
+                continue
+            if schedule_type == 'lab' and day_idx > 5:
+                continue
+                
+            if day_idx not in shifts_by_day:
+                shifts_by_day[day_idx] = []
+                
+            # Get assistants for this shift
+            assistants = []
+            allocations = Allocation.query.filter_by(shift_id=shift.id).all()
+            
+            for allocation in allocations:
+                student = Student.query.get(allocation.username)
+                if student:
+                    assistants.append({
+                        "id": student.username,
+                        "name": student.get_name()
+                    })
+            
+            # Add shift to the day
+            shifts_by_day[day_idx].append({
+                "shift_id": shift.id,
+                "time": f"{shift.start_time.strftime('%-I:%M %p')} - {shift.end_time.strftime('%-I:%M %p')}",
+                "hour": shift.start_time.hour,
+                "assistants": assistants
+            })
+        
+        # Create days array
+        day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        max_days = 6 if schedule_type == 'lab' else 5
+        
+        for day_idx in range(max_days):
+            if day_idx >= len(day_names):
+                continue
+                
+            day_date = schedule.start_date + timedelta(days=day_idx)
+            day_shifts = shifts_by_day.get(day_idx, [])
+            
+            # Sort shifts by start time
+            day_shifts.sort(key=lambda x: x["hour"])
+            
+            # Add this day to the days array
+            formatted_schedule["days"].append({
+                "day": day_names[day_idx],
+                "date": day_date.strftime("%d %b"),
+                "shifts": day_shifts
+            })
+        
+        return formatted_schedule
+        
+    except Exception as e:
+        logger.error(f"Error getting schedule data: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 def get_current_schedule():
     """Get the current schedule with all shifts"""
     try:

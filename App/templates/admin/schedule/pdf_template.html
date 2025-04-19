@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Help Desk Schedule</title>
+    <title>{% if schedule.type == 'lab' %}Lab Assistant Schedule{% else %}Help Desk Schedule{% endif %}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -16,7 +16,7 @@
             padding: 10px 15px;
             margin-bottom: 15px;
             border-radius: 4px;
-        }
+        }        
         h1 {
             margin: 0;
             font-size: 18pt;
@@ -73,7 +73,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>Help Desk Schedule</h1>
+        <h1>{% if schedule.type == 'lab' %}Lab Assistant Schedule{% else %}Help Desk Schedule{% endif %}</h1>
         <div class="date-range">{{ schedule.date_range }}</div>
     </div>
     
@@ -90,29 +90,69 @@
             </tr>
         </thead>
         <tbody>
-            {% for time_index in range(8) %}
-                <tr>
-                    <td class="time-cell">
-                        {% if schedule.days[0].shifts|length > time_index %}
-                            {{ schedule.days[0].shifts[time_index].time }}
-                        {% endif %}
-                    </td>
-                    
-                    {% for day in schedule.days %}
-                        <td>
-                            {% if day.shifts|length > time_index %}
-                                <div class="staff-slot-indicator">
-                                    Staff: {{ day.shifts[time_index].assistants|length }}/3
-                                </div>
-                                
-                                {% for assistant in day.shifts[time_index].assistants %}
-                                    <div class="staff-name">{{ assistant.name }}</div>
-                                {% endfor %}
+            {% if schedule.type == 'lab' %}
+                <!-- Lab schedule has 3 specific time slots -->
+                {% for time_index in range(3) %}
+                    <tr>
+                        <td class="time-cell">
+                            {% if schedule.days[0].shifts|length > time_index %}
+                                {{ schedule.days[0].shifts[time_index].time }}
+                            {% else %}
+                                {% if time_index == 0 %}
+                                    8:00 am - 12:00 pm
+                                {% elif time_index == 1 %}
+                                    12:00 pm - 4:00 pm
+                                {% else %}
+                                    4:00 pm - 8:00 pm
+                                {% endif %}
                             {% endif %}
                         </td>
-                    {% endfor %}
-                </tr>
-            {% endfor %}
+                        
+                        {% for day in schedule.days %}
+                            <td>
+                                {% if day.shifts|length > time_index %}
+                                    <div class="staff-slot-indicator">
+                                        Staff: {{ day.shifts[time_index].assistants|length }}/3
+                                    </div>
+                                    
+                                    {% for assistant in day.shifts[time_index].assistants %}
+                                        <div class="staff-name">{{ assistant.name }}</div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="staff-slot-indicator">
+                                        Staff: 0/3
+                                    </div>
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            {% else %}
+                <!-- Help desk has 8 hourly slots -->
+                {% for time_index in range(8) %}
+                    <tr>
+                        <td class="time-cell">
+                            {% if schedule.days[0].shifts|length > time_index %}
+                                {{ schedule.days[0].shifts[time_index].time }}
+                            {% endif %}
+                        </td>
+                        
+                        {% for day in schedule.days %}
+                            <td>
+                                {% if day.shifts|length > time_index %}
+                                    <div class="staff-slot-indicator">
+                                        Staff: {{ day.shifts[time_index].assistants|length }}/3
+                                    </div>
+                                    
+                                    {% for assistant in day.shifts[time_index].assistants %}
+                                        <div class="staff-name">{{ assistant.name }}</div>
+                                    {% endfor %}
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            {% endif %}
         </tbody>
     </table>
 </body>

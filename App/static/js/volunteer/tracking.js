@@ -1,5 +1,3 @@
-// Time Tracking JavaScript
-
 document.addEventListener('DOMContentLoaded', function() {
   // Initialize chart animations
   initializeCharts();

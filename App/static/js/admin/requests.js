@@ -349,9 +349,7 @@ function hideLoading() {
     }
 }
 
-/**
-* Show notification message with enhanced styling
-*/
+
 function showNotification(message, type = 'info') {
     // Remove any existing notifications first
     document.querySelectorAll('.flash-message').forEach(el => {

@@ -9,6 +9,7 @@ from App.controllers import (
 )
 from App.models import Course, Availability
 from App.database import db
+from App.controllers.password_reset import create_password_reset_request
 
 auth_views = Blueprint('auth_views', __name__, template_folder='../templates')
 
@@ -118,8 +119,7 @@ def register_action():
 
 def create_availability_slots(username, availability_slots):
     """Create availability records for a user based on form data"""
-    # First, check if any existing availability slots need to be removed
-    # (this is mostly relevant for updates rather than initial registration)
+
     Availability.query.filter_by(username=username).delete()
     db.session.commit()
     
@@ -199,7 +199,6 @@ def forgot_password():
 @auth_views.route('/reset_password_request', methods=['POST'])
 def reset_password_request():
     """Handle password reset request submission"""
-    from App.controllers.password_reset import create_password_reset_request
     
     username = request.form.get('username')
     reason = request.form.get('reason')

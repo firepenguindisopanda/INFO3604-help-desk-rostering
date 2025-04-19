@@ -1,18 +1,3 @@
-"""
-Combined initialization script for the Help Desk Scheduling System.
-This script initializes the database with all necessary sample data:
-- Admin account
-- Student accounts with availability data from Excel sheet
-- Course data
-- Sample shifts and allocations
-- Sample time entries
-- Sample requests and notifications
-
-Usage:
-    from App.controllers.initialize import initialize
-    initialize()
-"""
-
 from App.controllers.admin import create_admin
 from App.controllers.availability import create_availability
 from App.controllers.course import create_course, create_course_capability, get_all_courses
