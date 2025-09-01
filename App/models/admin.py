@@ -4,7 +4,7 @@ from .user import User
 class Admin(User):
     __tablename__ = 'admin'
     
-    username = db.Column(db.String(20), db.ForeignKey('user.username'), primary_key=True)
+    username = db.Column(db.String(20), db.ForeignKey('users.username'), primary_key=True)
     role = db.Column(db.String(20), nullable=False)
     
     __mapper_args__ = {

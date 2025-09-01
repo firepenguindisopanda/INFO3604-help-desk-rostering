@@ -19,7 +19,7 @@ class RegistrationRequest(db.Model):
     created_at = db.Column(db.DateTime, default=trinidad_now())
     processed_at = db.Column(db.DateTime, nullable=True)
     processed_by = db.Column(db.String(20), nullable=True)
-    password = db.Column(db.String(120), nullable=True)  # Store hashed password
+    password = db.Column(db.String(255), nullable=True)  # Store hashed password
     
     def __init__(self, username, name, email, degree, reason=None, phone=None, transcript_path=None, profile_picture_path=None, password=None):
         self.username = username

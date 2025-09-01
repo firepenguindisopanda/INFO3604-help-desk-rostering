@@ -2,13 +2,12 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from App.database import db
 
 class User(db.Model):
-    __tablename__ = 'user'
+    __tablename__ = 'users'
     
     username = db.Column(db.String(20), nullable=False, primary_key=True)
-    password = db.Column(db.String(120), nullable=False)
-    type = db.Column(db.String(50), nullable=False) # 'admin' or 'student'
+    password = db.Column(db.String(255), nullable=False)
+    type = db.Column(db.String(50), nullable=False)
     
-    # Remove polymorphic identity configuration to fix warnings
     __mapper_args__ = {
         'polymorphic_on': type
     }

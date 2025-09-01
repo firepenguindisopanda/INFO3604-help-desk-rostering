@@ -8,7 +8,7 @@ from App.controllers.student import create_student
 from App.database import db
 from datetime import datetime, timedelta, time
 from sqlalchemy import text
-import logging, csv
+import logging, csv, os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -24,27 +24,25 @@ def initialize():
     # Drop and recreate all tables
     db.drop_all()
     db.create_all()
-    
-    # Create default admin account
     admin = create_admin('a', '123', 'helpdesk')
     logger.info(f"Created admin user: {admin.username}")
-    
     admin = create_admin('b', '123', 'lab')
     logger.info(f"Created admin user: {admin.username}")
-    
-    # Create standard courses
     create_standard_courses()
-    
-    # Create all help desk assistants with availability
-    create_help_desk_assistants()
-    create_help_desk_assistants_availability()
-    create_help_desk_assistants_course_capabilities()
-    
-    # Create all lab asistants with availability
+    skip_help_desk = os.environ.get('SKIP_HELP_DESK_SAMPLE', '').lower() in ['1', 'true', 'yes']
+    if skip_help_desk:
+        logger.info("Skipping help desk assistant sample data seeding due to SKIP_HELP_DESK_SAMPLE flag")
+    else:
+        create_help_desk_assistants()
+        create_help_desk_assistants_availability()
+        create_help_desk_assistants_course_capabilities()
     create_lab_assistants()
     create_lab_assistants_availability()
     
-    logger.info('Database initialized successfully with all sample data')
+    if skip_help_desk:
+        logger.info('Database initialized successfully (help desk assistant sample data skipped)')
+    else:
+        logger.info('Database initialized successfully with all sample data')
 
 
 def create_standard_courses():
@@ -83,7 +81,7 @@ def create_help_desk_assistants():
                 # Create student record
                 student = create_student(row['username'], row['password'], row['degree'], row['name'])
                 # Create help desk assistant record
-                assistant = create_help_desk_assistant(student.username)
+                create_help_desk_assistant(student.username)
                 logger.info(f"Successfully created help desk assistant: {student.name}")
     except Exception as e:
         db.session.rollback()
@@ -109,7 +107,7 @@ def create_help_desk_assistants_availability():
                 assistant = get_help_desk_assistant(row['username'])
                 if assistant:
                     # Create availability record
-                    availability = create_availability(row['username'], row['day_of_week'], start_time, end_time)
+                    create_availability(row['username'], row['day_of_week'], start_time, end_time)
                 else:
                     logger.error(f"Help Desk assistant {row['username']} not found for availability creation")         
     except Exception as e:
@@ -128,7 +126,7 @@ def create_help_desk_assistants_course_capabilities():
                 assistant = get_help_desk_assistant(row['username'])
                 if assistant:
                     # Create course capability record
-                    capability = create_course_capability(row['username'], row['code'])
+                    create_course_capability(row['username'], row['code'])
                 else:
                     logger.error(f"Help Desk assistant {row['username']} not found for course capability creation")
     except Exception as e:
@@ -147,7 +145,7 @@ def create_lab_assistants():
                 # Create student record
                 student = create_student(row['username'], row['password'], row['degree'], row['name'])
                 # Create lab assistant record
-                assistant = create_lab_assistant(student.username, row['experience'])
+                create_lab_assistant(student.username, row['experience'])
                 logger.info(f"Successfully created lab assistant: {student.name}")
     except Exception as e:
         db.session.rollback()
@@ -173,7 +171,7 @@ def create_lab_assistants_availability():
                 assistant = get_lab_assistant(row['username'])
                 if assistant:
                     # Create availability record
-                    availability = create_availability(row['username'], row['day_of_week'], start_time, end_time)
+                    create_availability(row['username'], row['day_of_week'], start_time, end_time)
                 else:
                     logger.error(f"Lab assistant {row['username']} not found for availability creation")             
     except Exception as e:

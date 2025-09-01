@@ -1,6 +1,6 @@
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/The-Allocators/INFO3604)
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/firepenguindisopanda/help-desk-rostering)
 
-![Tests](https://github.com/uwidcit/flaskmvc/actions/workflows/dev.yml/badge.svg)
+![Tests](https://github.com/firepenguindisopanda/help-desk-rostering/actions/workflows/dev.yml/badge.svg)
 
 # Help Desk Rostering & Claiming Project
 
@@ -111,23 +111,175 @@ Password: 123
 Username: b  
 Password: 123 
 
-## Dependencies & Installation
-* Python3/pip3
-* Packages listed in requirements.txt
+## Development Setup
 
-When opening the project for the first time run the following command:
+### Prerequisites
+- Python 3.9+ and pip3
+- Git
+- A code editor
 
-```bash
-$ pip install -r requirements.txt
-```
-
-## Running the Project
-When opening the project initialise the database and then run using the flask commands:
+### 1. Clone and Setup Virtual Environment
 
 ```bash
-$ flask init
-$ flask run
+# Clone the repository
+git clone https://github.com/firepenguindisopanda/help-desk-rostering.git
+cd help-desk-rostering
+
+# Create and activate virtual environment (recommended)
+python -m venv venv
+
+# On Windows
+venv\Scripts\activate
+
+# On macOS/Linux
+source venv/bin/activate
 ```
+
+### 2. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Environment Configuration
+
+Create a `.env` file in the root directory (optional - defaults will be used if not provided):
+
+```env
+# Database Configuration
+DATABASE_URI_SQLITE=sqlite:///instance/temp-database.db
+SECRET_KEY=your-secret-key-here
+
+# Development settings
+FLASK_DEBUG=True
+FLASK_RUN_PORT=8080
+
+# Seeding Controls
+# Set to true (or 1/yes) to skip loading sample help desk assistant
+# users, their availability and course capability data. So real users can
+# register themselves via the registration page.
+SKIP_HELP_DESK_SAMPLE=true
+```
+
+### 4. Database Setup with Migrations
+
+The project uses Flask-Migrate for database schema management. Follow these steps to set up the database:
+
+```bash
+# Initialize the migration repository (only needed once)
+flask db init
+
+# Create your first migration based on current models
+flask db migrate -m "Initial migration"
+
+# Apply the migration to create database tables
+flask db upgrade
+
+# Initialize the database with sample data
+flask init
+```
+
+### 5. Running the Application
+
+```bash
+# Start the development server
+flask run
+```
+
+The application will be available at `http://localhost:8080`
+
+### 6. Initial Setup and Login
+
+After starting the application:
+
+1. Use one of the admin accounts to log in:
+
+**Help Desk Admin:**
+- Username: `a`
+- Password: `123`
+
+**Lab Assistant Admin:**
+- Username: `b`  
+- Password: `123`
+
+If you enabled `SKIP_HELP_DESK_SAMPLE=true` only the two admin accounts (and any lab assistant sample data) will exist; no help desk assistants or their availability/course capability rows will be pre-populated so new testers can self‑register.
+
+### Database Migration Workflow
+
+When you make changes to the models, follow this workflow:
+
+```bash
+# Create a new migration after changing models
+flask db migrate -m "Description of your changes"
+
+# Review the generated migration file in migrations/versions/
+# Edit if necessary, then apply the migration
+flask db upgrade
+
+# To rollback a migration if needed
+flask db downgrade
+
+# To view migration history
+flask db history
+```
+
+### Common Development Commands
+
+```bash
+# Run all tests
+pytest
+
+# Run specific test types
+flask test app          # All app tests
+flask test app unit     # Unit tests only
+flask test app int      # Integration tests only
+
+# Create a new user (for testing)
+flask user create <username> <password>
+
+# List all users
+flask user list
+
+# Database utilities
+flask db --help         # View all database commands
+```
+
+### Project Structure
+
+```
+App/
+├── controllers/        # Business logic and data operations
+├── models/            # Database models (SQLAlchemy)
+├── views/             # Flask routes and view functions
+├── templates/         # Jinja2 HTML templates
+├── static/           # CSS, JS, images
+├── tests/            # Unit and integration tests
+└── utils/            # Helper functions
+
+migrations/           # Database migration files
+sample/              # Sample CSV data for initialization
+```
+
+### Troubleshooting
+
+**Database Issues:**
+- If you encounter database errors, try: `flask db upgrade`
+- For fresh start: Delete `instance/temp-database.db` and re-run migration commands
+- Check your DATABASE_URI configuration in `.env` or use default SQLite
+
+**Migration Issues:**
+- If migrations seem out of sync: `flask db stamp head` (use with caution)
+- To create migration from scratch: Delete `migrations/` folder and start over with `flask db init`
+
+**Port Issues:**
+- If port 8080 is in use, set `FLASK_RUN_PORT=<another-port>` in `.env`
+
+### Additional Notes
+
+- The application uses SQLite by default for development
+- Sample data is loaded from CSV files in the `sample/` directory
+- The optimization models use linear programming for schedule generation
+- JWT authentication is used with cookie-based sessions
 
 ## Testing
 

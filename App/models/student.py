@@ -4,10 +4,10 @@ from .user import User
 class Student(User):
     __tablename__ = 'student'
     
-    username = db.Column(db.String(20), db.ForeignKey('user.username'), primary_key=True)
+    username = db.Column(db.String(20), db.ForeignKey('users.username'), primary_key=True)
     degree = db.Column(db.String(3), nullable=False, default='BSc')
-    name = db.Column(db.String(100))  # Name field
-    profile_data = db.Column(db.Text)  # JSON storage for additional profile data
+    name = db.Column(db.String(100))
+    profile_data = db.Column(db.Text)
     
     __mapper_args__ = {
         'polymorphic_identity': 'student'

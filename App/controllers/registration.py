@@ -1,4 +1,3 @@
-from sqlalchemy import text
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 from App.models import RegistrationRequest, RegistrationCourse, Student, User, HelpDeskAssistant, CourseCapability, Notification, Availability
@@ -17,30 +16,23 @@ def create_registration_request(username, name, email, degree, reason=None, phon
     import os
     
     try:
-        # Check if user already exists
         existing_user = User.query.get(username)
         if existing_user:
             return False, "A user with this ID already exists"
         
-        # Check if there's a pending registration request
         existing_request = RegistrationRequest.query.filter_by(username=username, status='PENDING').first()
         if existing_request:
             return False, "You already have a pending registration request"
         
-        # Handle file uploads - FIX THE LIST ISSUE
-        # If profile_picture_file is a list, get the first item
         if isinstance(profile_picture_file, list):
             profile_picture_file = profile_picture_file[0] if profile_picture_file else None
             
-        # If transcript_file is a list, get the first item
         if isinstance(transcript_file, list):
             transcript_file = transcript_file[0] if transcript_file else None
         
-        # Check if profile picture is provided (required)
         if not profile_picture_file or not profile_picture_file.filename:
             return False, "Profile picture is required"
         
-        # Handle transcript file upload
         transcript_path = None
         if transcript_file and transcript_file.filename:
             
@@ -48,34 +40,28 @@ def create_registration_request(username, name, email, degree, reason=None, phon
             timestamp = trinidad_now().strftime('%Y%m%d%H%M%S')
             filename = f"{username}_{timestamp}_{filename}"
             
-            # Ensure uploads directory exists
             upload_dir = os.path.join('App', 'uploads', 'transcripts')
             if not os.path.exists(upload_dir):
                 os.makedirs(upload_dir)
             
-            # Save file
             file_path = os.path.join(upload_dir, filename)
             transcript_file.save(file_path)
             transcript_path = f"transcripts/{filename}"
         
-        # Handle profile picture file upload
         profile_picture_path = None
         
         filename = secure_filename(profile_picture_file.filename)
         timestamp = trinidad_now().strftime('%Y%m%d%H%M%S')
         filename = f"{username}_{timestamp}_{filename}"
         
-        # Ensure uploads directory exists
         upload_dir = os.path.join('App', 'static', 'uploads', 'profile_pictures')
         if not os.path.exists(upload_dir):
             os.makedirs(upload_dir)
         
-        # Save file
         file_path = os.path.join(upload_dir, filename)
         profile_picture_file.save(file_path)
         profile_picture_path = f"uploads/profile_pictures/{filename}"
         
-        # Create registration request
         registration = RegistrationRequest(
             username=username,
             name=name,
@@ -88,20 +74,17 @@ def create_registration_request(username, name, email, degree, reason=None, phon
             password=password
         )
         
-        # Set password if provided
         if password:
             registration.set_password(password)
         
         db.session.add(registration)
-        db.session.flush()  # Get ID without committing
+        db.session.flush()
         
-        # Add selected courses
         if courses:
             for course_code in courses:
                 course = RegistrationCourse(registration.id, course_code)
                 db.session.add(course)
         
-        # Create notification for admin users
         admin_users = User.query.filter_by(type='admin').all()
         for admin in admin_users:
             create_notification(
@@ -118,125 +101,65 @@ def create_registration_request(username, name, email, degree, reason=None, phon
         return False, f"An error occurred: {str(e)}"
     
 def approve_registration(request_id, admin_username):
-    """
-    Approve a registration request and create the user account.
-    This implementation uses a transaction to ensure all operations succeed or fail together.
-    """
-    connection = None
-    transaction = None
-    
+    """Approve a registration request using ORM transactions."""
     try:
-        # Get the registration request
         registration = RegistrationRequest.query.get(request_id)
         if not registration:
             return False, "Registration request not found"
-        
         if registration.status != 'PENDING':
             return False, f"Registration has already been {registration.status.lower()}"
-        
-        # Extract all needed data before making changes
+
         username = registration.username
         name = registration.name or username
         degree = registration.degree
         email = registration.email
         phone = registration.phone
-        stored_password = registration.password  # This should be already hashed
-        profile_picture_path = registration.profile_picture_path  # Get profile picture path
-        
-        # Get courses for this registration
-        registration_courses = RegistrationCourse.query.filter_by(registration_id=request_id).all()
-        course_codes = [course.course_code for course in registration_courses]
-        
-        # Check if user already exists
-        existing_user = User.query.filter_by(username=username).first()
-        if existing_user:
+        stored_password = registration.password
+        profile_picture_path = registration.profile_picture_path
+
+        if User.query.get(username):
             return False, f"A user with username {username} already exists in the system"
-        
-        # Start a new transaction
-        connection = db.engine.connect()
-        transaction = connection.begin()
-        
-        # Create user (with explicit password handling)
-        if stored_password:
-            # If we have a stored password hash, use it directly
-            connection.execute(
-                text("INSERT INTO user (username, password, type) VALUES (:username, :password, :type)"),
-                {"username": username, "password": stored_password, "type": "student"}
-            )
-        else:
-            # Otherwise, generate a new hash using the username as password
-            hashed_password = generate_password_hash(username)
-            connection.execute(
-                text("INSERT INTO user (username, password, type) VALUES (:username, :password, :type)"),
-                {"username": username, "password": hashed_password, "type": "student"}
-            )
-        
-        # Create profile_data with email, phone, and profile picture
+
+        raw_or_hash = stored_password or generate_password_hash(username)
+
+        user_obj = User(username=username, password=username, type='student')  # will be overwritten with hash
+        user_obj.password = raw_or_hash
+
         profile_data = json.dumps({
             "email": email,
             "phone": phone,
-            "image_filename": profile_picture_path  # Include profile picture path
+            "image_filename": profile_picture_path
         })
-        
-        # Create student record with profile data
-        connection.execute(
-            text("INSERT INTO student (username, degree, name, profile_data) VALUES (:username, :degree, :name, :profile_data)"),
-            {"username": username, "degree": degree, "name": name, "profile_data": profile_data}
+
+        student = Student(username=username, password=username, degree=degree, name=name, profile_data=profile_data)
+        student.password = raw_or_hash
+
+        assistant = HelpDeskAssistant(username=username)
+        if degree == 'MSc':
+            assistant.rate = 35.00
+        elif degree == 'BSc':
+            assistant.rate = 20.00
+
+        registration_courses = RegistrationCourse.query.filter_by(registration_id=request_id).all()
+        for rc in registration_courses:
+            assistant.add_course_capability(rc.course_code)
+
+        registration.approve(admin_username)
+
+        notification = Notification(
+            username=username,
+            message="Your registration request has been approved. Welcome to the Help Desk team!",
+            notification_type=Notification.TYPE_APPROVAL
         )
-        
-        # Set rate based on degree (MSc gets higher rate)
-        rate = 35.00 if degree == 'MSc' else 20.00
-        
-        # Create help desk assistant record
-        connection.execute(
-            text("INSERT INTO help_desk_assistant (username, rate, active, hours_worked, hours_minimum) VALUES (:username, :rate, :active, :hours_worked, :hours_minimum)"),
-            {"username": username, "rate": rate, "active": True, "hours_worked": 0, "hours_minimum": 4}
-        )
-        
-        # Add course capabilities
-        for course_code in course_codes:
-            connection.execute(
-                text("INSERT INTO course_capability (assistant_username, course_code) VALUES (:username, :course_code)"),
-                {"username": username, "course_code": course_code}
-            )
-        
-        # Mark registration as approved
-        now = trinidad_now()
-        connection.execute(
-            text("UPDATE registration_request SET status = 'APPROVED', processed_at = :now, processed_by = :admin WHERE id = :id"),
-            {"now": now, "admin": admin_username, "id": request_id}
-        )
-        
-        # Create notification for the student
-        connection.execute(
-            text("INSERT INTO notification (username, message, notification_type, is_read, created_at) VALUES (:username, :message, :type, :is_read, :created_at)"),
-            {
-                "username": username, 
-                "message": "Your registration request has been approved. Welcome to the Help Desk team!",
-                "type": "approval",
-                "is_read": False,
-                "created_at": now
-            }
-        )
-        
-        # Commit the transaction
-        transaction.commit()
-        
-        # After successful approval, also transfer over any availability settings
-        availability_records = Availability.query.filter_by(username=username).all()
-        print(f"Found {len(availability_records)} availability records to transfer for {username}")
-        
+
+        db.session.add_all([user_obj, student, assistant, registration, notification])
+        db.session.commit()
+
         return True, "Registration approved successfully"
-        
     except Exception as e:
-        if transaction:
-            transaction.rollback()
+        db.session.rollback()
         print(f"Error approving registration: {e}")
         return False, f"An error occurred: {str(e)}"
-        
-    finally:
-        if connection:
-            connection.close()
             
 def reject_registration(request_id, admin_username):
     """Reject a registration request without creating any user accounts"""
@@ -248,7 +171,6 @@ def reject_registration(request_id, admin_username):
         if registration.status != 'PENDING':
             return False, f"Registration has already been {registration.status.lower()}"
         
-        # Simply mark as rejected - no user accounts are created
         registration.status = 'REJECTED'
         registration.processed_at = trinidad_now()
         registration.processed_by = admin_username

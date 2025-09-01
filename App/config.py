@@ -13,6 +13,20 @@ def load_config(app, overrides):
     app.config['PREFERRED_URL_SCHEME'] = 'https'
     app.config['UPLOADED_PHOTOS_DEST'] = "App/uploads"
     
+    db_url = (
+        os.environ.get('DATABASE_URL') or
+        os.environ.get('DATABASE_URI_SQLITE') or
+        os.environ.get('DATABASE_URI_NEON') or
+        app.config.get('SQLALCHEMY_DATABASE_URI')
+    )
+    if db_url:
+        if db_url.startswith('postgres://'):
+            db_url = db_url.replace('postgres://', 'postgresql://', 1)
+        app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+        print(f"Using database URI: {db_url}")
+    else:
+        print("Warning: No database URI configured")
+    
     # JWT Configuration
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
     app.config['JWT_ACCESS_COOKIE_NAME'] = 'access_token'

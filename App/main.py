@@ -1,12 +1,13 @@
 import os
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, render_template, redirect, url_for, jsonify
 from flask_uploads import DOCUMENTS, IMAGES, TEXT, UploadSet, configure_uploads
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
 from datetime import datetime
 
-from App.database import init_db
+from App.database import init_db, db
+from flask_migrate import Migrate
 from App.config import load_config
 from App.controllers import (
     setup_jwt,
@@ -36,8 +37,100 @@ def create_app(overrides={}):
     
     add_views(app)
     init_db(app)
+    # Initialize migration extension early so Alembic env can access metadata
+    Migrate(app, db)
     jwt = setup_jwt(app)
     setup_admin(app)
+    
+    # Create database tables if they don't exist
+    with app.app_context():
+        try:
+            db.create_all()
+            print("Database tables created successfully")
+        except Exception as e:
+            print(f"Warning: Some tables may already exist: {e}")
+            # Continue anyway - tables might already exist
+
+    # --- Hardened /healthcheck endpoint ---
+    @app.get("/healthcheck")
+    def healthcheck():
+        checks = {}
+        overall_ok = True
+        now = datetime.utcnow().isoformat() + "Z"
+        checks['app'] = {'ok': True, 'time': now}
+
+        # Config sanity
+        missing = []
+        required = ['SECRET_KEY']  # add other required keys if applicable
+        for k in required:
+            if not app.config.get(k):
+                missing.append(k)
+        if missing:
+            checks['config'] = {'ok': False, 'missing': missing}
+            overall_ok = False
+        else:
+            checks['config'] = {'ok': True}
+
+        # Uploads directory writable
+        upload_path = (
+            app.config.get('UPLOADED_PHOTOS_DEST') or
+            app.config.get('UPLOADS_DEFAULT_DEST') or
+            app.config.get('UPLOAD_FOLDER') or
+            app.config.get('MEDIA_ROOT')
+        )
+        if upload_path:
+            try:
+                os.makedirs(upload_path, exist_ok=True)
+                if os.access(upload_path, os.W_OK):
+                    checks['uploads'] = {'ok': True, 'path': upload_path}
+                else:
+                    checks['uploads'] = {'ok': False, 'path': upload_path, 'error': 'not writable'}
+                    overall_ok = False
+            except Exception as e:
+                checks['uploads'] = {'ok': False, 'error': str(e)}
+                overall_ok = False
+        else:
+            checks['uploads'] = {'ok': False, 'error': 'no upload path configured'}
+            overall_ok = False
+
+        # Lightweight DB probe if a DB URI is configured
+        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI') or os.environ.get('DATABASE_URL')
+        if db_uri:
+            try:
+                # lazy import to avoid hard dependency until runtime
+                from sqlalchemy import create_engine, text
+                engine = create_engine(db_uri, pool_pre_ping=True, connect_args={})
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                checks['db'] = {'ok': True}
+            except Exception as e:
+                checks['db'] = {'ok': False, 'error': str(e)}
+                overall_ok = False
+        else:
+            # If you intentionally run without DB, treat as skipped.
+            checks['db'] = {'ok': True, 'skipped': True, 'note': 'no DB URI configured'}
+
+        # JWT quick config check (light check)
+        if app.config.get('JWT_SECRET_KEY') or app.config.get('JWT_PUBLIC_KEY'):
+            checks['jwt'] = {'ok': True}
+        else:
+            checks['jwt'] = {'ok': False, 'error': 'JWT not configured'}
+            # not fatal if your app does not use JWT at runtime; adjust as needed
+            # overall_ok = False
+
+        status_code = 200 if overall_ok else 503
+        app.logger.info("healthz result: %s", checks)
+        return jsonify(status='ok' if overall_ok else 'fail', checks=checks), status_code
+    # --- end healthz ---
+
+    # Add this to your Flask app for testing
+    @app.route('/db-test')
+    def db_test():
+        from App.models import User, Student, Course
+        users = User.query.count()
+        students = Student.query.count() 
+        courses = Course.query.count()
+        return f"Users: {users}, Students: {students}, Courses: {courses}"
     
     @jwt.invalid_token_loader
     @jwt.unauthorized_loader
