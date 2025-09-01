@@ -1,6 +1,6 @@
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/firepenguindisopanda/help-desk-rostering)
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/firepenguindisopanda/INFO3604-help-desk-rostering)
 
-![Tests](https://github.com/firepenguindisopanda/help-desk-rostering/actions/workflows/dev.yml/badge.svg)
+![Tests](https://github.com/firepenguindisopanda/INFO3604-help-desk-rostering/actions/workflows/dev.yml/badge.svg)
 
 # Help Desk Rostering & Claiming Project
 
@@ -122,7 +122,7 @@ Password: 123
 
 ```bash
 # Clone the repository
-git clone https://github.com/firepenguindisopanda/help-desk-rostering.git
+git clone https://github.com/firepenguindisopanda/INFO3604-help-desk-rostering
 cd help-desk-rostering
 
 # Create and activate virtual environment (recommended)

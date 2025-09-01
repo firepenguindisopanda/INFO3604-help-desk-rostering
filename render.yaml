@@ -2,7 +2,7 @@ services:
 - type: web
   name: flask-postgres-api
   runtime: python
-  repo: https://github.com/firepenguindisopanda/help-desk-rostering
+  repo: https://github.com/firepenguindisopanda/INFO3604-help-desk-rostering
   plan: free
   branch: main
   healthCheckPath: /healthcheck
