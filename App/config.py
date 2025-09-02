@@ -14,8 +14,8 @@ def load_config(app, overrides):
     app.config['UPLOADED_PHOTOS_DEST'] = "App/uploads"
     
     db_url = (
-        os.environ.get('DATABASE_URL') or
         os.environ.get('DATABASE_URI_SQLITE') or
+        os.environ.get('DATABASE_URL') or
         os.environ.get('DATABASE_URI_NEON') or
         app.config.get('SQLALCHEMY_DATABASE_URI')
     )

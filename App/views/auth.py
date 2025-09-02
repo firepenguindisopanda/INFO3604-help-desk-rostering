@@ -94,21 +94,15 @@ def register_action():
             flash('Please select at least one availability slot.', 'error')
             return redirect(url_for('auth_views.register'))
         
-        # Create registration request with password
+        # Create registration request with password and availability data
         profile_picture_file = request.files.get('profile_picture_file') if 'profile_picture_file' in request.files else None
         success, message = create_registration_request(
-            username, name, email, degree, reason, phone, transcript_file, profile_picture_file, selected_courses, password
+            username, name, email, degree, reason, phone, transcript_file, profile_picture_file, selected_courses, password, availability_slots
         )
         
         if success:
-            # If registration is successful, save availability slots
-            try:
-                create_availability_slots(username, availability_slots)
-                flash(message, 'success')
-                return redirect(url_for('auth_views.login_page'))
-            except Exception as e:
-                flash(f"Registration successful but error saving availability: {str(e)}", 'error')
-                return redirect(url_for('auth_views.login_page'))
+            flash(message, 'success')
+            return redirect(url_for('auth_views.login_page'))
         else:
             flash(message, 'error')
             return redirect(url_for('auth_views.register'))

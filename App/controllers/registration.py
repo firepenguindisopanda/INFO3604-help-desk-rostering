@@ -10,7 +10,7 @@ from datetime import datetime, time
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 
-def create_registration_request(username, name, email, degree, reason=None, phone=None, transcript_file=None, profile_picture_file=None, courses=None, password=None):
+def create_registration_request(username, name, email, degree, reason=None, phone=None, transcript_file=None, profile_picture_file=None, courses=None, password=None, availability_slots=None):
     """Create a new registration request with password"""
     import json
     import os
@@ -62,6 +62,9 @@ def create_registration_request(username, name, email, degree, reason=None, phon
         profile_picture_file.save(file_path)
         profile_picture_path = f"uploads/profile_pictures/{filename}"
         
+        # Store availability data as JSON string
+        availability_json = json.dumps(availability_slots) if availability_slots else None
+        
         registration = RegistrationRequest(
             username=username,
             name=name,
@@ -71,7 +74,8 @@ def create_registration_request(username, name, email, degree, reason=None, phon
             reason=reason,
             transcript_path=transcript_path,
             profile_picture_path=profile_picture_path,
-            password=password
+            password=password,
+            availability_json=availability_json
         )
         
         if password:
@@ -153,6 +157,52 @@ def approve_registration(request_id, admin_username):
         )
 
         db.session.add_all([user_obj, student, assistant, registration, notification])
+        
+        # Create availability records after student is created
+        if registration.availability_json:
+            try:
+                availability_slots = json.loads(registration.availability_json)
+                for slot in availability_slots:
+                    try:
+                        day = slot.get('day', 0)  # 0=Monday, 1=Tuesday, etc.
+                        start_time_str = slot.get('start_time', '9:00:00')
+                        end_time_str = slot.get('end_time', '10:00:00')
+                        
+                        # Parse the time strings into time objects
+                        start_time = None
+                        end_time = None
+                        
+                        if isinstance(start_time_str, str):
+                            try:
+                                # Try parsing as HH:MM:SS
+                                hour, minute, second = map(int, start_time_str.split(':'))
+                                start_time = time(hour=hour, minute=minute, second=second)
+                            except ValueError:
+                                # If that fails, just use the hour
+                                hour = int(start_time_str.split(':')[0])
+                                start_time = time(hour=hour)
+                        
+                        if isinstance(end_time_str, str):
+                            try:
+                                # Try parsing as HH:MM:SS
+                                hour, minute, second = map(int, end_time_str.split(':'))
+                                end_time = time(hour=hour, minute=minute, second=second)
+                            except ValueError:
+                                # If that fails, just use the hour + 1
+                                hour = int(end_time_str.split(':')[0])
+                                end_time = time(hour=hour)
+                        
+                        # Create availability record
+                        if start_time and end_time:
+                            availability = Availability(username, day, start_time, end_time)
+                            db.session.add(availability)
+                    
+                    except Exception as e:
+                        print(f"Error creating availability slot for {username}: {e}")
+                        # Continue with other slots even if this one fails
+            except json.JSONDecodeError:
+                print(f"Invalid availability JSON for {username}, skipping availability creation")
+        
         db.session.commit()
 
         return True, "Registration approved successfully"
