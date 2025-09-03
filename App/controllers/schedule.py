@@ -1,6 +1,11 @@
 from datetime import datetime, timedelta
 from flask import jsonify, render_template, url_for
-from ortools.sat.python import cp_model
+# Heavy optimization / PDF libs are imported lazily so production (serverless)
+# build can exclude them. If they are missing at runtime, we degrade gracefully.
+try:  # pragma: no cover - import guard
+    from ortools.sat.python import cp_model  # type: ignore
+except Exception:  # broad: absence or binary issues
+    cp_model = None  # sentinel
 import logging, csv, random
 from sqlalchemy import text
 
@@ -15,7 +20,10 @@ from App.controllers.lab_assistant import *
 from App.controllers.notification import notify_schedule_published
 from App.controllers.shift import create_shift
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
-from weasyprint import HTML, CSS
+try:  # pragma: no cover
+    from weasyprint import HTML, CSS  # type: ignore
+except Exception:
+    HTML = CSS = None
 import tempfile
 import os
 
@@ -31,6 +39,7 @@ def check_scheduling_feasibility():
     Returns:
         Dictionary with feasibility information
     """
+    # cp_model not strictly required just to count feasibility; skip model-specific logic.
     try:
         # Count active assistants
         assistant_count = HelpDeskAssistant.query.filter_by(active=True).count()
@@ -101,6 +110,8 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
     if not feasibility["feasible"]:
         logger.warning(f"Schedule generation may fail: {feasibility['message']}")
         # We'll continue anyway but log the warning
+    if cp_model is None:
+        return {"status": "error", "message": "Scheduling engine not installed in this deployment"}
     try:
         # If start_date is not provided, use the current date
         if start_date is None:
@@ -359,35 +370,35 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
             "coverage_ratio": sum(a[i, j] for i in range(I) for j in range(J)) / (I * J) if I * J > 0 else 0
         }
         logger.info(f"Schedule statistics: {problem_stats}")
-        
+
         # --- Solve the Model ---
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = 60.0  # Increase time limit to 60 seconds
         solver.parameters.num_search_workers = 8  # Use more worker threads
         solver.parameters.log_search_progress = True  # Log search progress
         status = solver.Solve(model)
-        
+
         if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
             # Clear existing allocations for these shifts
             clear_allocations_for_shifts(shifts)
-            
+
             # Create allocations for the assignments
             for i in range(I):
                 for j in range(J):
                     if solver.Value(x[i, j]) == 1:
                         assistant = staff_by_index[i]
                         shift = shift_by_index[j]
-                        
+
                         allocation = Allocation(assistant.username, shift.id, schedule.id)
                         db.session.add(allocation)
-                        
+
                         logger.debug(f"Assigned {assistant.username} to shift {shift.id}")
-            
+
             # Commit the schedule and all related objects
             db.session.commit()
-            
+
             logger.info(f"Schedule generated successfully with status: {status}")
-            
+
             return {
                 "status": "success",
                 "schedule_id": schedule.id,
@@ -407,9 +418,9 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
                 message = 'Problem is infeasible with current constraints.'
             elif status == cp_model.MODEL_INVALID:
                 message = 'Model is invalid.'
-            
+
             logger.error(f"Failed to generate schedule: {message}")
-            
+
             return {
                 "status": "error",
                 "message": message
@@ -504,7 +515,6 @@ def add_course_demand_to_shift(shift_id, course_code, tutors_required=2, weight=
 
 
 def get_course_demands_for_shift(shift_id):
-
     try:
         # Use text() for SQL queries to avoid the error
         result = db.session.execute(
@@ -528,7 +538,6 @@ def get_course_demands_for_shift(shift_id):
 
 
 def sync_schedule_data():
-
     try:
         # The main schedule is stored with ID 1
         schedule = Schedule.query.get(1)
@@ -958,6 +967,8 @@ def get_current_schedule():
 
 
 def generate_lab_schedule(start_date=None, end_date=None):
+    if cp_model is None:
+        return {"status": "error", "message": "Scheduling engine not installed in this deployment"}
     try:
         model = cp_model.CpModel()
         

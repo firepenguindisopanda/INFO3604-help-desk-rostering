@@ -43,70 +43,76 @@ def register_action():
         phone = request.form.get('phone')
         degree = request.form.get('degree')
         reason = request.form.get('reason')
-        
+
         # Get selected courses
         selected_courses = request.form.getlist('courses[]')
-        
+
         # Get availability data
         availability_data = request.form.get('availability', '[]')
         try:
             availability_slots = json.loads(availability_data)
         except json.JSONDecodeError:
             availability_slots = []
-        
+
         # Get transcript file if provided
         transcript_file = request.files.get('transcript_file') if 'transcript_file' in request.files else None
         profile_picture_file = request.files.get('profile_picture_file') if 'profile_picture_file' in request.files else None
-        
-        
+
+
         # Check terms acceptance
         if 'terms' not in request.form:
             flash('You must agree to the terms before registering.', 'error')
             return redirect(url_for('auth_views.register'))
-        
+
         # Validate password matches confirmation
         if password != confirm_password:
             flash('Passwords do not match.', 'error')
             return redirect(url_for('auth_views.register'))
-        
+
         # Validate password strength (similar to client-side validation)
         if len(password) < 8:
             flash('Password must be at least 8 characters long.', 'error')
             return redirect(url_for('auth_views.register'))
-            
+
         # Check for uppercase letter
         if not any(c.isupper() for c in password):
             flash('Password must contain at least one uppercase letter.', 'error')
             return redirect(url_for('auth_views.register'))
-            
+
         # Check for digit
         if not any(c.isdigit() for c in password):
             flash('Password must contain at least one number.', 'error')
             return redirect(url_for('auth_views.register'))
-            
+
         # Check for special character
         if not any(not c.isalnum() for c in password):
             flash('Password must contain at least one special character.', 'error')
             return redirect(url_for('auth_views.register'))
-        
+
         # Validate at least one availability slot is selected
         if not availability_slots:
             flash('Please select at least one availability slot.', 'error')
             return redirect(url_for('auth_views.register'))
-        
-        # Create registration request with password and availability data
+
+        # Create registration request with password
         profile_picture_file = request.files.get('profile_picture_file') if 'profile_picture_file' in request.files else None
         success, message = create_registration_request(
-            username, name, email, degree, reason, phone, transcript_file, profile_picture_file, selected_courses, password, availability_slots
+            username, name, email, degree, reason, phone, transcript_file, profile_picture_file, selected_courses, password
         )
-        
+
         if success:
-            flash(message, 'success')
-            return redirect(url_for('auth_views.login_page'))
+            # If registration is successful, save availability slots
+            try:
+                create_availability_slots(username, availability_slots)
+                flash(message, 'success')
+                return redirect(url_for('auth_views.login_page'))
+            except Exception as e:
+                flash(f"Registration successful but error saving availability: {str(e)}", 'error')
+                return redirect(url_for('auth_views.login_page'))
         else:
             flash(message, 'error')
             return redirect(url_for('auth_views.register'))
-            
+
     except Exception as e:
         flash(f'An error occurred during registration: {str(e)}', 'error')
         return redirect(url_for('auth_views.register'))
@@ -116,18 +122,18 @@ def create_availability_slots(username, availability_slots):
 
     Availability.query.filter_by(username=username).delete()
     db.session.commit()
-    
+
     # Now create new availability slots
     for slot in availability_slots:
         try:
             day = slot.get('day', 0)  # 0=Monday, 1=Tuesday, etc.
             start_time_str = slot.get('start_time', '9:00:00')
             end_time_str = slot.get('end_time', '10:00:00')
-            
+
             # Parse the time strings into time objects
             start_time = None
             end_time = None
-            
+
             if isinstance(start_time_str, str):
                 try:
                     # Try parsing as HH:MM:SS
@@ -137,7 +143,7 @@ def create_availability_slots(username, availability_slots):
                     # If that fails, just use the hour
                     hour = int(start_time_str.split(':')[0])
                     start_time = time(hour=hour)
-            
+
             if isinstance(end_time_str, str):
                 try:
                     # Try parsing as HH:MM:SS
@@ -147,16 +153,16 @@ def create_availability_slots(username, availability_slots):
                     # If that fails, just use the hour + 1
                     hour = int(end_time_str.split(':')[0])
                     end_time = time(hour=hour)
-            
+
             # Create availability record
             if start_time and end_time:
                 availability = Availability(username, day, start_time, end_time)
                 db.session.add(availability)
-        
+
         except Exception as e:
             print(f"Error creating availability slot: {e}")
             # Continue with other slots even if this one fails
-    
+
     db.session.commit()
 
 @auth_views.route('/login', methods=['POST'])
@@ -164,11 +170,11 @@ def login_action():
     try:
         data = request.form
         token, role = login(data['username'], data['password'])
-        
+
         if not token:
             flash('Invalid credentials. Please try again.', 'error')
             return redirect(url_for('auth_views.login_page'))
-        
+
         # Route based on role
         if role == 'admin':
             # Admin users go to the existing schedule page
@@ -176,11 +182,11 @@ def login_action():
         else:  # volunteer/assistant
             # Volunteers go to their dashboard
             response = redirect(url_for('volunteer_views.dashboard'))
-            
+
         set_access_cookies(response, token)
         flash('Login Successful', 'success')
         return response
-        
+
     except Exception as e:
         print(f"Login error: {e}")
         flash('An error occurred during login. Please try again.', 'error')
@@ -193,18 +199,18 @@ def forgot_password():
 @auth_views.route('/reset_password_request', methods=['POST'])
 def reset_password_request():
     """Handle password reset request submission"""
-    
+
     username = request.form.get('username')
     reason = request.form.get('reason')
-    
+
     # Basic validation
     if not username or not reason:
         flash("Both ID and reason are required", "error")
         return redirect(url_for('auth_views.forgot_password'))
-    
+
     # Create password reset request
     success, message = create_password_reset_request(username, reason)
-    
+
     if success:
         flash(message, "success")
         return redirect(url_for('auth_views.login_page'))

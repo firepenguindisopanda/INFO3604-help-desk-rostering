@@ -14,7 +14,20 @@ from App.models import Schedule, Shift, Allocation, Student, Availability, HelpD
 from App.database import db
 from App.middleware import admin_required
 from io import BytesIO
-from weasyprint import HTML, CSS
+"""Schedule views including optional PDF export.
+
+WeasyPrint is an optional heavy dependency excluded from the slim serverless
+deployment. Import it lazily / guarded so the rest of the app still works
+without the PDF feature. The /api/schedule/pdf endpoint will return a clear
+error JSON if WeasyPrint is not installed in the current environment.
+"""
+
+try:  # Guard heavy optional dependency
+    from weasyprint import HTML, CSS  # type: ignore
+    _WEASYPRINT_AVAILABLE = True
+except Exception:  # broad: any import error / cairo issues
+    HTML = CSS = None  # type: ignore
+    _WEASYPRINT_AVAILABLE = False
 import tempfile
 import os
 
@@ -868,82 +881,44 @@ def check_staff_availability():
 @jwt_required()
 @admin_required
 def download_schedule_pdf():
-    """Generate and download current schedule as PDF"""
-    try:
-        # Determine the schedule type from user role
-        schedule_type = current_user.role
-        
-        # Determine the schedule ID based on type
-        schedule_id = 2 if schedule_type == 'lab' else 1
-        
-        print(f"Generating PDF for {schedule_type} schedule (ID: {schedule_id})")
-        
-        # Get the schedule data based on correct schedule_id
-        schedule = Schedule.query.get(schedule_id)
-        if not schedule:
-            return jsonify({
-                'status': 'error',
-                'message': f'No {schedule_type} schedule found'
-            }), 404
-            
-        # Get the current schedule data
-        # We need to modify get_current_schedule to accept a schedule_id parameter
-        schedule_data = get_schedule_data(schedule_id)
-        
-        if not schedule_data:
-            return jsonify({
-                'status': 'error',
-                'message': 'Failed to load schedule data'
-            }), 404
-        
-        # Explicitly set the schedule type
-        schedule_data['type'] = schedule_type
-        
-        # Create a temporary HTML file
-        with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as f:
-            temp_html = f.name
-            
-        # Render the schedule template with the data
-        html_content = render_template(
-            'admin/schedule/pdf_template.html',
-            schedule=schedule_data
-        )
-        
-        # Write the HTML to the temporary file
-        with open(temp_html, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-        
-        # Convert HTML to PDF
-        pdf = HTML(filename=temp_html).write_pdf(
-            stylesheets=[
-                CSS(string='@page { size: letter landscape; margin: 1cm; }')
-            ]
-        )
-        
-        # Clean up the temporary file
-        os.unlink(temp_html)
-        
-        # Create a BytesIO object for the PDF data
-        pdf_bytes = BytesIO(pdf)
-        pdf_bytes.seek(0)
-        
-        # Generate a filename with current date and type
-        schedule_name = "lab_schedule" if schedule_type == "lab" else "help_desk_schedule"
-        filename = f"{schedule_name}_{datetime.now().strftime('%Y-%m-%d')}.pdf"
-        
-        # Send the PDF file
-        return send_file(
-            pdf_bytes,
-            mimetype='application/pdf',
-            as_attachment=True,
-            download_name=filename
-        )
-        
-    except Exception as e:
-        print(f"Error generating PDF: {e}")
-        import traceback
-        traceback.print_exc()
+    """Generate and download current schedule as PDF (if WeasyPrint available)."""
+    if not _WEASYPRINT_AVAILABLE:
         return jsonify({
             'status': 'error',
-            'message': str(e)
-        }), 500
+            'message': 'PDF generation disabled: WeasyPrint not installed in this deployment. '
+                       'Install weasyprint (and system deps) or use full requirements set.'
+        }), 503
+    try:
+        schedule_type = current_user.role
+        schedule_id = 2 if schedule_type == 'lab' else 1
+        print(f"Generating PDF for {schedule_type} schedule (ID: {schedule_id})")
+
+        schedule = Schedule.query.get(schedule_id)
+        if not schedule:
+            return jsonify({'status': 'error', 'message': f'No {schedule_type} schedule found'}), 404
+
+        schedule_data = get_schedule_data(schedule_id)
+        if not schedule_data:
+            return jsonify({'status': 'error', 'message': 'Failed to load schedule data'}), 404
+        schedule_data['type'] = schedule_type
+
+        with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as f:
+            temp_html = f.name
+        html_content = render_template('admin/schedule/pdf_template.html', schedule=schedule_data)
+        with open(temp_html, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+
+        pdf = HTML(filename=temp_html).write_pdf(
+            stylesheets=[CSS(string='@page { size: letter landscape; margin: 1cm; }')]
+        )
+        os.unlink(temp_html)
+
+        pdf_bytes = BytesIO(pdf)
+        pdf_bytes.seek(0)
+        schedule_name = 'lab_schedule' if schedule_type == 'lab' else 'help_desk_schedule'
+        filename = f"{schedule_name}_{datetime.now().strftime('%Y-%m-%d')}.pdf"
+        return send_file(pdf_bytes, mimetype='application/pdf', as_attachment=True, download_name=filename)
+    except Exception as e:
+        print(f"Error generating PDF: {e}")
+        import traceback; traceback.print_exc()
+        return jsonify({'status': 'error', 'message': str(e)}), 500

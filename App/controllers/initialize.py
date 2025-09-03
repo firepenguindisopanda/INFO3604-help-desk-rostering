@@ -36,8 +36,8 @@ def initialize():
         create_help_desk_assistants()
         create_help_desk_assistants_availability()
         create_help_desk_assistants_course_capabilities()
-    create_lab_assistants()
-    create_lab_assistants_availability()
+        create_lab_assistants()
+        create_lab_assistants_availability()
     
     if skip_help_desk:
         logger.info('Database initialized successfully (help desk assistant sample data skipped)')

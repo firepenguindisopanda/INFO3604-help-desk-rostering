@@ -22,7 +22,7 @@ class RegistrationRequest(db.Model):
     password = db.Column(db.String(255), nullable=True)  # Store hashed password
     availability_json = db.Column(db.Text, nullable=True)  # Store availability data as JSON
     
-    def __init__(self, username, name, email, degree, reason=None, phone=None, transcript_path=None, profile_picture_path=None, password=None, availability_json=None):
+    def __init__(self, username, name, email, degree, reason=None, phone=None, transcript_path=None, profile_picture_path=None, password=None):
         self.username = username
         self.name = name
         self.email = email
@@ -31,13 +31,13 @@ class RegistrationRequest(db.Model):
         self.reason = reason
         self.transcript_path = transcript_path
         self.status = 'PENDING'
-        self.availability_json = availability_json
-        
+
+
         if profile_picture_path:
             self.profile_picture_path = profile_picture_path  # Initialize the new field
         else:
             self.profile_picture_path = 'App/static/images/DefaultAvatar.png'
-        
+
         # Set hashed password if provided
         if password:
             self.set_password(password)
