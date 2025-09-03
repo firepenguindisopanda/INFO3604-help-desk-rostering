@@ -1,32 +1,36 @@
-"""WSGI entrypoint for Vercel.
+import click, pytest, sys
+from flask import Flask
+from flask.cli import with_appcontext, AppGroup
 
-Goal: keep import surface minimal so the serverless bundle excludes heavy,
-optional dev/test or algorithm libraries (pytest, ortools, locust, etc.).
+from App.database import db, get_migrate
+from App.models import User
 
-Heavy / dev-only imports have been moved inside CLI commands so they are
-only pulled when running those commands locally, not during cold start in
-the serverless environment.
-"""
 
-import sys
-import click
-from flask.cli import AppGroup
 
-from App.database import get_migrate
+
+
+
+
+
+
+
+
 from App.main import create_app
+from App.controllers import (create_user, get_all_users_json, get_all_users, initialize, 
+    generate_help_desk_schedule)
 
 # This commands file allow you to create convenient CLI commands for testing controllers
 
 app = create_app()
-_migrate = get_migrate(app)  # noqa: F841 (referenced by Flask-Migrate CLI integration)
+migrate = get_migrate(app)
 
 # This command creates and initializes the database
 @app.cli.command("init", help="Creates and initializes the database")
 def init():
-    # Lazy import to avoid bundling initialization logic until needed
-    from App.controllers import initialize  # local import
+
+
     initialize()
-    print('database initialized')
+    print('database intialized')
 
 
 
@@ -43,7 +47,7 @@ user_cli = AppGroup('user', help='User object commands')
 @click.argument("username", default="rob")
 @click.argument("password", default="robpass")
 def create_user_command(username, password):
-    from App.controllers import create_user  # lazy import
+
     create_user(username, password)
     print(f'{username} created!')
 
@@ -51,7 +55,7 @@ def create_user_command(username, password):
 @user_cli.command("list", help="Lists users in the database")
 @click.argument("format", default="string")
 def list_user_command(format):
-    from App.controllers import get_all_users, get_all_users_json  # lazy imports
+
     if format == 'string':
         print(get_all_users())
     else:
@@ -85,8 +89,8 @@ test = AppGroup('test', help='Testing commands')
 @test.command("app", help="Run App tests")
 @click.argument("type", default="all")
 def app_tests_command(type):
-    # Import pytest only when executing tests
-    import pytest  # lazy import to keep runtime bundle small
+
+
     if type == "unit":
         sys.exit(pytest.main(["-k", "UnitTests"]))
     elif type == "int":
