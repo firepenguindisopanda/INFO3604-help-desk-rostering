@@ -8,8 +8,6 @@ class RegistrationAvailability(db.Model):
     day_of_week = db.Column(db.Integer, nullable=False)  # 0=Monday, 1=Tuesday, etc.
     start_time = db.Column(db.Time, nullable=False)
     end_time = db.Column(db.Time, nullable=False)
-    
-    # Relationship
     registration = db.relationship('RegistrationRequest', backref=db.backref('availability_slots', lazy=True, cascade="all, delete-orphan"))
     
     def __init__(self, registration_id, day_of_week, start_time, end_time):

@@ -93,8 +93,6 @@ def create_registration_request(username, name, email, degree, reason=None, phon
                     day = slot.get('day', 0)
                     start_time_str = slot.get('start_time', '9:00:00')
                     end_time_str = slot.get('end_time', '10:00:00')
-                    
-                    # Parse the time strings into time objects
                     start_time = None
                     end_time = None
                     
@@ -151,7 +149,7 @@ def approve_registration(request_id, admin_username):
         degree = registration.degree
         email = registration.email
         phone = registration.phone
-        stored_password_hash = registration.password  # already hashed (scrypt)
+        stored_password_hash = registration.password
         profile_picture_path = registration.profile_picture_path
 
         if User.query.get(username):

@@ -27,14 +27,12 @@ def admin_login():
 
 @auth_views.route('/register', methods=['GET'])
 def register():
-    # Get all courses to display in the form
     courses = Course.query.all()
     return render_template('auth/register.html', courses=courses)
 
 @auth_views.route('/register', methods=['POST'])
 def register_action():
     try:
-        # Extract form data
         username = request.form.get('username')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
@@ -44,57 +42,45 @@ def register_action():
         degree = request.form.get('degree')
         reason = request.form.get('reason')
         
-        # Get selected courses
         selected_courses = request.form.getlist('courses[]')
         
-        # Get availability data
         availability_data = request.form.get('availability', '[]')
         try:
             availability_slots = json.loads(availability_data)
         except json.JSONDecodeError:
             availability_slots = []
         
-        # Get transcript file if provided
         transcript_file = request.files.get('transcript_file') if 'transcript_file' in request.files else None
         profile_picture_file = request.files.get('profile_picture_file') if 'profile_picture_file' in request.files else None
         
-        
-        # Check terms acceptance
         if 'terms' not in request.form:
             flash('You must agree to the terms before registering.', 'error')
             return redirect(url_for('auth_views.register'))
         
-        # Validate password matches confirmation
         if password != confirm_password:
             flash('Passwords do not match.', 'error')
             return redirect(url_for('auth_views.register'))
         
-        # Validate password strength (similar to client-side validation)
         if len(password) < 8:
             flash('Password must be at least 8 characters long.', 'error')
             return redirect(url_for('auth_views.register'))
             
-        # Check for uppercase letter
         if not any(c.isupper() for c in password):
             flash('Password must contain at least one uppercase letter.', 'error')
             return redirect(url_for('auth_views.register'))
             
-        # Check for digit
         if not any(c.isdigit() for c in password):
             flash('Password must contain at least one number.', 'error')
             return redirect(url_for('auth_views.register'))
             
-        # Check for special character
         if not any(not c.isalnum() for c in password):
             flash('Password must contain at least one special character.', 'error')
             return redirect(url_for('auth_views.register'))
         
-        # Validate at least one availability slot is selected
         if not availability_slots:
             flash('Please select at least one availability slot.', 'error')
             return redirect(url_for('auth_views.register'))
         
-        # Create registration request with password and availability
         profile_picture_file = request.files.get('profile_picture_file') if 'profile_picture_file' in request.files else None
         success, message = create_registration_request(
             username, name, email, degree, reason, phone, transcript_file, profile_picture_file, selected_courses, password, availability_slots
@@ -121,12 +107,9 @@ def login_action():
             flash('Invalid credentials. Please try again.', 'error')
             return redirect(url_for('auth_views.login_page'))
         
-        # Route based on role
         if role == 'admin':
-            # Admin users go to the existing schedule page
             response = redirect(url_for('schedule_views.schedule'))
-        else:  # volunteer/assistant
-            # Volunteers go to their dashboard
+        else:
             response = redirect(url_for('volunteer_views.dashboard'))
             
         set_access_cookies(response, token)
@@ -149,12 +132,10 @@ def reset_password_request():
     username = request.form.get('username')
     reason = request.form.get('reason')
     
-    # Basic validation
     if not username or not reason:
         flash("Both ID and reason are required", "error")
         return redirect(url_for('auth_views.forgot_password'))
     
-    # Create password reset request
     success, message = create_password_reset_request(username, reason)
     
     if success:
