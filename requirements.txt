@@ -17,3 +17,4 @@ Flask-Admin==1.6.1
 ortools==9.11.4210
 WeasyPrint==52.5
 locust==2.34.0
+flake8==7.0.0

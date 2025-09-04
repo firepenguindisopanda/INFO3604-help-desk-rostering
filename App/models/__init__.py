@@ -8,6 +8,7 @@ from .lab_assistant import *
 from .notification import *
 from .password_reset import *
 from .registration_request import *
+from .registration_availability import *
 from .request import *
 from .schedule import *
 from .semester import *
