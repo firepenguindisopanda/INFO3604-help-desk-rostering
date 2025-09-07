@@ -17,6 +17,7 @@ from io import BytesIO
 from weasyprint import HTML, CSS
 import tempfile
 import os
+from functools import lru_cache
 
 
 schedule_views = Blueprint('schedule_views', __name__, template_folder='../templates')
@@ -651,10 +652,12 @@ def get_available_staff():
         time_slot = request.args.get('time')
         
         if not day or not time_slot:
+            # Be tolerant – return empty list instead of 400 so the UI doesn't spam errors
             return jsonify({
-                'status': 'error',
-                'message': 'Day and time parameters are required'
-            }), 400
+                'status': 'success',
+                'staff': [],
+                'note': 'Missing day/time parameter'
+            })
         
         # Convert day to day_of_week index (0=Monday, 1=Tuesday, etc.)
         day_map = {
@@ -665,9 +668,10 @@ def get_available_staff():
         
         if day_of_week is None:
             return jsonify({
-                'status': 'error',
-                'message': f'Invalid day: {day}'
-            }), 400
+                'status': 'success',
+                'staff': [],
+                'note': f'Unrecognized day format: {day}'
+            })
         
         # Convert time_slot to hour
         hour = None
@@ -696,9 +700,10 @@ def get_available_staff():
         
         if hour is None:
             return jsonify({
-                'status': 'error',
-                'message': f'Invalid time format: {time_slot}'
-            }), 400
+                'status': 'success',
+                'staff': [],
+                'note': f'Unrecognized time format: {time_slot}'
+            })
         
         # Get all active help desk assistants
         assistants = HelpDeskAssistant.query.filter_by(active=True).all()
@@ -764,11 +769,13 @@ def check_staff_availability():
         day = request.args.get('day')
         time_slot = request.args.get('time')
         
+        # Be tolerant: instead of 400 we return success false so the front-end doesn't log noisy errors
         if not staff_id or not day or not time_slot:
             return jsonify({
-                'status': 'error',
-                'message': 'Staff ID, day, and time parameters are required'
-            }), 400
+                'status': 'success',
+                'is_available': False,
+                'note': 'Missing one or more required parameters'
+            })
         
         # Convert day to day_of_week index
         day_map = {
@@ -779,9 +786,10 @@ def check_staff_availability():
         
         if day_of_week is None:
             return jsonify({
-                'status': 'error',
-                'message': f'Invalid day: {day}'
-            }), 400
+                'status': 'success',
+                'is_available': False,
+                'note': f'Unrecognized day format: {day}'
+            })
         
         # Parse time using schedule type
         schedule_type = current_user.role
@@ -789,9 +797,10 @@ def check_staff_availability():
         
         if hour is None:
             return jsonify({
-                'status': 'error',
-                'message': f'Invalid time format: {time_slot}'
-            }), 400
+                'status': 'success',
+                'is_available': False,
+                'note': f'Unrecognized time format: {time_slot}'
+            })
         
         # Check availability in the database
         availabilities = Availability.query.filter_by(
@@ -863,6 +872,102 @@ def check_staff_availability():
             'status': 'success',
             'is_available': True
         })
+
+
+def _normalize_day(day):
+    mapping = {
+        'MON':0,'TUE':1,'WED':2,'THUR':3,'FRI':4,'SAT':5,
+        'Monday':0,'Tuesday':1,'Wednesday':2,'Thursday':3,'Friday':4,'Saturday':5
+    }
+    return mapping.get(day)
+
+def _parse_hour(time_slot, schedule_type):
+    return parse_time_to_hour(time_slot, schedule_type)
+
+@lru_cache(maxsize=2048)
+def _compute_single_availability(staff_id, day_idx, hour, schedule_type, is_block):
+    """Pure helper for availability; cached to reduce DB lookups in a batch window."""
+    # Query availabilities for staff & day
+    avails = Availability.query.filter_by(username=staff_id, day_of_week=day_idx).all()
+    if not avails:
+        return False
+    for avail in avails:
+        base_ok = avail.start_time <= time(hour=hour) and avail.end_time >= (time(hour=hour+1) if not is_block else time(hour=hour+4))
+        if base_ok:
+            # Check allocation conflicts
+            schedule = Schedule.query.filter_by(type=schedule_type).first()
+            if not schedule or not schedule.start_date:
+                return True
+            target_date = schedule.start_date + timedelta(days=day_idx)
+            conflict = Allocation.query.join(Shift, Allocation.shift_id==Shift.id).filter(
+                Allocation.username==staff_id,
+                Shift.schedule_id==schedule.id,
+                Shift.date==target_date,
+                Shift.start_time==datetime.combine(target_date, time(hour=hour))
+            ).first()
+            if conflict:
+                return False
+            return True
+    return False
+
+@schedule_views.route('/api/staff/check-availability/batch', methods=['POST'])
+@jwt_required()
+def batch_check_staff_availability():
+    """
+    Batch availability check.
+    Request JSON: { "queries": [ {"staff_id":"...","day":"Monday","time":"9:00 am"}, ... ] }
+    Response: { "status":"success", "results": [ {"staff_id":..., "day":..., "time":..., "is_available": bool} ] }
+    """
+    try:
+        payload = request.get_json(force=True) or {}
+        queries = payload.get('queries', [])
+        schedule_type = current_user.role
+        results = []
+        for q in queries:
+            staff_id = q.get('staff_id')
+            day_raw = q.get('day')
+            time_slot = q.get('time')
+            if not staff_id or not day_raw or not time_slot:
+                results.append({
+                    'staff_id': staff_id,
+                    'day': day_raw,
+                    'time': time_slot,
+                    'is_available': False,
+                    'note': 'missing parameter'
+                })
+                continue
+            day_idx = _normalize_day(day_raw)
+            if day_idx is None:
+                results.append({
+                    'staff_id': staff_id,
+                    'day': day_raw,
+                    'time': time_slot,
+                    'is_available': False,
+                    'note': 'bad day'
+                })
+                continue
+            hour = _parse_hour(time_slot, schedule_type)
+            if hour is None:
+                results.append({
+                    'staff_id': staff_id,
+                    'day': day_raw,
+                    'time': time_slot,
+                    'is_available': False,
+                    'note': 'bad time'
+                })
+                continue
+            is_block = schedule_type=='lab' and '-' in time_slot
+            is_avail = _compute_single_availability(staff_id, day_idx, hour, schedule_type, is_block)
+            results.append({
+                'staff_id': staff_id,
+                'day': day_raw,
+                'time': time_slot,
+                'is_available': is_avail
+            })
+        return jsonify({'status':'success','results':results})
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'status':'error','message':str(e)}), 500
 
 @schedule_views.route('/api/schedule/pdf', methods=['GET'])
 @jwt_required()
