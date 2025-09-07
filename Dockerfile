@@ -25,7 +25,6 @@ RUN apt-get update \
     postgresql-server-dev-all \
  && rm -rf /var/lib/apt/lists/*
 
-
 # Copy the current directory contents into the container at /app
 COPY . /app
 
