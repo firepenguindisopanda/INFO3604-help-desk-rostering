@@ -1,2 +1,2 @@
-SQLALCHEMY_DATABASE_URI="sqlite:///temp-database.db?foreign_keys=on"
+SQLALCHEMY_DATABASE_URI="sqlite:///temp-database.db"
 SECRET_KEY="secret key"

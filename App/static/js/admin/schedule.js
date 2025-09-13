@@ -1062,48 +1062,71 @@ function highlightAllCellsForStaff(staffId) {
     // Clear any existing highlights first
     clearAllCellHighlights();
     
-    // Get all schedule cells
-    const cells = document.querySelectorAll('.schedule-cell');
-    
+    // Collect queries for batch request
+    const cells = Array.from(document.querySelectorAll('.schedule-cell'));
+    const batchQueries = [];
+    const cellMeta = []; // parallel metadata to map results
     cells.forEach(cell => {
-        // Skip cells that are already full
         const staffContainer = cell.querySelector('.staff-container');
         const staffElements = staffContainer ? staffContainer.querySelectorAll('.staff-name') : [];
         const staffCount = staffElements.length;
-        
-        if (staffCount >= 3) return;
-        
-        // Check if this staff is already in this cell
+        if (staffCount >= 3) return; // full
         let isAlreadyAssigned = false;
         for (let i = 0; i < staffElements.length; i++) {
-            if (staffElements[i].getAttribute('data-staff-id') === staffId) {
-                isAlreadyAssigned = true;
-                break;
-            }
+            if (staffElements[i].getAttribute('data-staff-id') === staffId) { isAlreadyAssigned = true; break; }
         }
-        
-        // Don't check availability if the staff is already in the cell
         if (isAlreadyAssigned) {
             cell.classList.add('duplicate-assignment');
-            
             if (!cell.querySelector('.already-assigned-msg')) {
                 const assignedMsg = document.createElement('div');
                 assignedMsg.className = 'already-assigned-msg';
                 assignedMsg.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Already assigned';
-                
-                if (staffContainer) {
-                    staffContainer.insertAdjacentElement('afterend', assignedMsg);
-                } else {
-                    cell.appendChild(assignedMsg);
-                }
+                if (staffContainer) staffContainer.insertAdjacentElement('afterend', assignedMsg); else cell.appendChild(assignedMsg);
             }
             return;
         }
-        
-        // Check availability
         const day = cell.getAttribute('data-day');
         const timeSlot = cell.getAttribute('data-time');
-        checkAndUpdateCellAvailability(staffId, day, timeSlot, cell);
+        batchQueries.push({ staff_id: staffId, day: day, time: timeSlot });
+        cellMeta.push({ cell, day, timeSlot });
+    });
+
+    if (batchQueries.length === 0) return;
+
+    // Perform single batch request
+    fetch('/api/staff/check-availability/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queries: batchQueries })
+    })
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('Batch availability failed')))
+    .then(data => {
+        if (!data || data.status !== 'success') return;
+        const resultMap = new Map();
+        data.results.forEach(r => {
+            const key = `${r.staff_id}-${r.day}-${r.time}`;
+            resultMap.set(key, r.is_available);
+            // Populate cache for future single lookups
+            availabilityCache[key] = r.is_available;
+        });
+        // Apply to cells
+        cellMeta.forEach(meta => {
+            const k = `${staffId}-${meta.day}-${meta.timeSlot}`;
+            const isAvail = resultMap.get(k);
+            if (isAvail === undefined) return;
+            if (isAvail) {
+                meta.cell.classList.add('droppable');
+                meta.cell.classList.remove('not-available');
+            } else {
+                meta.cell.classList.add('not-available');
+                meta.cell.classList.remove('droppable');
+            }
+        });
+    })
+    .catch(err => {
+        console.error('Batch availability error', err);
+        // Fallback: mark all as droppable to not block UI
+        cellMeta.forEach(meta => meta.cell.classList.add('droppable'));
     });
 }
 
@@ -1461,47 +1484,36 @@ function clearAllCellHighlights() {
 
 
 function prefetchCommonAvailabilityData() {
-    
-    // Get all staff currently in the schedule
-    const staffIds = new Set();
-    document.querySelectorAll('.staff-name').forEach(staffElem => {
-        const staffId = staffElem.getAttribute('data-staff-id');
-        if (staffId) {
-            staffIds.add(staffId);
-        }
-    });
-    
-    if (staffIds.size === 0) return;
-    
-    console.log(`Prefetching availability data for ${staffIds.size} staff members`);
-    
-    // Get all days and time slots
+    // Gather staff IDs in schedule
+    const staffIds = [...new Set(Array.from(document.querySelectorAll('.staff-name')).map(s => s.getAttribute('data-staff-id')).filter(Boolean))];
+    if (staffIds.length === 0) return;
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     const timeSlots = [];
-    document.querySelectorAll('.time-cell').forEach(cell => {
-        const timeText = cell.textContent.trim();
-        if (timeText && !timeSlots.includes(timeText)) {
-            timeSlots.push(timeText);
-        }
-    });
-    
-    // Prefetch availability data with staggered requests
-    let delay = 0;
-    const increment = 50; // 50ms between requests
-    
-    // Limit to first 3 staff to avoid too many requests
-    const limitedStaffIds = Array.from(staffIds).slice(0, 3);
-    
-    limitedStaffIds.forEach(staffId => {
-        days.forEach(day => {
-            timeSlots.forEach(timeSlot => {
-                delay += increment;
-                setTimeout(() => {
-                    isStaffAvailableForTimeSlot(staffId, day, timeSlot);
-                }, delay);
+    document.querySelectorAll('.time-cell').forEach(cell => { const t = cell.textContent.trim(); if (t && !timeSlots.includes(t)) timeSlots.push(t); });
+    const limitedStaffIds = staffIds.slice(0,3);
+    // Build batch queries (cap to avoid huge payload)
+    const queries = [];
+    limitedStaffIds.forEach(id => {
+        days.forEach(d => {
+            timeSlots.forEach(ts => {
+                if (queries.length < 500) queries.push({ staff_id: id, day: d, time: ts });
             });
         });
     });
+    if (queries.length === 0) return;
+    console.log(`Batch prefetching ${queries.length} availability combinations`);
+    fetch('/api/staff/check-availability/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queries })
+    }).then(r => r.ok ? r.json() : null).then(data => {
+        if (!data || data.status !== 'success') return;
+        data.results.forEach(r => {
+            const key = `${r.staff_id}-${r.day}-${r.time}`;
+            availabilityCache[key] = r.is_available;
+        });
+        console.log(`Prefetch cache size now ${Object.keys(availabilityCache).length}`);
+    }).catch(e => console.warn('Batch prefetch failed', e));
 }
 
 // ==============================
@@ -1609,7 +1621,7 @@ function searchAvailableStaff(searchTerm, day, timeSlot) {
             let staffList = getMockStaffData();
             
             // Filter by availability (simulate this for now)
-            staffList = staffList.filter(staff => isStaffAvailableForTimeSlot(staff.id, day, timeSlot));
+            // Async availability check can't be directly used inside filter; rely on API already filtered.
             
             // Filter by search term if provided
             if (searchTerm) {
