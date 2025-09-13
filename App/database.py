@@ -14,3 +14,11 @@ def create_db():
     
 def init_db(app):
     db.init_app(app)
+
+@event.listens_for(Engine, "connect")
+def _enable_sqlite_fk(dbapi_connection, connection_record):
+    # Only apply for the sqlite3 DBAPI (file or in-memory)
+    if isinstance(dbapi_connection, SQLite3Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON;")
+        cursor.close()
