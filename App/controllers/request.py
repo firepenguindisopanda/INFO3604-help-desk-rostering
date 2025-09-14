@@ -247,3 +247,7 @@ def get_available_replacements(username):
         result.append(replacement)
     
     return result
+
+def get_pending_requests_count():
+    """Return count of pending shift requests."""
+    return Request.query.filter_by(status='PENDING').count()

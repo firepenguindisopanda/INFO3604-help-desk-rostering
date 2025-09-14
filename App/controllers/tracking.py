@@ -728,3 +728,20 @@ def generate_attendance_report(username=None, start_date=None, end_date=None, fo
             'success': False,
             'message': f'Error generating report: {str(e)}'
         }
+
+def get_student_time_entries(username, limit=None):
+    """Get recent time entries for a specific student."""
+    try:
+        query = (
+            TimeEntry.query
+            .filter_by(username=username)
+            .order_by(TimeEntry.clock_in.desc())
+        )
+        
+        if limit:
+            query = query.limit(limit)
+            
+        return query.all()
+    except Exception as e:
+        print(f"Error fetching time entries for student {username}: {e}")
+        return []

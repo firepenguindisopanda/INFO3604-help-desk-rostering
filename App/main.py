@@ -19,10 +19,31 @@ def add_views(app):
     for view in views:
         app.register_blueprint(view)
 
+def register_api_v2(app):
+    """Register API v2 blueprint for frontend integration"""
+    try:
+        from App.views.api_v2 import register_api_v2
+        register_api_v2(app)
+    except ImportError as e:
+        app.logger.warning(f"API v2 not available: {e}")
+
 def create_app(overrides={}):
     app = Flask(__name__, static_url_path='/static')
     load_config(app, overrides)
-    CORS(app)
+    
+    # Configure CORS for API endpoints - allow frontend origins
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:3001",  # Next.js dev server
+                "http://127.0.0.1:3001",
+                "https://frontend-on-vercel.com"
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }
+    })
+    
     add_auth_context(app)
     photos = UploadSet('photos', TEXT + DOCUMENTS + IMAGES)
     configure_uploads(app, photos)
@@ -36,6 +57,7 @@ def create_app(overrides={}):
         return value.strftime(format)
     
     add_views(app)
+    register_api_v2(app)  # Register API v2 endpoints for frontend
     init_db(app)
     # Initialize migration extension early so Alembic env can access metadata
     Migrate(app, db)
@@ -61,7 +83,7 @@ def create_app(overrides={}):
 
         # Config sanity
         missing = []
-        required = ['SECRET_KEY']  # add other required keys if applicable
+        required = ['SECRET_KEY']
         for k in required:
             if not app.config.get(k):
                 missing.append(k)

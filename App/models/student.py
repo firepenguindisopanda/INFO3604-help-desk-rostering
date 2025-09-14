@@ -26,6 +26,18 @@ class Student(User):
             'Degree Level': self.degree
         }
     
+    def to_dict(self):
+        """Convert student to dictionary for API responses (excludes password)"""
+        base_dict = super().to_dict()
+        base_dict.update({
+            'student_id': self.username,
+            'degree': self.degree,
+            'name': self.name,
+            'display_name': self.get_name(),
+            'profile_data': self.profile_data
+        })
+        return base_dict
+    
     def get_name(self):
         """Return the student's name or ID if name is not set"""
         return self.name if self.name and self.name.strip() else self.username

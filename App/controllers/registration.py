@@ -241,6 +241,14 @@ def get_all_registration_requests():
         'rejected': rejected
     }
 
+def get_pending_registrations():
+    """Return list of pending registration requests."""
+    return RegistrationRequest.query.filter_by(status='PENDING').order_by(RegistrationRequest.created_at.desc()).all()
+
+def get_pending_registrations_count():
+    """Return count of pending registration requests."""
+    return RegistrationRequest.query.filter_by(status='PENDING').count()
+
 def get_registration_request(request_id):
     """Get a specific registration request by ID"""
     registration = RegistrationRequest.query.get(request_id)

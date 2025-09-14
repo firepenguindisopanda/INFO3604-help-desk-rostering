@@ -43,6 +43,19 @@ class Schedule(db.Model):
             'Published': self.is_published,
         }
     
+    def to_dict(self):
+        """Convert schedule to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'start_date': self.start_date.isoformat() if self.start_date else None,
+            'end_date': self.end_date.isoformat() if self.end_date else None,
+            'type': self.type,
+            'generated_at': self.generated_at.isoformat() if self.generated_at else None,
+            'is_published': self.is_published,
+            'formatted_date_range': self.get_formatted_date_range(),
+            'shift_count': len(self.shifts) if self.shifts else 0
+        }
+    
     def publish(self):
         """Publish the schedule and notify all assigned staff"""
         if not self.is_published:
