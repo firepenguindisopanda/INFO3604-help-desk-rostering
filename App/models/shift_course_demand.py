@@ -23,3 +23,13 @@ class ShiftCourseDemand(db.Model):
             'Tutors Required': self.tutors_required,
             'Weight': self.weight
         }
+    
+    def to_dict(self):
+        """Convert shift course demand to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'shift_id': self.shift_id,
+            'course_code': self.course_code,
+            'tutors_required': self.tutors_required,
+            'weight': self.weight
+        }

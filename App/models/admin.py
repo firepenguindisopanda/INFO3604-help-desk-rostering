@@ -20,3 +20,12 @@ class Admin(User):
             'Admin ID': self.username,
             'Role': self.role
         }
+    
+    def to_dict(self):
+        """Convert admin to dictionary for API responses (excludes password)"""
+        base_dict = super().to_dict()
+        base_dict.update({
+            'role': self.role,
+            'admin_type': self.role
+        })
+        return base_dict

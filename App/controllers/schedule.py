@@ -19,8 +19,102 @@ from weasyprint import HTML, CSS
 import tempfile
 import os
 
-# Configure logger
+
 logger = logging.getLogger(__name__)
+
+def get_published_schedules():
+    """Return all published schedules ordered by end_date descending."""
+    try:
+        return Schedule.query.filter_by(is_published=True).order_by(Schedule.end_date.desc()).all()
+    except Exception as e:
+        logger.error(f"Error fetching published schedules: {e}")
+        return []
+
+def get_current_published_schedule(today=None):
+    """Return the schedule that is currently in effect (today within range).
+
+    If none is active today, fall back to the most recent published schedule.
+    """
+    try:
+        if today is None:
+            today = trinidad_now().date()
+        
+        current = (
+            Schedule.query
+            .filter(
+                Schedule.is_published == True,
+                Schedule.start_date <= today,
+                Schedule.end_date >= today
+            )
+            .order_by(Schedule.end_date.desc())
+            .first()
+        )
+        if current:
+            return current
+        # Fallback: latest published schedule
+        return (
+            Schedule.query
+            .filter_by(is_published=True)
+            .order_by(Schedule.end_date.desc())
+            .first()
+        )
+    except Exception as e:
+        logger.error(f"Error fetching current published schedule: {e}")
+        return None
+
+def get_shifts_for_student(username, limit=None):
+    """Get upcoming shifts for a specific student."""
+    try:
+        from datetime import datetime
+        now = trinidad_now()
+        
+        # Get shifts via allocations for this student, future shifts only
+        query = (
+            db.session.query(Shift)
+            .join(Allocation, Allocation.shift_id == Shift.id)
+            .filter(
+                Allocation.username == username,
+                Shift.date >= now.date()
+            )
+            .order_by(Shift.date, Shift.start_time)
+        )
+        
+        if limit:
+            query = query.limit(limit)
+            
+        return query.all()
+    except Exception as e:
+        logger.error(f"Error fetching shifts for student {username}: {e}")
+        return []
+
+def get_shifts_for_student_in_range(username, start_date, end_date):
+    """Get shifts for a student within a specific date range."""
+    try:
+        from datetime import datetime
+        
+        # Parse date strings if needed
+        if isinstance(start_date, str):
+            start_date = datetime.fromisoformat(start_date).date()
+        if isinstance(end_date, str):
+            end_date = datetime.fromisoformat(end_date).date()
+        
+        # Get shifts via allocations for this student within date range
+        shifts = (
+            db.session.query(Shift)
+            .join(Allocation, Allocation.shift_id == Shift.id)
+            .filter(
+                Allocation.username == username,
+                Shift.date >= start_date,
+                Shift.date <= end_date
+            )
+            .order_by(Shift.date, Shift.start_time)
+            .all()
+        )
+        
+        return shifts
+    except Exception as e:
+        logger.error(f"Error fetching shifts for student {username} in range {start_date}-{end_date}: {e}")
+        return []
 
 
 # Add debug function to check constraints before scheduling

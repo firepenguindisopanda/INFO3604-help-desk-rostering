@@ -29,6 +29,26 @@ class Shift(db.Model):
             'Schedule ID': self.schedule_id,
             'Course Demands': [demand.get_json() for demand in self.course_demands]
         }
+    
+    def to_dict(self):
+        """Convert shift to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'date': self.date.isoformat() if self.date else None,
+            'start_time': self.start_time.strftime('%H:%M') if self.start_time else None,
+            'end_time': self.end_time.strftime('%H:%M') if self.end_time else None,
+            'schedule_id': self.schedule_id,
+            'formatted_time': self.formatted_time(),
+            'duration_hours': self.get_duration_hours(),
+            'course_demands': [demand.to_dict() for demand in self.course_demands] if self.course_demands else []
+        }
+    
+    def get_duration_hours(self):
+        """Calculate shift duration in hours"""
+        if self.start_time and self.end_time:
+            duration = self.end_time - self.start_time
+            return duration.total_seconds() / 3600
+        return 0
         
     def formatted_time(self):
         """Return time in a human-friendly format like 10:00 am"""

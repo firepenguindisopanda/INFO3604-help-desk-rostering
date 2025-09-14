@@ -23,6 +23,15 @@ class User(db.Model):
             'Type': self.type
         }
 
+    def to_dict(self):
+        """Convert user to dictionary for API responses (excludes password)"""
+        return {
+            'username': self.username,
+            'type': self.type,
+            'is_admin': self.is_admin(),
+            'is_student': self.is_student()
+        }
+
     def set_password(self, password):
         """Create hashed password."""
         self.password = generate_password_hash(password)
