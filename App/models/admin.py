@@ -4,8 +4,8 @@ from .user import User
 class Admin(User):
     __tablename__ = 'admin'
     
-    username = db.Column(db.String(20), db.ForeignKey('users.username'), primary_key=True)
-    role = db.Column(db.String(20), nullable=False)
+    username = db.Column(db.String(20), db.ForeignKey('users.username', ondelete='CASCADE'), primary_key=True)
+    role = db.Column(db.String(20), nullable=False, index=True)
     
     __mapper_args__ = {
         'polymorphic_identity': 'admin'

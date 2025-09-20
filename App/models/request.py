@@ -1,22 +1,29 @@
 from App.database import db
 from datetime import datetime
-from sqlalchemy.sql import func
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 class Request(db.Model):
     __tablename__ = 'request'
     
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(20), db.ForeignKey('student.username'), nullable=False)
-    shift_id = db.Column(db.Integer, db.ForeignKey('shift.id'), nullable=True)
-    date = db.Column(db.DateTime, nullable=True)
+    username = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='CASCADE'), nullable=False, index=True)
+    shift_id = db.Column(db.Integer, db.ForeignKey('shift.id', ondelete='CASCADE'), nullable=True, index=True)
+    date = db.Column(db.DateTime, nullable=True, index=True)
     time_slot = db.Column(db.String(50), nullable=False)
     reason = db.Column(db.Text, nullable=False)
-    replacement = db.Column(db.String(20), db.ForeignKey('student.username'), nullable=True)
-    status = db.Column(db.String(20), default='PENDING')  # PENDING, APPROVED, REJECTED
-    created_at = db.Column(db.DateTime, default=trinidad_now())
+    replacement = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='SET NULL'), nullable=True, index=True)
+    status = db.Column(db.String(20), default='PENDING', index=True)  # PENDING, APPROVED, REJECTED, CANCELLED
+    created_at = db.Column(db.DateTime, default=trinidad_now(), index=True)
     approved_at = db.Column(db.DateTime, nullable=True)
     rejected_at = db.Column(db.DateTime, nullable=True)
+    
+    # Add constraints and indexes
+    __table_args__ = (
+        db.CheckConstraint("status IN ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED')", name='check_valid_request_status'),
+        db.Index('idx_request_user_status', 'username', 'status'),
+        db.Index('idx_request_shift_status', 'shift_id', 'status'),
+        db.Index('idx_request_date_status', 'date', 'status'),
+    )
     
     # Relationships
     student = db.relationship('Student', foreign_keys=[username], 

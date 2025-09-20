@@ -4,8 +4,11 @@ class CourseCapability(db.Model):
     __tablename__ = 'course_capability'
     
     id = db.Column(db.Integer, primary_key=True)
-    assistant_username = db.Column(db.String(20), db.ForeignKey('help_desk_assistant.username'), nullable=False)
-    course_code = db.Column(db.String(10), nullable=False)
+    assistant_username = db.Column(db.String(20), db.ForeignKey('help_desk_assistant.username', ondelete='CASCADE'), nullable=False, index=True)
+    course_code = db.Column(db.String(10), db.ForeignKey('course.code', ondelete='CASCADE'), nullable=False, index=True)
+    
+    # Relationships
+    course = db.relationship('Course', backref=db.backref('capabilities', lazy=True))
     
     def __init__(self, assistant_username, course_code):
         self.assistant_username = assistant_username
