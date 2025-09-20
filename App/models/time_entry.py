@@ -6,14 +6,22 @@ class TimeEntry(db.Model):
     __tablename__ = 'time_entry'
     
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(20), db.ForeignKey('student.username'), nullable=False)
-    shift_id = db.Column(db.Integer, db.ForeignKey('shift.id'), nullable=True)
-    clock_in = db.Column(db.DateTime, nullable=False)
-    clock_out = db.Column(db.DateTime, nullable=True)
-    status = db.Column(db.String(20), default='active')  # active, completed, absent
+    username = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='CASCADE'), nullable=False, index=True)
+    shift_id = db.Column(db.Integer, db.ForeignKey('shift.id', ondelete='SET NULL'), nullable=True, index=True)
+    clock_in = db.Column(db.DateTime, nullable=False, index=True)
+    clock_out = db.Column(db.DateTime, nullable=True, index=True)
+    status = db.Column(db.String(20), default='active', index=True)  # active, completed, absent
+    
+    # Add constraints and indexes
+    __table_args__ = (
+        db.CheckConstraint("status IN ('active', 'completed', 'absent')", name='check_valid_status'),
+        db.CheckConstraint('clock_out IS NULL OR clock_in < clock_out', name='check_clock_in_before_out'),
+        db.Index('idx_time_entry_user_status', 'username', 'status'),
+        db.Index('idx_time_entry_shift_status', 'shift_id', 'status'),
+    )
     
     # Relationships
-    student = db.relationship('Student', backref=db.backref('time_entries', lazy=True))
+    student = db.relationship('Student', backref=db.backref('time_entries', lazy=True, cascade="all, delete-orphan"))
     shift = db.relationship('Shift', backref=db.backref('time_entries', lazy=True))
     
     def __init__(self, username, clock_in, shift_id=None, status='active'):

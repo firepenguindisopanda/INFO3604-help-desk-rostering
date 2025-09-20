@@ -4,14 +4,24 @@ from .student import Student
 class HelpDeskAssistant(db.Model):
     __tablename__ = 'help_desk_assistant'
     
-    username = db.Column(db.String(20), db.ForeignKey('student.username'), primary_key=True)
-    rate = db.Column(db.Float, nullable=False)
-    active = db.Column(db.Boolean, nullable=False)
-    hours_worked = db.Column(db.Integer, nullable=False)
-    hours_minimum = db.Column(db.Integer, nullable=False)
+    username = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='CASCADE'), primary_key=True)
+    rate = db.Column(db.Float, nullable=False, default=20.00)
+    active = db.Column(db.Boolean, nullable=False, default=True, index=True)
+    hours_worked = db.Column(db.Integer, nullable=False, default=0)
+    hours_minimum = db.Column(db.Integer, nullable=False, default=4)
+    
+    # Add constraints
+    __table_args__ = (
+        db.CheckConstraint('rate >= 0', name='check_rate_positive'),
+        db.CheckConstraint('hours_worked >= 0', name='check_hours_worked_positive'),
+        db.CheckConstraint('hours_minimum >= 0', name='check_hours_minimum_positive'),
+    )
     
     # Course competency
     course_capabilities = db.relationship('CourseCapability', backref='assistant', lazy=True, cascade="all, delete-orphan")
+    
+    # Relationships
+    student = db.relationship('Student', backref=db.backref('help_desk_assistant', uselist=False, cascade="all, delete-orphan"))
     
     def __init__(self, username):
         self.username = username

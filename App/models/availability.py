@@ -4,10 +4,20 @@ class Availability(db.Model):
     __tablename__ = 'availability'
     
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(20), db.ForeignKey('student.username'), nullable=False)
-    day_of_week = db.Column(db.Integer, nullable=False)  # 0=Monday, 1=Tuesday, etc.
+    username = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='CASCADE'), nullable=False, index=True)
+    day_of_week = db.Column(db.Integer, nullable=False, index=True)  # 0=Monday, 1=Tuesday, etc.
     start_time = db.Column(db.Time, nullable=False)
     end_time = db.Column(db.Time, nullable=False)
+    
+    # Add constraints and indexes
+    __table_args__ = (
+        db.CheckConstraint('day_of_week >= 0 AND day_of_week <= 6', name='check_valid_day_of_week'),
+        db.CheckConstraint('start_time < end_time', name='check_start_before_end'),
+        db.Index('idx_availability_user_day', 'username', 'day_of_week'),
+    )
+    
+    # Relationships
+    student = db.relationship('Student', backref=db.backref('availabilities', lazy=True, cascade="all, delete-orphan"))
     
     def __init__(self, username, day_of_week, start_time, end_time):
         self.username = username

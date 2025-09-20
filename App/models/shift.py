@@ -6,10 +6,17 @@ class Shift(db.Model):
     __tablename__ = 'shift'
     
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.DateTime, nullable=False)
-    start_time = db.Column(db.DateTime, nullable=False)
-    end_time = db.Column(db.DateTime, nullable=False)
-    schedule_id = db.Column(db.Integer, db.ForeignKey('schedule.id'))
+    date = db.Column(db.DateTime, nullable=False, index=True)
+    start_time = db.Column(db.DateTime, nullable=False, index=True)
+    end_time = db.Column(db.DateTime, nullable=False, index=True)
+    schedule_id = db.Column(db.Integer, db.ForeignKey('schedule.id', ondelete='CASCADE'), nullable=False, index=True)
+    
+    # Add constraints
+    __table_args__ = (
+        db.CheckConstraint('start_time < end_time', name='check_shift_start_before_end'),
+        db.Index('idx_shift_schedule_date', 'schedule_id', 'date'),
+        db.Index('idx_shift_date_time', 'date', 'start_time'),
+    )
     
     # Course demand for this shift
     course_demands = db.relationship('ShiftCourseDemand', backref='shift', lazy=True, cascade="all, delete-orphan")

@@ -6,16 +6,22 @@ class Schedule(db.Model):
     __tablename__ = 'schedule'
     
     id = db.Column(db.Integer, primary_key=True)
-    start_date = db.Column(db.DateTime, nullable=False)
-    end_date = db.Column(db.DateTime, nullable=False)
-    type = db.Column(db.String(20), nullable=False)
-    generated_at = db.Column(db.DateTime, default=trinidad_now())
-    is_published = db.Column(db.Boolean, default=False)
-    # semester_id = db.Column(db.Integer, db.ForeignKey('semester.id'))
+    start_date = db.Column(db.DateTime, nullable=False, index=True)
+    end_date = db.Column(db.DateTime, nullable=False, index=True)
+    type = db.Column(db.String(20), nullable=False, index=True)
+    generated_at = db.Column(db.DateTime, default=trinidad_now(), index=True)
+    is_published = db.Column(db.Boolean, default=False, index=True)
+    
+    # Add constraints
+    __table_args__ = (
+        db.CheckConstraint("type IN ('helpdesk', 'lab')", name='check_valid_schedule_type'),
+        db.CheckConstraint('start_date <= end_date', name='check_start_before_end_date'),
+        db.Index('idx_schedule_type_published', 'type', 'is_published'),
+        db.Index('idx_schedule_date_range', 'start_date', 'end_date'),
+    )
     
     # Relationships
     shifts = db.relationship('Shift', backref='schedule', lazy=True, cascade="all, delete-orphan")
-    # semester = db.relationship('Semester', backref='schedules')
     
     def __init__(self, id=None, start_date=None, end_date=None, type='helpdesk'):
         if id is not None:
@@ -30,15 +36,22 @@ class Schedule(db.Model):
             self.end_date = end_date
         
         self.type = type
-        # self.semester_id = semester_id
         self.is_published = False
     
     def get_json(self):
+        # Get friendly type name
+        if self.type == 'helpdesk':
+            type_name = 'Help Desk'
+        elif self.type == 'lab':
+            type_name = 'Lab'
+        else:
+            type_name = 'Other'
+            
         return {
             'Schedule ID': self.id,
             'Start Date': self.start_date.strftime('%Y-%m-%d'),
             'End Date': self.end_date.strftime('%Y-%m-%d'),
-            'Type': 'Help Desk' if self.type == 'helpdesk' else 'Lab' if self.type == 'lab' else 'Other',
+            'Type': type_name,
             'Generated At': self.generated_at.strftime('%Y-%m-%d %H:%M:%S'),
             'Published': self.is_published,
         }

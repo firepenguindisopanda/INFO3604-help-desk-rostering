@@ -15,6 +15,7 @@ def load_config(app, overrides):
     
     db_url = (
         os.environ.get('DATABASE_URI_SQLITE') or
+        os.environ.get('DATABASE_URI_POSTGRES_LOCAL') or
         os.environ.get('DATABASE_URI_NEON') or
         os.environ.get('DATABASE_URL') or
         app.config.get('SQLALCHEMY_DATABASE_URI')

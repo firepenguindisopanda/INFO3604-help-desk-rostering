@@ -6,7 +6,12 @@ class User(db.Model):
     
     username = db.Column(db.String(20), nullable=False, primary_key=True)
     password = db.Column(db.String(255), nullable=False)
-    type = db.Column(db.String(50), nullable=False)
+    type = db.Column(db.String(50), nullable=False, index=True)
+    
+    # Add constraints
+    __table_args__ = (
+        db.CheckConstraint("type IN ('admin', 'student')", name='check_valid_user_type'),
+    )
     
     __mapper_args__ = {
         'polymorphic_on': type

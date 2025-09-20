@@ -3,12 +3,25 @@ from App.database import db
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 class Notification(db.Model):
+    __tablename__ = 'notification'
+    
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(20), db.ForeignKey('users.username'), nullable=False)
+    username = db.Column(db.String(20), db.ForeignKey('users.username', ondelete='CASCADE'), nullable=False, index=True)
     message = db.Column(db.String(255), nullable=False)
-    notification_type = db.Column(db.String(50), nullable=False)
-    is_read = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=trinidad_now())
+    notification_type = db.Column(db.String(50), nullable=False, index=True)
+    is_read = db.Column(db.Boolean, default=False, index=True)
+    created_at = db.Column(db.DateTime, default=trinidad_now(), index=True)
+    
+    # Add constraints and indexes
+    __table_args__ = (
+        db.CheckConstraint("notification_type IN ('approval', 'clock_in', 'clock_out', 'schedule', 'reminder', 'request', 'missed', 'update')", 
+                          name='check_valid_notification_type'),
+        db.Index('idx_notification_user_read', 'username', 'is_read'),
+        db.Index('idx_notification_type_created', 'notification_type', 'created_at'),
+    )
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('notifications', lazy=True, cascade="all, delete-orphan"))
     
     # Notification types
     TYPE_APPROVAL = 'approval'
