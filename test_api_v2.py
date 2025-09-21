@@ -25,25 +25,25 @@ def test_api_structure():
             missing_files.append(file)
     
     if missing_files:
-        print(f"❌ Missing files: {missing_files}")
+        print(f"Missing files: {missing_files}")
         return False
     
-    print("✅ All API v2 files created successfully")
+    print(" All API v2 files created successfully")
     
     # Check main.py was updated
     with open("App/main.py", "r") as f:
         content = f.read()
         
     if "register_api_v2" in content:
-        print("✅ main.py updated to register API v2")
+        print(" main.py updated to register API v2")
     else:
-        print("❌ main.py missing API v2 registration")
+        print(" main.py missing API v2 registration")
         return False
     
     if "CORS(app, resources=" in content:
-        print("✅ CORS configured for API endpoints")
+        print(" CORS configured for API endpoints")
     else:
-        print("❌ CORS not properly configured")
+        print(" CORS not properly configured")
         return False
         
     return True
@@ -69,19 +69,19 @@ def check_endpoints():
         ]
     }
     
-    print("\n📋 API v2 Endpoints Created:")
+    print("\n API v2 Endpoints Created:")
     for category, eps in endpoints.items():
         print(f"\n{category}:")
         for ep in eps:
             print(f"  • {ep}")
     
-    print("\n🔐 Authentication:")
-    print("  • JWT required for /me, /admin/*, /student/*")
-    print("  • Role-based access control using @admin_required and @volunteer_required")
+    print("\n Authentication:")
+    print("  JWT required for /me, /admin/*, /student/*")
+    print("  Role-based access control using @admin_required and @volunteer_required")
     
-    print("\n📊 Response Format:")
-    print("  • Success: {\"success\": true, \"data\": {...}, \"message\": \"...\"}")
-    print("  • Error: {\"success\": false, \"message\": \"...\", \"errors\": {...}}")
+    print("\n Response Format:")
+    print("  Success: {\"success\": true, \"data\": {...}, \"message\": \"...\"}")
+    print("  Error: {\"success\": false, \"message\": \"...\", \"errors\": {...}}")
 
 def check_models():
     """Check that models have to_dict methods"""
@@ -95,26 +95,26 @@ def check_models():
         "App/models/shift_course_demand.py"
     ]
     
-    print("\n🗃️  Model Serialization:")
+    print("\n Model Serialization:")
     for model_file in models_with_todict:
         try:
             with open(model_file, "r") as f:
                 content = f.read()
                 if "def to_dict(self):" in content:
-                    print(f"  ✅ {model_file.split('/')[-1]} has to_dict method")
+                    print(f"  {model_file.split('/')[-1]} has to_dict method")
                 else:
-                    print(f"  ❌ {model_file.split('/')[-1]} missing to_dict method")
+                    print(f"  {model_file.split('/')[-1]} missing to_dict method")
         except FileNotFoundError:
-            print(f"  ❌ {model_file} not found")
+            print(f"  {model_file} not found")
 
 if __name__ == "__main__":
-    print("🚀 Testing API v2 Implementation\n")
+    print("Testing API v2 Implementation\n")
     
     if test_api_structure():
         check_endpoints()
         check_models()
         
-        print("\n✅ API v2 Implementation Complete!")
+        print("\nAPI v2 Implementation Complete!")
         print("\n🔧 Next Steps:")
         print("  1. Install dependencies: pip install flask flask-sqlalchemy flask-jwt-extended flask-cors")
         print("  2. Test endpoints: flask run")
@@ -122,4 +122,4 @@ if __name__ == "__main__":
         print("  4. Test authentication flow and role-based access")
         
     else:
-        print("\n❌ API v2 Implementation has issues - check the errors above")
+        print("\nAPI v2 Implementation has issues - check the errors above")
