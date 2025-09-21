@@ -37,7 +37,8 @@ def create_app(overrides={}):
             "origins": [
                 "http://localhost:3001",  # Next.js dev server
                 "http://127.0.0.1:3001",
-                "https://help-desk-rostering-lybtet35y-firepenguindisopandas-projects.vercel.app"
+                "https://help-desk-rostering-lybtet35y-firepenguindisopandas-projects.vercel.app",
+                "https://help-desk-rostering.vercel.app"
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"]
