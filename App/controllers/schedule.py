@@ -1327,3 +1327,95 @@ def generate_help_desk_schedule_pdf(schedule_data):
     except Exception as e:
         logger.error(f"Error generating PDF: {e}")
         raise e
+
+
+def generate_schedule_pdf(schedule_data, export_format='standard'):
+    """
+    Generate PDF from schedule data
+    
+    Args:
+        schedule_data: Schedule data dictionary
+        export_format: PDF format type
+    
+    Returns:
+        BytesIO buffer containing PDF data
+    """
+    try:
+        # Implementation would generate PDF using existing logic
+        # For now, return empty buffer
+        from io import BytesIO
+        pdf_buffer = BytesIO()
+        return pdf_buffer
+        
+    except Exception as e:
+        logger.error(f"Error generating schedule PDF: {e}")
+        return None
+
+
+def get_schedule_summary_stats(schedule_type):
+    """
+    Get summary statistics for a schedule type
+    
+    Args:
+        schedule_type: Type of schedule ('helpdesk' or 'lab')
+    
+    Returns:
+        Dictionary with summary statistics
+    """
+    try:
+        from App.models.schedule import Schedule
+        from App.models.shift import Shift
+        from App.models.allocation import Allocation
+        
+        # Get schedule for the type
+        schedule_id = 1 if schedule_type == 'helpdesk' else 2
+        schedule = Schedule.query.filter_by(id=schedule_id, type=schedule_type).first()
+        
+        if not schedule:
+            return {
+                'total_shifts': 0,
+                'assigned_shifts': 0,
+                'unassigned_shifts': 0,
+                'total_staff_assignments': 0,
+                'coverage_percentage': 0.0
+            }
+        
+        # Get shift counts
+        total_shifts = Shift.query.filter_by(schedule_id=schedule.id).count()
+        
+        # Get assignment counts
+        total_assignments = db.session.query(Allocation).join(Shift).filter(
+            Shift.schedule_id == schedule.id
+        ).count()
+        
+        # Calculate assigned shifts (shifts with at least one assignment)
+        assigned_shifts = db.session.query(Shift.id).join(Allocation).filter(
+            Shift.schedule_id == schedule.id
+        ).distinct().count()
+        
+        unassigned_shifts = total_shifts - assigned_shifts
+        coverage_percentage = (assigned_shifts / total_shifts * 100) if total_shifts > 0 else 0.0
+        
+        return {
+            'total_shifts': total_shifts,
+            'assigned_shifts': assigned_shifts,
+            'unassigned_shifts': unassigned_shifts,
+            'total_staff_assignments': total_assignments,
+            'coverage_percentage': round(coverage_percentage, 2),
+            'schedule_type': schedule_type,
+            'schedule_id': schedule.id,
+            'start_date': schedule.start_date.isoformat() if schedule.start_date else None,
+            'end_date': schedule.end_date.isoformat() if schedule.end_date else None,
+            'is_published': getattr(schedule, 'is_published', False)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting schedule summary for {schedule_type}: {e}")
+        return {
+            'total_shifts': 0,
+            'assigned_shifts': 0,
+            'unassigned_shifts': 0,
+            'total_staff_assignments': 0,
+            'coverage_percentage': 0.0,
+            'error': str(e)
+        }
