@@ -4,6 +4,7 @@ from App.views.api_v2 import api_v2
 from App.views.api_v2.utils import api_success, api_error, validate_json_request
 from App.controllers.auth import login as auth_login
 from App.controllers.user import get_user
+from App.models.registration_request import RegistrationRequest
 
 @api_v2.route('/auth/login', methods=['POST'])
 def login():
@@ -34,6 +35,43 @@ def login():
     token, user_type = auth_login(username, password)
 
     if not token:
+        # If credentials fail, check if there's a registration request for this username
+        try:
+            reg = (
+                RegistrationRequest.query
+                .filter(RegistrationRequest.username == username)
+                .order_by(RegistrationRequest.created_at.desc())
+                .first()
+            )
+        except Exception:
+            reg = None
+
+        if reg:
+            status = (reg.status or '').upper()
+            if status == 'PENDING':
+                return api_error(
+                    "Your registration request is pending review.",
+                    status_code=403,
+                    errors={"code": "REG_PENDING", "requested_at": reg.created_at.isoformat() if getattr(reg, 'created_at', None) else None}
+                )
+            if status == 'REJECTED':
+                return api_error(
+                    "Your registration request was rejected.",
+                    status_code=403,
+                    errors={
+                        "code": "REG_REJECTED",
+                        "reviewed_at": reg.processed_at.isoformat() if getattr(reg, 'processed_at', None) else None,
+                        "reviewed_by": reg.processed_by,
+                    }
+                )
+            # If APPROVED exists but user not created yet, surface a specific message
+            if status == 'APPROVED':
+                return api_error(
+                    "Your registration is approved but your account is not yet provisioned. Please try again shortly or contact an admin.",
+                    status_code=403,
+                    errors={"code": "REG_APPROVED_NOT_PROVISIONED"}
+                )
+
         return api_error("Invalid username or password", status_code=401)
 
     # Fetch the user entity for response details
