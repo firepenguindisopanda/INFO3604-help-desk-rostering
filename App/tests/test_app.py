@@ -516,8 +516,16 @@ class RequestIntegrationTests(unittest.TestCase):
         # Create test data
         self.student = create_student("student1", "securepassword", "BSc", "John Doe")
         self.admin = create_admin("admin", "adminpass", "helpdesk")
-        db.session.add(self.student)
-        db.session.add(self.admin)
+        
+        # Create a schedule for the tests
+        now = datetime.utcnow()
+        self.schedule = Schedule(
+            start_date=now.date(),
+            end_date=(now + timedelta(days=6)).date(),
+            type='helpdesk'
+        )
+        
+        db.session.add_all([self.student, self.admin, self.schedule])
         db.session.commit()
 
     def tearDown(self):
@@ -531,7 +539,8 @@ class RequestIntegrationTests(unittest.TestCase):
         shift = Shift(
             date=datetime.utcnow() + timedelta(days=1),
             start_time=datetime.strptime("08:00", "%H:%M"),
-            end_time=datetime.strptime("12:00", "%H:%M")
+            end_time=datetime.strptime("12:00", "%H:%M"),
+            schedule_id=self.schedule.id
         )
         shift.id=1
         db.session.add(shift)
@@ -648,9 +657,11 @@ class RequestIntegrationTests(unittest.TestCase):
         shift = Shift(
             date=datetime.utcnow() + timedelta(days=1),
             start_time=datetime.strptime("08:00", "%H:%M"),
-            end_time=datetime.strptime("12:00", "%H:%M")
+            end_time=datetime.strptime("12:00", "%H:%M"),
+            schedule_id=self.schedule.id
         )
-        allocation = Allocation(username="student1", shift_id=1, schedule_id=1)
+        shift.id = 1
+        allocation = Allocation(username="student1", shift_id=shift.id, schedule_id=self.schedule.id)
         db.session.add_all([shift, allocation])
         db.session.commit()
     
@@ -779,17 +790,27 @@ class TrackingIntegrationTests(unittest.TestCase):
         self.assistant.active = True  # Set active directly
         self.assistant.hours_minimum = 4  # Set hours_minimum directly
 
-        # Use datetime.datetime for start_time and end_time
+        # Create a schedule first
         now = datetime.utcnow()
+        self.schedule = Schedule(
+            start_date=now.date(),
+            end_date=(now + timedelta(days=6)).date(),
+            type='helpdesk'
+        )
+        db.session.add(self.schedule)
+        db.session.commit()
+
+        # Use datetime.datetime for start_time and end_time
         self.shift = Shift(
             date=now.date(),
             start_time=now.replace(hour=9, minute=0, second=0, microsecond=0),
-            end_time=now.replace(hour=17, minute=0, second=0, microsecond=0)
+            end_time=now.replace(hour=17, minute=0, second=0, microsecond=0),
+            schedule_id=self.schedule.id
         )
         db.session.add_all([self.student, self.assistant, self.shift])
         db.session.commit()
 
-        self.allocation = Allocation(username="student1", shift_id=self.shift.id, schedule_id=1)
+        self.allocation = Allocation(username="student1", shift_id=self.shift.id, schedule_id=self.schedule.id)
         db.session.add(self.allocation)
         db.session.commit()
 
@@ -801,8 +822,9 @@ class TrackingIntegrationTests(unittest.TestCase):
 
     def test_get_student_stats(self):
         # Create a completed time entry
-        clock_in_time = datetime.utcnow().replace(hour=9, minute=0, second=0, microsecond=0)
-        clock_out_time = datetime.utcnow().replace(hour=17, minute=0, second=0, microsecond=0)
+        now = trinidad_now()
+        clock_in_time = now.replace(hour=9, minute=0, second=0, microsecond=0)
+        clock_out_time = now.replace(hour=17, minute=0, second=0, microsecond=0)
         time_entry = TimeEntry(username="student1", clock_in=clock_in_time, shift_id=self.shift.id, status="completed")
         time_entry.clock_out = clock_out_time  # Set clock_out directly
         db.session.add(time_entry)

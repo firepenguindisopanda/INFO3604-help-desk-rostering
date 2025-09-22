@@ -4,7 +4,7 @@ class CourseCapability(db.Model):
     __tablename__ = 'course_capability'
     
     id = db.Column(db.Integer, primary_key=True)
-    assistant_username = db.Column(db.String(20), db.ForeignKey('help_desk_assistant.username', ondelete='CASCADE'), nullable=False, index=True)
+    assistant_username = db.Column(db.String(20), db.ForeignKey('help_desk_assistant.username', ondelete='CASCADE', onupdate='CASCADE'), nullable=False, index=True)
     course_code = db.Column(db.String(10), db.ForeignKey('course.code', ondelete='CASCADE'), nullable=False, index=True)
     
     # Relationships

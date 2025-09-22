@@ -4,7 +4,7 @@ class Availability(db.Model):
     __tablename__ = 'availability'
     
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='CASCADE'), nullable=False, index=True)
+    username = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='CASCADE', onupdate='CASCADE'), nullable=False, index=True)
     day_of_week = db.Column(db.Integer, nullable=False, index=True)  # 0=Monday, 1=Tuesday, etc.
     start_time = db.Column(db.Time, nullable=False)
     end_time = db.Column(db.Time, nullable=False)

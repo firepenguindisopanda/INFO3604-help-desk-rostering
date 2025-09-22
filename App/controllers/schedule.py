@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date, time
 from flask import jsonify, render_template, url_for
 from ortools.sat.python import cp_model
 import logging, csv, random
@@ -21,6 +21,21 @@ import os
 
 
 logger = logging.getLogger(__name__)
+
+def _to_datetime_start_of_day(d):
+    """Normalize a date or datetime (or ISO string) to a datetime at 00:00:00."""
+    if isinstance(d, datetime):
+        return d.replace(hour=0, minute=0, second=0, microsecond=0)
+    if isinstance(d, date):
+        return datetime(d.year, d.month, d.day)
+    if isinstance(d, str):
+        try:
+            parsed = datetime.fromisoformat(d)
+            # If a pure date string (YYYY-MM-DD) ends up as datetime at 00:00
+            return parsed.replace(hour=0, minute=0, second=0, microsecond=0)
+        except Exception:
+            return trinidad_now().replace(hour=0, minute=0, second=0, microsecond=0)
+    return trinidad_now().replace(hour=0, minute=0, second=0, microsecond=0)
 
 def get_published_schedules():
     """Return all published schedules ordered by end_date descending."""
@@ -196,17 +211,20 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
         logger.warning(f"Schedule generation may fail: {feasibility['message']}")
         # We'll continue anyway but log the warning
     try:
-        # If start_date is not provided, use the current date
+        # Normalize inputs to datetimes at start of day
         if start_date is None:
             start_date = trinidad_now().replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        # If end_date is not provided, set it to the end of the week (Friday)
+        else:
+            start_date = _to_datetime_start_of_day(start_date)
+
         if end_date is None:
             # Get the end of the current week (Friday)
             days_to_friday = 4 - start_date.weekday()  # 4 = Friday
             if days_to_friday < 0:  # If today is already past Friday
                 days_to_friday += 7  # Go to next Friday
             end_date = start_date + timedelta(days=days_to_friday)
+        else:
+            end_date = _to_datetime_start_of_day(end_date)
         
         # Check if we're scheduling for a full week or partial week
         is_full_week = start_date.weekday() == 0 and (end_date - start_date).days >= 4
@@ -224,20 +242,21 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
             with open('sample/courses.csv', newline='') as csvfile:
                 reader = csv.DictReader(csvfile)
                 for row in reader:
-                    course = create_course(course_code=row['code'], course_name=row['name'])
+                    create_course(row['code'], row['name'])
             all_courses = get_all_courses()
             logger.info(f"Created {len(all_courses)} standard courses")
         
         # Generate shifts for the schedule (only for the specified date range)
         shifts = []
         current_date = start_date
-        
+
         while current_date <= end_date:
             # Skip weekends (day_of_week >= 5)
             if current_date.weekday() < 5:  # 0=Monday through 4=Friday
                 # Generate hourly shifts for this day (9am-5pm)
                 for hour in range(9, 17):  # 9am through 4pm
-                    shift_start = datetime.combine(current_date.date(), datetime.min.time()) + timedelta(hours=hour)
+                    base_date = current_date.date() if isinstance(current_date, datetime) else current_date
+                    shift_start = datetime.combine(base_date, time(0, 0)) + timedelta(hours=hour)
                     shift_end = shift_start + timedelta(hours=1)
                     
                     shift = Shift(current_date, shift_start, shift_end, schedule.id)
@@ -1071,17 +1090,20 @@ def generate_lab_schedule(start_date=None, end_date=None):
             return {"status": "error", "message": "No active lab assistants available for scheduling"}
         
         """ Shift Index, j = 1 · · · J """
-        # If start_date is not provided, use the current date
+        # Normalize inputs to datetimes at start of day
         if start_date is None:
             start_date = trinidad_now().replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        # If end_date is not provided, set it to the end of the week (Saturday)
+        else:
+            start_date = _to_datetime_start_of_day(start_date)
+
         if end_date is None:
             # Get the end of the current week (Saturday)
-            days_to_saturday = 5 - start_date.weekday()  # 5 = Saturday
-            if days_to_saturday < 0:  # If today is already past Saturday
-                days_to_saturday += 7  # Go to next Saturday
+            days_to_saturday = 5 - start_date.weekday()
+            if days_to_saturday < 0:
+                days_to_saturday += 7
             end_date = start_date + timedelta(days=days_to_saturday)
+        else:
+            end_date = _to_datetime_start_of_day(end_date)
 
         # Check if we're scheduling for a full week or partial week
         is_full_week = start_date.weekday() == 0 and (end_date - start_date).days >= 5
@@ -1100,7 +1122,8 @@ def generate_lab_schedule(start_date=None, end_date=None):
             if current_date.weekday() < 6:  # 0=Monday through 5=Saturday
                 # Generate three shifts for this day (8am-12pm, 12pm-4pm, 4pm-8pm)
                 for hour in range(8, 17, 4):  # 8am, 12pm, 4pm
-                    shift_start = datetime.combine(current_date.date(), datetime.min.time()) + timedelta(hours=hour)
+                    base_date = current_date.date() if isinstance(current_date, datetime) else current_date
+                    shift_start = datetime.combine(base_date, datetime.min.time()) + timedelta(hours=hour)
                     shift_end = shift_start + timedelta(hours=4)
                     
                     shift = create_shift(current_date, shift_start, shift_end, schedule.id)

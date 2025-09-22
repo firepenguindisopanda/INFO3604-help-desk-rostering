@@ -141,6 +141,28 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### 3. Environment (.env)
+
+- Copy `.env.example` to `.env` and edit values.
+- The app loads environment variables at startup (python-dotenv).
+- Database precedence (first non-empty wins): `DATABASE_URI_SQLITE`, `DATABASE_URI_POSTGRES_LOCAL`, `DATABASE_URI_NEON`, `DATABASE_URL`, then `SQLALCHEMY_DATABASE_URI`.
+
+Examples (Windows PowerShell):
+
+```powershell
+$env:DATABASE_URI_POSTGRES_LOCAL = "postgresql://postgres:password@localhost:5432/helpdesk"
+$env:SECRET_KEY = "dev-secret"
+flask --app wsgi run
+```
+
+Or place these in `.env`:
+
+```
+FLASK_APP=wsgi.py
+SECRET_KEY=dev-secret
+DATABASE_URI_POSTGRES_LOCAL=postgresql://postgres:password@localhost:5432/helpdesk
+```
+
 ### 3. Environment Configuration
 
 Create a `.env` file in the root directory (optional - defaults will be used if not provided):

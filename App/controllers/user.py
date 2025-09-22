@@ -1,6 +1,7 @@
-from App.models import User, Student, HelpDeskAssistant,CourseCapability, Availability
+from App.models import User, Student, HelpDeskAssistant, LabAssistant, CourseCapability, Availability, Notification, TimeEntry, Allocation, Request, RegistrationRequest
 from App.controllers import create_admin, create_student
 from App.database import db
+from sqlalchemy.exc import IntegrityError
 
 def create_user(username, password, type='student'):
     if type == 'student':
@@ -24,11 +25,25 @@ def get_all_users_json():
 
 def update_user(username, new_username):
     user = get_user(username)
-    if user:
-        user.username = new_username
-        db.session.commit()  # Commit the changes to the database
+    if not user:
+        return None
+
+    # No-op if unchanged
+    if username == new_username:
         return user
-    return None
+
+    # Enforce uniqueness before attempting update
+    if get_user(new_username):
+        return None
+
+    try:
+        # Rename and commit; relies on DB-level ON UPDATE CASCADE.
+        user.username = new_username
+        db.session.commit()
+        return user
+    except IntegrityError:
+        db.session.rollback()
+        return None
 
 def get_user_profile(username):
     """Get a user's detailed profile information"""
