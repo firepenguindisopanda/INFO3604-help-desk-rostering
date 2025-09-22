@@ -1,0 +1,50 @@
+# Ignore Python cache files and virtual environments
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+
+# Git & VCS
+.git/
+.gitignore
+
+# Editor/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Python environments
+.venv/
+venv/
+env/
+
+# Byte-compiled / optimized / DLL files
+.Python
+
+# Pytest cache
+.pytest_cache/
+
+# Local environment files
+.env
+.env.*
+
+# Build artifacts
+build/
+dist/
+
+# Logs
+*.log
+
+# Migrations cache (keep migrations/ itself)
+**/__pycache__/
+
+# Node / E2E (if present)
+node_modules/
+
+# Uploaded files (optional; comment out if you want them in image)
+App/uploads/
+uploads/
