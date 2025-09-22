@@ -1,8 +1,8 @@
 import os
 import multiprocessing
 
-# Bind to platform-provided port (Heroku/Render/Cloud Run) or default 8080
-bind = f"0.0.0.0:{os.environ.get('PORT', '8080')}"
+# Bind to platform-provided port (Heroku/Render/Cloud Run) or default 8000
+bind = f"0.0.0.0:{os.environ.get('PORT', '8000')}"
 
 # Reasonable defaults; allow overrides via env
 workers = int(os.environ.get("WEB_CONCURRENCY", max(1, multiprocessing.cpu_count() // 2)))
