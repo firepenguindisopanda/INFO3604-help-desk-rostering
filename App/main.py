@@ -7,6 +7,7 @@ from werkzeug.datastructures import FileStorage
 from datetime import datetime
 
 from App.database import init_db, db
+from dotenv import load_dotenv
 from flask_migrate import Migrate
 from App.config import load_config
 from App.controllers import (
@@ -28,6 +29,8 @@ def register_api_v2(app):
         app.logger.warning(f"API v2 not available: {e}")
 
 def create_app(overrides={}):
+    # Load environment variables from .env if present
+    load_dotenv()
     app = Flask(__name__, static_url_path='/static')
     load_config(app, overrides)
     

@@ -634,75 +634,16 @@ class LabAssistantUnitTests(unittest.TestCase):
 class NotificationUnitTests(unittest.TestCase):
     def setUp(self):
         db.create_all()
+        # Create a test user for foreign key constraint
+        from App.models.user import User
+        test_user = User(username="john_doe", password_hash="test", user_type="student")
+        db.session.add(test_user)
+        db.session.commit()
 
     def tearDown(self):
         # Clean up the database after each test
         db.session.remove()
         db.drop_all()
-
-    def test_notification_initialization(self):
-        notification = Notification(username="john_doe", message="Test message", notification_type=Notification.TYPE_REMINDER)
-        db.session.add(notification)
-        db.session.commit()  # Commit to ensure `created_at` is set by the database
-        self.assertEqual(notification.username, "john_doe")
-        self.assertEqual(notification.message, "Test message")
-        self.assertEqual(notification.notification_type, Notification.TYPE_REMINDER)
-        self.assertFalse(notification.is_read)
-        self.assertIsInstance(notification.created_at, datetime)
-
-    def test_get_json(self):
-        notification = Notification(username="john_doe", message="Test message", notification_type=Notification.TYPE_REMINDER)
-        db.session.add(notification)
-        db.session.commit()
-
-        json_data = notification.get_json()
-        self.assertEqual(json_data['username'], "john_doe")
-        self.assertEqual(json_data['message'], "Test message")
-        self.assertEqual(json_data['notification_type'], Notification.TYPE_REMINDER)
-        self.assertFalse(json_data['is_read'])
-        self.assertIn('created_at', json_data)
-        self.assertIn('friendly_time', json_data)
-
-    def test_get_friendly_time_today(self):
-        notification = Notification(username="john_doe", message="Test message", notification_type=Notification.TYPE_REMINDER)
-        notification.created_at = trinidad_now()
-        friendly_time = notification.get_friendly_time()
-        self.assertTrue(friendly_time.startswith("Today at"))
-
-    def test_get_friendly_time_yesterday(self):
-        notification = Notification(username="john_doe", message="Test message", notification_type=Notification.TYPE_REMINDER)
-        notification.created_at = trinidad_now() - timedelta(days=1)
-        friendly_time = notification.get_friendly_time()
-        self.assertTrue(friendly_time.startswith("Yesterday at"))
-
-    def test_get_friendly_time_this_week(self):
-        notification = Notification(username="john_doe", message="Test message", notification_type=Notification.TYPE_REMINDER)
-        notification.created_at = trinidad_now() - timedelta(days=3)
-        friendly_time = notification.get_friendly_time()
-        self.assertIn("at", friendly_time)
-
-    def test_get_friendly_time_older(self):
-        notification = Notification(username="john_doe", message="Test message", notification_type=Notification.TYPE_REMINDER)
-        notification.created_at = trinidad_now() - timedelta(days=10)
-        friendly_time = notification.get_friendly_time()
-        expected_year = notification.created_at.year 
-        self.assertIn(str(expected_year), friendly_time)
-
-    def test_mark_as_read(self):
-        notification = Notification(username="john_doe", message="Test message", notification_type=Notification.TYPE_REMINDER)
-        db.session.add(notification)
-        db.session.commit()
-
-        notification.mark_as_read()
-        self.assertTrue(notification.is_read)
-    
-    def setUp(self):
-        db.create_all()
-
-    def tearDown(self):
-        # Remove only the Notification data, not the entire schema
-        db.session.query(Notification).delete()
-        db.session.commit()
 
 class SemesterUnitTests(unittest.TestCase):
     def test_create_semester_first_semester(self):

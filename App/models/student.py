@@ -4,7 +4,7 @@ from .user import User
 class Student(User):
     __tablename__ = 'student'
     
-    username = db.Column(db.String(20), db.ForeignKey('users.username', ondelete='CASCADE'), primary_key=True)
+    username = db.Column(db.String(20), db.ForeignKey('users.username', ondelete='CASCADE', onupdate='CASCADE'), primary_key=True)
     degree = db.Column(db.String(3), nullable=False, default='BSc', index=True)
     name = db.Column(db.String(100), index=True)
     profile_data = db.Column(db.Text)

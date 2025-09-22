@@ -4,7 +4,7 @@ from .student import Student
 class HelpDeskAssistant(db.Model):
     __tablename__ = 'help_desk_assistant'
     
-    username = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='CASCADE'), primary_key=True)
+    username = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='CASCADE', onupdate='CASCADE'), primary_key=True)
     rate = db.Column(db.Float, nullable=False, default=20.00)
     active = db.Column(db.Boolean, nullable=False, default=True, index=True)
     hours_worked = db.Column(db.Integer, nullable=False, default=0)

@@ -6,7 +6,7 @@ class TimeEntry(db.Model):
     __tablename__ = 'time_entry'
     
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='CASCADE'), nullable=False, index=True)
+    username = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='CASCADE', onupdate='CASCADE'), nullable=False, index=True)
     shift_id = db.Column(db.Integer, db.ForeignKey('shift.id', ondelete='SET NULL'), nullable=True, index=True)
     clock_in = db.Column(db.DateTime, nullable=False, index=True)
     clock_out = db.Column(db.DateTime, nullable=True, index=True)

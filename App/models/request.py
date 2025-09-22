@@ -6,12 +6,12 @@ class Request(db.Model):
     __tablename__ = 'request'
     
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='CASCADE'), nullable=False, index=True)
+    username = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='CASCADE', onupdate='CASCADE'), nullable=False, index=True)
     shift_id = db.Column(db.Integer, db.ForeignKey('shift.id', ondelete='CASCADE'), nullable=True, index=True)
     date = db.Column(db.DateTime, nullable=True, index=True)
     time_slot = db.Column(db.String(50), nullable=False)
     reason = db.Column(db.Text, nullable=False)
-    replacement = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='SET NULL'), nullable=True, index=True)
+    replacement = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='SET NULL', onupdate='CASCADE'), nullable=True, index=True)
     status = db.Column(db.String(20), default='PENDING', index=True)  # PENDING, APPROVED, REJECTED, CANCELLED
     created_at = db.Column(db.DateTime, default=trinidad_now(), index=True)
     approved_at = db.Column(db.DateTime, nullable=True)
