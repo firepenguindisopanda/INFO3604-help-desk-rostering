@@ -235,6 +235,58 @@
     color: #dc2626;
     border: 1px solid #fecaca;
   }
+
+  /* Request status banners (pending / rejected / accepted) */
+  .request-status {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+    text-align: center;
+    animation: fadeIn 0.5s ease;
+  }
+
+  .request-status.request_pending {
+    background-color: #fff7ed;
+    color: #92400e;
+    border: 1px solid #fed7aa;
+  }
+
+  .request-status.request_rejected {
+    background-color: #fff1f2;
+    color: #9f1239;
+    border: 1px solid #fecaca;
+  }
+
+  .request-status.request_accepted {
+    background-color: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #bbf7d0;
+  }
+
+  /* Icon and dismiss styling for request-status banners */
+  .request-status .icon {
+    margin-right: 0.5rem;
+    vertical-align: middle;
+    font-size: 1.25rem;
+  }
+
+  .request-status .request-message {
+    vertical-align: middle;
+  }
+
+  .request-dismiss, .flash-dismiss {
+    position: absolute;
+    right: 10px;
+    top: 8px;
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    color: rgba(0,0,0,0.6);
+    cursor: pointer;
+  }
+
+  .request-status { position: relative; }
   
   /* Hide any footers */
   footer {

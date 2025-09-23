@@ -28,9 +28,26 @@
                     {% if messages %}
                         <div id="flash-container">
                             {% for category, message in messages %}
-                                <div class="flash-message {{ category }}">
-                                    {{ message }}
-                                </div>
+                                {% if category in ['request_pending', 'request_rejected', 'request_accepted'] %}
+                                    <div class="request-status {{ category }}">
+                                        <button class="request-dismiss" aria-label="Dismiss">&times;</button>
+                                        {% if category == 'request_pending' %}
+                                            <span class="icon material-icons">hourglass_top</span>
+                                        {% elif category == 'request_rejected' %}
+                                            <span class="icon material-icons">block</span>
+                                        {% elif category == 'request_accepted' %}
+                                            <span class="icon material-icons">check_circle</span>
+                                        {% else %}
+                                            <span class="icon material-icons">info</span>
+                                        {% endif %}
+                                        <span class="request-message">{{ message }}</span>
+                                    </div>
+                                {% else %}
+                                    <div class="flash-message {{ category }}">
+                                        <button class="flash-dismiss" aria-label="Dismiss">&times;</button>
+                                        {{ message }}
+                                    </div>
+                                {% endif %}
                             {% endfor %}
                         </div>
                     {% endif %}
@@ -38,7 +55,7 @@
                 
                 <div class="form-group">
                     <label for="id">ID Number</label>
-                    <input type="text" id="id" name="username" placeholder="Enter your ID number" required>
+                    <input type="text" id="id" name="username" placeholder="Enter your ID number" required value="{{ prefill_username or '' }}">
                     <div class="error-message" id="idError">Please enter a valid ID</div>
                 </div>
                 <div class="form-group">
