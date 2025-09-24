@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database Service
+  db:
+    image: postgres:15-alpine
+    container_name: helpdesk_postgres
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      # Persistent data storage
+      - postgres_data:/var/lib/postgresql/data
+      # Optional: Mount folder for SQL dumps/imports
+      - ./docker/postgres-data:/docker-entrypoint-initdb.d
+      # Optional: Custom postgres config
+      - ./docker/postgres.conf:/etc/postgresql/postgresql.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - helpdesk-network
+
+  # Flask API Service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: helpdesk_api
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      # Database connection - uses env vars from .env.docker
+      DATABASE_URL: postgresql://$${POSTGRES_USER}:$${POSTGRES_PASSWORD}@db:5432/$${POSTGRES_DB}
+      # Flask configuration
+      FLASK_APP: wsgi.py
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount uploads directory for persistent file storage
+      - ./App/uploads:/app/App/uploads
+      # Optional: Mount source code for development (comment out for production)
+      - ./App:/app/App:ro
+      - ./wsgi.py:/app/wsgi.py:ro
+      - ./gunicorn_config.py:/app/gunicorn_config.py:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/healthcheck || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - helpdesk-network
+
+# Named volumes for persistent storage
+volumes:
+  postgres_data:
+    driver: local
+
+# Custom network for service communication
+networks:
+  helpdesk-network:
+    driver: bridge
