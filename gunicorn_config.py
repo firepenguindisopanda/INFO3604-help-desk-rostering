@@ -5,7 +5,7 @@ import multiprocessing
 bind = f"0.0.0.0:{os.environ.get('PORT', '8000')}"
 
 # Reasonable defaults; allow overrides via env
-workers = int(os.environ.get("WEB_CONCURRENCY", max(1, multiprocessing.cpu_count() // 2)))
+workers = int(os.environ.get("WEB_CONCURRENCY", 4))
 worker_class = os.environ.get("GUNICORN_WORKER_CLASS", "gevent")
 
 # Logging
