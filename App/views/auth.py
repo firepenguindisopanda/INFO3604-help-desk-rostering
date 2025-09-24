@@ -7,6 +7,7 @@ from App.controllers import (
     login,
     create_registration_request
 )
+from App.models import RegistrationRequest
 from App.models import Course, Availability
 from App.database import db
 from App.controllers.password_reset import create_password_reset_request
@@ -15,7 +16,12 @@ auth_views = Blueprint('auth_views', __name__, template_folder='../templates')
 
 @auth_views.route('/login', methods=['GET'])
 def login_page():
-    return render_template('auth/login.html')
+    # If redirected here after an approval, show accepted message
+    status = request.args.get('status')
+    username = request.args.get('username')
+    if status and status.lower() == 'accepted':
+        flash('Your registration request has been approved. You may now log in.', 'request_accepted')
+    return render_template('auth/login.html', prefill_username=username)
 
 @auth_views.route('/assistant-login')
 def assistant_login():
@@ -101,17 +107,31 @@ def register_action():
 def login_action():
     try:
         data = request.form
-        token, role = login(data['username'], data['password'])
-        
+        username = data.get('username')
+        password = data.get('password')
+
+        # Check for existing registration requests for this username
+        reg = RegistrationRequest.query.filter_by(username=username).order_by(RegistrationRequest.created_at.desc()).first()
+        if reg:
+            status = (reg.status or '').upper()
+            if status == 'PENDING':
+                flash('Your registration request is still pending approval.', 'request_pending')
+                return redirect(url_for('auth_views.login_page'))
+            if status == 'REJECTED':
+                flash('Your registration request was rejected. Please contact an administrator.', 'request_rejected')
+                return redirect(url_for('auth_views.login_page'))
+
+        token, role = login(username, password)
+
         if not token:
             flash('Invalid credentials. Please try again.', 'error')
             return redirect(url_for('auth_views.login_page'))
-        
+
         if role == 'admin':
             response = redirect(url_for('schedule_views.schedule'))
         else:
             response = redirect(url_for('volunteer_views.dashboard'))
-            
+
         set_access_cookies(response, token)
         flash('Login Successful', 'success')
         return response

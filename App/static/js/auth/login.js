@@ -48,4 +48,25 @@ document.addEventListener('DOMContentLoaded', function() {
       passwordInput.classList.remove('invalid');
       passwordError.style.display = 'none';
   });
+
+  // Make request-status banners dismissible
+  document.querySelectorAll('.request-dismiss').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+          const banner = e.target.closest('.request-status');
+          if (banner) {
+              banner.style.opacity = '0';
+              banner.style.transform = 'translateY(-8px)';
+              setTimeout(() => banner.remove(), 250);
+          }
+      });
+  });
+
+  // Auto-hide non-critical request banners after 12 seconds
+  document.querySelectorAll('.request-status.request_accepted').forEach(b => {
+      setTimeout(() => {
+          b.style.opacity = '0';
+          b.style.transform = 'translateY(-8px)';
+          setTimeout(() => b.remove(), 300);
+      }, 12000);
+  });
 });

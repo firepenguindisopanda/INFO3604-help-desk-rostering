@@ -69,14 +69,35 @@ def create_app(overrides={}):
     jwt = setup_jwt(app)
     setup_admin(app)
     
-    # Create database tables if they don't exist
+    # Create database tables if they don't exist (safer approach)
     with app.app_context():
         try:
-            db.create_all()
-            print("Database tables created successfully")
+            # Use CREATE TABLE IF NOT EXISTS approach via inspector
+            from sqlalchemy import inspect
+            inspector = inspect(db.engine)
+            existing_tables = inspector.get_table_names()
+            
+            # Only create tables that don't exist
+            tables_to_create = []
+            for table_name, table in db.metadata.tables.items():
+                if table_name not in existing_tables:
+                    tables_to_create.append(table_name)
+            
+            if tables_to_create:
+                db.create_all()
+                print(f"Database tables created successfully: {', '.join(tables_to_create)}")
+            else:
+                print("All database tables already exist")
+                
         except Exception as e:
-            print(f"Warning: Some tables may already exist: {e}")
-            # Continue anyway - tables might already exist
+            print(f"Database setup info: {e}")
+            # Try the fallback approach for compatibility
+            try:
+                db.create_all()
+                print("Database tables created using fallback method")
+            except Exception as fallback_e:
+                print(f"Warning: Database table creation issue: {fallback_e}")
+                # Continue anyway - app might still work with existing tables
 
     # --- Hardened /healthcheck endpoint ---
     @app.get("/healthcheck")

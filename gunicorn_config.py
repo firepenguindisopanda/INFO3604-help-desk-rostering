@@ -1,19 +1,14 @@
-# gunicorn_config.py
+import os
 import multiprocessing
 
-# The socket to bind.
-# "0.0.0.0" to bind to all interfaces. 8000 is the port number.
-bind = "0.0.0.0:8080"
+# Bind to platform-provided port (Heroku/Render/Cloud Run) or default 8000
+bind = f"0.0.0.0:{os.environ.get('PORT', '8000')}"
 
-# The number of worker processes for handling requests.
-workers = 4
+# Reasonable defaults; allow overrides via env
+workers = int(os.environ.get("WEB_CONCURRENCY", max(1, multiprocessing.cpu_count() // 2)))
+worker_class = os.environ.get("GUNICORN_WORKER_CLASS", "gevent")
 
-# Use the 'gevent' worker type for async performance.
-worker_class = 'gevent'
-
-# Log level
-loglevel = 'info'
-
-# Where to log to
-accesslog = '-'  # '-' means log to stdout
-errorlog = '-'  # '-' means log to stderr
+# Logging
+loglevel = os.environ.get("LOG_LEVEL", "info")
+accesslog = '-'  # stdout
+errorlog = '-'   # stderr

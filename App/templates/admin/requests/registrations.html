@@ -24,6 +24,7 @@
         {% if messages %}
             {% for category, message in messages %}
                 <div class="flash-message {{ category }}">
+                    <button class="flash-dismiss" aria-label="Dismiss">&times;</button>
                     {% if category == 'success' %}
                         <span class="icon material-icons">check_circle</span>
                     {% elif category == 'error' %}
