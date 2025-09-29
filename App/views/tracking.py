@@ -45,9 +45,10 @@ def time_tracking():
         if student and hasattr(student, 'profile_data') and student.profile_data:
             try:
                 profile_data = json.loads(student.profile_data)
+                print(f"Loaded profile data for {student.username}: {profile_data}")
                 image_filename = profile_data.get('image_filename', '')
                 if image_filename:
-                    staff['image_url'] = url_for('static', filename=image_filename)
+                    staff['image_url'] = image_filename
                 else:
                     staff['image_url'] = url_for('static', filename='images/DefaultAvatar.png')
             except:

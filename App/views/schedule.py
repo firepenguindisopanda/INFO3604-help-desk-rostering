@@ -459,7 +459,7 @@ def publish_schedule_with_sync(schedule_id):
 @schedule_views.route('/api/schedule/current', methods=['GET'])
 @jwt_required()
 def get_current_schedule_endpoint():
-    """Get the current schedule based on admin role, formatted for display."""
+    """OPTIMIZED: Get the current schedule based on admin role, formatted for display."""
     try:
         # Get user role and determine schedule type
         role = current_user.role
@@ -468,18 +468,26 @@ def get_current_schedule_endpoint():
         
         print(f"Getting current {schedule_type} schedule (ID: {schedule_id})")
         
-        # Get the appropriate schedule
-        schedule = Schedule.query.filter_by(id=schedule_id, type=schedule_type).first() 
+        # OPTIMIZATION: Single query with eager loading to prevent N+1 queries
+        from sqlalchemy.orm import selectinload
+        
+        schedule = (
+            db.session.query(Schedule)
+            .options(
+                selectinload(Schedule.shifts)
+                .selectinload(Shift.allocations)
+                .selectinload(Allocation.student)
+            )
+            .filter_by(id=schedule_id, type=schedule_type)
+            .first()
+        )
         
         if not schedule:
             print(f"No {schedule_type} schedule found with ID {schedule_id}")
             return jsonify({'status': 'error', 'message': f'No {schedule_type} schedule found'}), 404
         
         print(f"Found schedule: id={schedule.id}, start={schedule.start_date}, end={schedule.end_date}, type={schedule.type}")
-        
-        # Get all shifts for this schedule
-        shifts = Shift.query.filter_by(schedule_id=schedule.id).order_by(Shift.date, Shift.start_time).all()
-        print(f"Found {len(shifts)} shifts for schedule {schedule.id}")
+        print(f"Loaded {len(schedule.shifts)} shifts with eager loading")
         
         # Format the schedule base
         formatted_schedule = {
@@ -490,9 +498,9 @@ def get_current_schedule_endpoint():
             "days": []
         }
         
-        # Group shifts by day index (0=Mon, 1=Tue, ..., 5=Sat)
+        # OPTIMIZATION: Group shifts by day index using pre-loaded data
         shifts_by_day = {}
-        for shift in shifts:
+        for shift in schedule.shifts:
             day_idx = shift.date.weekday() 
             
             # Skip days outside the expected range
@@ -504,17 +512,14 @@ def get_current_schedule_endpoint():
             if day_idx not in shifts_by_day:
                 shifts_by_day[day_idx] = []
                 
-            # Get assistants for this shift
+            # OPTIMIZATION: Get assistants from pre-loaded data
             assistants = []
-            allocations = Allocation.query.filter_by(shift_id=shift.id).all()
-            
-            for allocation in allocations:
-                student = Student.query.get(allocation.username) 
-                if student:
+            for allocation in shift.allocations:
+                if allocation.student:  # Already loaded via eager loading
                     assistants.append({
-                        "id": student.username, 
-                        "name": student.get_name(),
-                        "username": student.username  # Important: include username for removal
+                        "id": allocation.student.username, 
+                        "name": allocation.student.get_name(),
+                        "username": allocation.student.username  # Important: include username for removal
                     })
             
             # Store shift with ALL necessary data for later operations

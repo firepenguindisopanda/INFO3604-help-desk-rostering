@@ -59,7 +59,7 @@
                         </div>
                         <div class="registration-profile-image">
                             {% if registration.profile_picture_path %}
-                                <img src="{{ url_for('static', filename=registration.profile_picture_path) }}" alt="{{ registration.name }}'s profile picture">
+                                <img src="{{ registration.profile_picture_path }}" alt="{{ registration.name }}'s profile picture">
                             {% else %}
                                 <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="Default profile picture">
                             {% endif %}
@@ -102,7 +102,7 @@
                         <div class="registration-detail-row">
                             <div class="registration-label">Profile Picture:</div>
                             <div class="registration-value">
-                                <a href="{{ url_for('static', filename=registration.profile_picture_path) }}" 
+                                <a href="{{ registration.profile_picture_path }}" 
                                 class="file-download view-profile-pic" 
                                 target="_blank" 
                                 rel="noopener noreferrer">
@@ -164,7 +164,7 @@
                         </div>
                         <div class="registration-profile-image">
                             {% if registration.profile_picture_path %}
-                                <img src="{{ url_for('static', filename=registration.profile_picture_path) }}" alt="{{ registration.name }}'s profile picture">
+                                <img src="{{ registration.profile_picture_path }}" alt="{{ registration.name }}'s profile picture">
                             {% else %}
                                 <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="Default profile picture">
                             {% endif %}
@@ -201,7 +201,7 @@
                         <div class="registration-detail-row">
                             <div class="registration-label">Profile Picture:</div>
                             <div class="registration-value">
-                                <a href="{{ url_for('static', filename=registration.profile_picture_path) }}" 
+                                <a href="{{ registration.profile_picture_path }}" 
                                 class="file-download view-profile-pic" 
                                 target="_blank" 
                                 rel="noopener noreferrer">
@@ -249,7 +249,7 @@
                         </div>
                         <div class="registration-profile-image">
                             {% if registration.profile_picture_path %}
-                                <img src="{{ url_for('static', filename=registration.profile_picture_path) }}" alt="{{ registration.name }}'s profile picture">
+                                <img src="{{ registration.profile_picture_path }}" alt="{{ registration.name }}'s profile picture">
                             {% else %}
                                 <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="Default profile picture">
                             {% endif %}
@@ -286,7 +286,7 @@
                         <div class="registration-detail-row">
                             <div class="registration-label">Profile Picture:</div>
                             <div class="registration-value">
-                                <a href="{{ url_for('static', filename=registration.profile_picture_path) }}" 
+                                <a href="{{ registration.profile_picture_path }}" 
                                 class="file-download view-profile-pic" 
                                 target="_blank" 
                                 rel="noopener noreferrer">
