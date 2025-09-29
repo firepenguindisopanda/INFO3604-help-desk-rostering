@@ -18,6 +18,12 @@ from weasyprint import HTML, CSS
 import tempfile
 import os
 from functools import lru_cache
+import hashlib
+import json
+
+# Simple in-memory cache for schedule data
+_schedule_cache = {}
+_cache_timeout_seconds = 300  # 5 minutes
 
 
 schedule_views = Blueprint('schedule_views', __name__, template_folder='../templates')
@@ -178,7 +184,12 @@ def save_schedule():
         # Commit all changes
         db.session.commit()
         
-        print(f"Schedule saved successfully")
+        # **PERFORMANCE FIX: Invalidate cache when schedule is modified**
+        cache_key = _get_cache_key(schedule.id, schedule_type)
+        if cache_key in _schedule_cache:
+            del _schedule_cache[cache_key]
+        
+        print("Schedule saved successfully")
         
         return jsonify({
             'status': 'success',
@@ -305,6 +316,14 @@ def remove_staff_from_shift():
                 print(f"Found allocation to remove: shift_id={shift.id}, username={staff_id}")
                 db.session.delete(allocation)
                 db.session.commit()
+                
+                # **PERFORMANCE FIX: Invalidate cache when schedule is modified**
+                schedule_type = current_user.role
+                schedule_id = 1 if schedule_type == 'helpdesk' else 2
+                cache_key = _get_cache_key(schedule_id, schedule_type)
+                if cache_key in _schedule_cache:
+                    del _schedule_cache[cache_key]
+                
                 return jsonify({'status': 'success', 'message': 'Staff removed successfully'})
             else:
                 print(f"No allocation found for shift_id={shift.id}, username={staff_id}")
@@ -455,6 +474,17 @@ def publish_schedule_with_sync(schedule_id):
     
     result = publish_and_notify(schedule_id)
     return jsonify(result)
+
+def _get_cache_key(schedule_id, schedule_type):
+    """Generate cache key for schedule data"""
+    return f"schedule_{schedule_id}_{schedule_type}"
+
+def _is_cache_valid(cache_entry):
+    """Check if cache entry is still valid"""
+    if not cache_entry:
+        return False
+    cache_time = cache_entry.get('timestamp', 0)
+    return (datetime.now().timestamp() - cache_time) < _cache_timeout_seconds
 
 @schedule_views.route('/api/schedule/current', methods=['GET'])
 @jwt_required()
