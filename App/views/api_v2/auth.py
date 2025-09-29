@@ -101,117 +101,56 @@ def register():
     """
     Register a new user (student) account
     
-    Supports two content types:
-    - multipart/form-data (preferred; supports file uploads: profile_picture, transcript)
-    - application/json (no files; will return error because profile picture upload is required)
-    
-    Expected form fields (multipart/form-data):
-    - student_id (alias: username) [required]
-    - name OR (first_name and last_name) [required]
-    - email [required]
-    - phone [required]
-    - degree [required, e.g. BSc|MSc]
-    - password [required] and confirm_password [required]
-    - reason [required]
-    - terms [required; "on"/"true" to confirm]
-    - courses[] (repeat field) or courses (JSON array) [required]
-    - availability (JSON array of slots) or availability_slots (JSON) [required]
-    - files: profile_picture (required), transcript (optional)
-    
-    JSON requests are supported only for structure validation and will error if profile_picture is not provided as multipart.
+    Expected JSON body:
+    {
+        "student_id": "string" (required),
+        "name": "string" OR ("first_name" and "last_name") (required),
+        "email": "string" (required),
+        "phone": "string" (required),
+        "degree": "BSc|MSc" (required),
+        "password": "string" (required),
+        "confirm_password": "string" (required),
+        "reason": "string" (required),
+        "terms": true (required),
+        "courses": ["COMP1601", "COMP1602"] (required),
+        "availability": [{"day": 0, "start_time": "09:00:00", "end_time": "17:00:00"}] (required),
+        "profile_picture_url": "https://..." (required),
+        "transcript_url": "https://..." (optional)
+    }
     
     Returns:
         Success: Registration confirmation
         Error: Registration failure message
     """
-    # Helpers for validation
-    def _bool_true(val):
-        if val is None:
-            return False
-        if isinstance(val, bool):
-            return val
-        return str(val).strip().lower() in {"true", "1", "on", "yes"}
-
-    # Handle multipart form-data (supports file uploads)
-    if request.content_type and request.content_type.startswith('multipart/form-data'):
-        form = request.form
-        username = form.get('username') or form.get('student_id')
-        password = form.get('password')
-        confirm_password = form.get('confirm_password')
-        name = form.get('name')
-        first_name = form.get('first_name')
-        last_name = form.get('last_name')
-        email = form.get('email')
-        degree = form.get('degree')
-        phone = form.get('phone')
-        reason = form.get('reason')
-        terms = form.get('terms') or form.get('confirm')
-
-        # files: support multiple common field names
-        profile_picture_file = (
-            request.files.get('profile_picture')
-            or request.files.get('profile_picture_file')
-            or request.files.get('profilePicture')
-        )
-        transcript_file = request.files.get('transcript') or request.files.get('transcript_file')
-
-        # courses: support repeated fields and JSON
-        courses = form.getlist('courses[]')
-        if not courses:
-            courses_raw = form.get('courses')
-            if courses_raw:
-                try:
-                    import json
-                    parsed = json.loads(courses_raw)
-                    if isinstance(parsed, list):
-                        courses = parsed
-                    elif isinstance(parsed, str):
-                        courses = [parsed]
-                except Exception:
-                    # comma-separated fallback
-                    courses = [c.strip() for c in courses_raw.split(',') if c.strip()]
-            else:
-                # also support repeated 'courses' without [] suffix
-                courses = form.getlist('courses')
-
-        # availability: prefer 'availability' JSON, fallback to 'availability_slots'
-        availability_raw = form.get('availability') or form.get('availability_slots')
-        availability_slots = None
-        if availability_raw:
-            try:
-                import json
-                parsed = json.loads(availability_raw)
-                if isinstance(parsed, list):
-                    availability_slots = parsed
-            except Exception:
-                availability_slots = None
-    else:
-        # Default to JSON handling
-        data, error = validate_json_request(request)
-        if error:
-            return error
-        username = data.get('username') or data.get('student_id')
-        password = data.get('password')
-        confirm_password = data.get('confirm_password')
-        name = data.get('name')
-        first_name = data.get('first_name')
-        last_name = data.get('last_name')
-        email = data.get('email')
-        degree = data.get('degree')
-        phone = data.get('phone')
-        reason = data.get('reason')
-        terms = data.get('terms') or data.get('confirm')
-        courses = data.get('courses') or data.get('course_codes')
-        availability_slots = data.get('availability') or data.get('availability_slots')
-        profile_picture_file = None
-        transcript_file = None
-
+    data, error = validate_json_request(request)
+    if error:
+        return error
+    
+    # Extract basic fields
+    username = data.get('username') or data.get('student_id')
+    password = data.get('password')
+    confirm_password = data.get('confirm_password')
+    name = data.get('name')
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+    email = data.get('email')
+    degree = data.get('degree')
+    phone = data.get('phone')
+    reason = data.get('reason')
+    terms = data.get('terms') or data.get('confirm')
+    courses = data.get('courses') or data.get('course_codes')
+    availability_slots = data.get('availability') or data.get('availability_slots')
+    
+    # Extract file URLs instead of files
+    profile_picture_url = data.get('profile_picture_url')
+    transcript_url = data.get('transcript_url')
+    
     # Normalize name from first/last if needed
     if not name:
         name_parts = [p for p in [first_name, last_name] if p]
         name = " ".join(name_parts).strip() if name_parts else None
 
-    # Validate required fields (frontend requires these)
+    # Validate required fields
     missing = []
     if not username:
         missing.append('student_id')
@@ -231,21 +170,18 @@ def register():
         return api_error('Passwords do not match', status_code=400)
     if not reason:
         missing.append('reason')
-    if not _bool_true(terms):
+    if not terms:
         missing.append('terms')
     if not courses or (isinstance(courses, list) and len(courses) == 0):
         missing.append('courses')
     if not availability_slots or (isinstance(availability_slots, list) and len(availability_slots) == 0):
         missing.append('availability')
-    # Files required: profile picture and transcript must be present (JSON requests will fail here)
-    if profile_picture_file is None:
-        return api_error('Profile picture is required and must be uploaded as multipart/form-data', status_code=400)
-    if transcript_file is None:
-        return api_error('Transcript (PDF) is required and must be uploaded as multipart/form-data', status_code=400)
+    if not profile_picture_url:
+        missing.append('profile_picture_url')
     if missing:
         return api_error(f"Missing required fields: {', '.join(missing)}", status_code=400)
 
-    # Basic password policy (mirror legacy UI)
+    # Basic password policy
     pw = password or ''
     if len(pw) < 8 or not any(c.isupper() for c in pw) or not any(c.isdigit() for c in pw) or not any(not c.isalnum() for c in pw):
         return api_error('Password must be at least 8 characters, include an uppercase letter, a number, and a special character', status_code=400)
@@ -254,7 +190,7 @@ def register():
         # Import here to avoid circular imports
         from App.controllers.registration import create_registration_request
 
-        # Call controller with correct signature
+        # Call controller with URLs instead of files
         success, message = create_registration_request(
             username=username,
             name=name,
@@ -262,8 +198,8 @@ def register():
             degree=degree,
             reason=reason,
             phone=phone,
-            transcript_file=transcript_file,
-            profile_picture_file=profile_picture_file,
+            transcript_url=transcript_url,
+            profile_picture_url=profile_picture_url,
             courses=courses,
             password=password,
             availability_slots=availability_slots,

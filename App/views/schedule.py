@@ -489,7 +489,7 @@ def _is_cache_valid(cache_entry):
 @schedule_views.route('/api/schedule/current', methods=['GET'])
 @jwt_required()
 def get_current_schedule_endpoint():
-    """Get the current schedule based on admin role, formatted for display."""
+    """OPTIMIZED: Get the current schedule based on admin role, formatted for display."""
     try:
         # Get user role and determine schedule type
         role = current_user.role
@@ -498,49 +498,26 @@ def get_current_schedule_endpoint():
         
         print(f"Getting current {schedule_type} schedule (ID: {schedule_id})")
         
-        # Check cache first
-        cache_key = _get_cache_key(schedule_id, schedule_type)
-        cached_data = _schedule_cache.get(cache_key)
+        # OPTIMIZATION: Single query with eager loading to prevent N+1 queries
+        from sqlalchemy.orm import selectinload
         
-        if _is_cache_valid(cached_data):
-            print(f"Returning cached {schedule_type} schedule")
-            return jsonify({'status': 'success', 'schedule': cached_data['data']})
-        
-        # Get the appropriate schedule
-        schedule = Schedule.query.filter_by(id=schedule_id, type=schedule_type).first() 
+        schedule = (
+            db.session.query(Schedule)
+            .options(
+                selectinload(Schedule.shifts)
+                .selectinload(Shift.allocations)
+                .selectinload(Allocation.student)
+            )
+            .filter_by(id=schedule_id, type=schedule_type)
+            .first()
+        )
         
         if not schedule:
             print(f"No {schedule_type} schedule found with ID {schedule_id}")
             return jsonify({'status': 'error', 'message': f'No {schedule_type} schedule found'}), 404
         
         print(f"Found schedule: id={schedule.id}, start={schedule.start_date}, end={schedule.end_date}, type={schedule.type}")
-        
-        # **PERFORMANCE FIX: Use optimized queries to avoid N+1 issues**
-        # First get all shifts for this schedule
-        shifts = Shift.query.filter_by(schedule_id=schedule.id).order_by(Shift.date, Shift.start_time).all()
-        
-        # Get all allocations for these shifts in one query
-        shift_ids = [shift.id for shift in shifts]
-        allocations_dict = {}
-        if shift_ids:
-            allocations = Allocation.query.filter(Allocation.shift_id.in_(shift_ids)).all()
-            for allocation in allocations:
-                if allocation.shift_id not in allocations_dict:
-                    allocations_dict[allocation.shift_id] = []
-                allocations_dict[allocation.shift_id].append(allocation)
-        
-        print(f"Found {len(shifts)} shifts for schedule {schedule.id}")
-        
-        # **PERFORMANCE FIX: Pre-build student lookup dict to avoid repeated queries**
-        all_student_usernames = set()
-        for shift_allocations in allocations_dict.values():
-            for allocation in shift_allocations:
-                all_student_usernames.add(allocation.username)
-        
-        students_dict = {}
-        if all_student_usernames:
-            students = Student.query.filter(Student.username.in_(all_student_usernames)).all()
-            students_dict = {s.username: s for s in students}
+        print(f"Loaded {len(schedule.shifts)} shifts with eager loading")
         
         # Format the schedule base
         formatted_schedule = {
@@ -551,9 +528,9 @@ def get_current_schedule_endpoint():
             "days": []
         }
         
-        # **PERFORMANCE FIX: Group shifts by day index more efficiently**
+        # OPTIMIZATION: Group shifts by day index using pre-loaded data
         shifts_by_day = {}
-        for shift in shifts:
+        for shift in schedule.shifts:
             day_idx = shift.date.weekday() 
             
             # Skip days outside the expected range
@@ -565,24 +542,22 @@ def get_current_schedule_endpoint():
             if day_idx not in shifts_by_day:
                 shifts_by_day[day_idx] = []
                 
-            # **PERFORMANCE FIX: Build assistants list from pre-loaded data**
+            # OPTIMIZATION: Get assistants from pre-loaded data
             assistants = []
-            shift_allocations = allocations_dict.get(shift.id, [])
-            for allocation in shift_allocations:
-                student = students_dict.get(allocation.username)
-                if student:
+            for allocation in shift.allocations:
+                if allocation.student:  # Already loaded via eager loading
                     assistants.append({
-                        "id": student.username, 
-                        "name": student.get_name(),
-                        "username": student.username
+                        "id": allocation.student.username, 
+                        "name": allocation.student.get_name(),
+                        "username": allocation.student.username  # Important: include username for removal
                     })
             
             # Store shift with ALL necessary data for later operations
             shifts_by_day[day_idx].append({
                 "shift_id": shift.id,
-                "time": f"{shift.start_time.strftime('%-I:%M %p')}",
+                "time": f"{shift.start_time.strftime('%-I:%M %p')}",  # Store original time format
                 "hour": shift.start_time.hour,
-                "date": shift.date.isoformat(),
+                "date": shift.date.isoformat(),  # Store the actual date for this shift
                 "assistants": assistants
             })
         
@@ -612,11 +587,12 @@ def get_current_schedule_endpoint():
                     matching_shift = next((s for s in actual_shifts_today if s["hour"] == hour), None)
                     
                     if matching_shift:
+                        # Important: preserve the actual shift ID and date for later operations
                         shift_data = {
                             "shift_id": matching_shift['shift_id'],
                             "time": time_str,
                             "hour": hour,
-                            "date": matching_shift['date'],
+                            "date": matching_shift['date'],  # Actual date of this shift
                             "assistants": matching_shift['assistants']
                         }
                         day_shifts_data.append(shift_data)
@@ -633,7 +609,7 @@ def get_current_schedule_endpoint():
                     "day": day_names[day_idx],
                     "day_code": day_codes[day_idx],
                     "date": day_date.strftime("%d %b"),
-                    "day_idx": day_idx,
+                    "day_idx": day_idx,  # Store day index for later reference
                     "shifts": day_shifts_data
                 })
 
@@ -653,6 +629,7 @@ def get_current_schedule_endpoint():
 
                     if matching_shift:
                         start_dt = datetime.now().replace(hour=hour, minute=0)
+                        end_dt = start_dt + timedelta(hours=1)
                         time_str = f"{start_dt.strftime('%-I:%M %p')}"
                         
                         shift_data = {
@@ -684,12 +661,6 @@ def get_current_schedule_endpoint():
                 })
         
         formatted_schedule["days"] = days
-        
-        # **PERFORMANCE FIX: Cache the result for future requests**
-        _schedule_cache[cache_key] = {
-            'data': formatted_schedule,
-            'timestamp': datetime.now().timestamp()
-        }
         
         print(f"Returning formatted {schedule_type} schedule with {len(days)} days.")
         return jsonify({'status': 'success', 'schedule': formatted_schedule})
