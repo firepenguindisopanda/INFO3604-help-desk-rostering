@@ -2,7 +2,22 @@ from datetime import datetime, timedelta, date, time
 from flask import jsonify, render_template, url_for
 from ortools.sat.python import cp_model
 import logging, csv, random
-from sqlalchemy import text
+from sqlalchemy import text, and_, func, select
+
+# Try to import SQLAlchemy ORM functions with fallback for older versions
+try:
+    from sqlalchemy.orm import selectinload, joinedload
+    EAGER_LOADING_AVAILABLE = True
+except ImportError:
+    # Fallback for older SQLAlchemy versions
+    try:
+        from sqlalchemy.orm import subqueryload as selectinload, joinedload
+        EAGER_LOADING_AVAILABLE = True
+    except ImportError:
+        # Very old version - disable eager loading optimizations
+        selectinload = None
+        joinedload = None
+        EAGER_LOADING_AVAILABLE = False
 
 from App.models import (
     Schedule, Shift, Student, HelpDeskAssistant, 
@@ -18,9 +33,19 @@ from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 from weasyprint import HTML, CSS
 import tempfile
 import os
+import time as time_module
+from functools import wraps
+from App.utils.performance_monitor import (
+    performance_monitor, 
+    database_transaction_context,
+    structured_logger,
+    query_profiler
+)
 
 
 logger = logging.getLogger(__name__)
+
+# Using centralized performance monitoring from utils
 
 def _to_datetime_start_of_day(d):
     """Normalize a date or datetime (or ISO string) to a datetime at 00:00:00."""
@@ -194,9 +219,10 @@ def check_scheduling_feasibility():
         }
 
 
+@performance_monitor("generate_help_desk_schedule", log_slow_threshold=2.0)
 def generate_help_desk_schedule(start_date=None, end_date=None):
     """
-    Generate a help desk schedule with flexible date range.
+    Generate a help desk schedule with flexible date range - OPTIMIZED VERSION
     
     Args:
         start_date: The start date for this schedule (datetime object)
@@ -210,7 +236,7 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
     if not feasibility["feasible"]:
         logger.warning(f"Schedule generation may fail: {feasibility['message']}")
         # We'll continue anyway but log the warning
-    try:
+    with database_transaction_context("help_desk_schedule_generation"):
         # Normalize inputs to datetimes at start of day
         if start_date is None:
             start_date = trinidad_now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -228,6 +254,13 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
         
         # Check if we're scheduling for a full week or partial week
         is_full_week = start_date.weekday() == 0 and (end_date - start_date).days >= 4
+        
+        structured_logger.info(
+            "Starting help desk schedule generation",
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            is_full_week=is_full_week
+        )
         
         # Get or create the main schedule
         schedule = get_schedule(1, start_date, end_date, 'helpdesk')
@@ -275,14 +308,22 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
             # Move to the next day
             current_date += timedelta(days=1)
         
-        # Get all active assistants
-        assistants = HelpDeskAssistant.query.filter_by(active=True).all()
+        # OPTIMIZATION: Load all necessary data in bulk with eager loading
+        assistants_query = db.session.query(HelpDeskAssistant).filter_by(active=True)
+
+        if EAGER_LOADING_AVAILABLE and selectinload:
+            assistants_query = assistants_query.options(
+                selectinload(HelpDeskAssistant.course_capabilities),
+                selectinload(HelpDeskAssistant.student).selectinload(Student.availabilities)
+            )
+
+        assistants = assistants_query.all()
+        
         if not assistants:
-            db.session.rollback()
-            return {"status": "error", "message": "No active assistants found"}
+            raise Exception("No active assistants found")
             
         # For debugging: log how many assistants we found
-        logger.info(f"Found {len(assistants)} active assistants")
+        logger.info(f"Found {len(assistants)} active assistants with eager-loaded capabilities and availability")
         
         # Now let's use the optimized model from the paper to generate the schedule
         # We'll use the CP-SAT solver
@@ -305,21 +346,20 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
         logger.info(f"Generating schedule with {I} assistants, {J} shifts, and {K} courses")
         
         # --- Get availability and capability matrices ---
-        # t_i,k = 1 if staff i can help with course k, 0 otherwise
+        # OPTIMIZATION: t_i,k = 1 if staff i can help with course k, 0 otherwise
+        # Use pre-loaded course capabilities instead of separate queries
         t = {}
         for i in range(I):
             assistant = staff_by_index[i]
-            # Get courses this assistant can help with
-            capabilities = CourseCapability.query.filter_by(
-                assistant_username=assistant.username
-            ).all()
-            can_help_with = set(cap.course_code for cap in capabilities)
+            # Use pre-loaded capabilities from eager loading
+            can_help_with = set(cap.course_code for cap in assistant.course_capabilities)
             
             for k in range(K):
                 course = course_by_index[k]
                 t[i, k] = 1 if course.code in can_help_with else 0
         
-        # a_i,j = 1 if staff i is available during shift j
+        # OPTIMIZATION: a_i,j = 1 if staff i is available during shift j
+        # Use pre-loaded availability data instead of individual queries
         a = {}
         for i in range(I):
             assistant = staff_by_index[i]
@@ -329,20 +369,20 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
                 day_of_week = shift.date.weekday()  # 0=Monday, 4=Friday
                 shift_start_time = shift.start_time.time()
                 shift_end_time = shift.end_time.time()
-                
-                # Get all availability records for this student on this day
-                availabilities = Availability.query.filter_by(
-                    username=assistant.username,
-                    day_of_week=day_of_week
-                ).all()
-                
+
+                # Use pre-loaded availability records from eager loading via student relationship
+                student_availabilities = assistant.student.availabilities if assistant.student else []
+                availabilities = [
+                    av for av in student_availabilities if av.day_of_week == day_of_week
+                ]
+
                 # Check if any availability slot covers this shift
                 is_available = False
                 for avail in availabilities:
                     if avail.start_time <= shift_start_time and avail.end_time >= shift_end_time:
                         is_available = True
                         break
-                
+
                 a[i, j] = 1 if is_available else 0
         
         # d_j,k = desired number of tutors with course k in shift j
@@ -484,7 +524,10 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
             # Clear existing allocations for these shifts
             clear_allocations_for_shifts(shifts)
             
-            # Create allocations for the assignments
+            # OPTIMIZATION: Batch create allocations to reduce database round trips
+            new_allocations = []
+            assignment_count = 0
+            
             for i in range(I):
                 for j in range(J):
                     if solver.Value(x[i, j]) == 1:
@@ -492,14 +535,19 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
                         shift = shift_by_index[j]
                         
                         allocation = Allocation(assistant.username, shift.id, schedule.id)
-                        db.session.add(allocation)
+                        new_allocations.append(allocation)
+                        assignment_count += 1
                         
                         logger.debug(f"Assigned {assistant.username} to shift {shift.id}")
             
-            # Commit the schedule and all related objects
-            db.session.commit()
+            # Batch insert all allocations at once
+            if new_allocations:
+                db.session.add_all(new_allocations)
+                logger.info(f"Created {len(new_allocations)} allocations in batch")
             
-            logger.info(f"Schedule generated successfully with status: {status}")
+            # Transaction will be committed by decorator
+            
+            logger.info(f"Schedule generated successfully with status: {status}, {assignment_count} assignments")
             
             return {
                 "status": "success",
@@ -510,11 +558,11 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
                     "end_date": end_date.strftime('%Y-%m-%d'),
                     "is_full_week": is_full_week,
                     "shifts_created": len(shifts),
+                    "assignments_created": assignment_count,
                     "objective_value": solver.ObjectiveValue()
                 }
             }
         else:
-            db.session.rollback()
             message = 'No solution found.'
             if status == cp_model.INFEASIBLE:
                 message = 'Problem is infeasible with current constraints.'
@@ -527,14 +575,6 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
                 "status": "error",
                 "message": message
             }
-    
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error generating schedule: {e}")
-        return {
-            "status": "error",
-            "message": str(e)
-        }
     
 
 def get_schedule(id, start_date, end_date, type='helpdesk'):
@@ -884,11 +924,26 @@ def clear_schedule():
             "message": str(e)
         }
 
+@performance_monitor("get_schedule_data")
 def get_schedule_data(schedule_id):
-
+    """Optimized schedule data retrieval with eager loading to prevent N+1 queries"""
     try:
-        # Get the schedule
-        schedule = Schedule.query.get(schedule_id)
+        # OPTIMIZATION: Single query with eager loading (if available) for schedule, shifts, allocations, and students
+        if EAGER_LOADING_AVAILABLE and selectinload:
+            schedule = (
+                db.session.query(Schedule)
+                .options(
+                    selectinload(Schedule.shifts)
+                    .selectinload(Shift.allocations)
+                    .selectinload(Allocation.student)
+                )
+                .filter_by(id=schedule_id)
+                .first()
+            )
+        else:
+            # Fallback for older SQLAlchemy versions
+            schedule = Schedule.query.filter_by(id=schedule_id).first()
+        
         if not schedule:
             logger.error(f"No schedule found with ID {schedule_id}")
             return None
@@ -898,8 +953,11 @@ def get_schedule_data(schedule_id):
         if schedule_id == 2:
             schedule_type = 'lab'
         
-        # Get all shifts for this schedule
-        shifts = Shift.query.filter_by(schedule_id=schedule_id).order_by(Shift.date, Shift.start_time).all()
+        # Log the optimization status
+        if EAGER_LOADING_AVAILABLE and selectinload:
+            logger.info(f"Loaded schedule {schedule_id} with {len(schedule.shifts)} shifts using eager loading")
+        else:
+            logger.info(f"Loaded schedule {schedule_id} with {len(schedule.shifts)} shifts (eager loading not available)")
         
         # Format the schedule
         formatted_schedule = {
@@ -910,9 +968,9 @@ def get_schedule_data(schedule_id):
             "days": []
         }
         
-        # Group shifts by day
+        # Group shifts by day (optimized - all data already loaded)
         shifts_by_day = {}
-        for shift in shifts:
+        for shift in schedule.shifts:
             day_idx = shift.date.weekday()
             
             # Skip days outside expected range
@@ -924,16 +982,13 @@ def get_schedule_data(schedule_id):
             if day_idx not in shifts_by_day:
                 shifts_by_day[day_idx] = []
                 
-            # Get assistants for this shift
+            # OPTIMIZATION: Build assistants list from pre-loaded data
             assistants = []
-            allocations = Allocation.query.filter_by(shift_id=shift.id).all()
-            
-            for allocation in allocations:
-                student = Student.query.get(allocation.username)
-                if student:
+            for allocation in shift.allocations:
+                if allocation.student:  # Already loaded via eager loading
                     assistants.append({
-                        "id": student.username,
-                        "name": student.get_name()
+                        "id": allocation.student.username,
+                        "name": allocation.student.get_name()
                     })
             
             # Add shift to the day
@@ -965,6 +1020,7 @@ def get_schedule_data(schedule_id):
                 "shifts": day_shifts
             })
         
+        logger.info(f"Successfully formatted schedule data for {len(formatted_schedule['days'])} days")
         return formatted_schedule
         
     except Exception as e:
@@ -972,12 +1028,24 @@ def get_schedule_data(schedule_id):
         import traceback
         traceback.print_exc()
         return None
+@performance_monitor("get_current_schedule")
 def get_current_schedule():
-    """Get the current schedule with all shifts"""
+    """Get the current schedule with all shifts - OPTIMIZED VERSION"""
     try:
-        # Get the main schedule (id=1)
-        schedule = Schedule.query.get(1)
+        # OPTIMIZATION: Single query with eager loading to prevent N+1 queries
+        schedule = (
+            db.session.query(Schedule)
+            .options(
+                selectinload(Schedule.shifts)
+                .selectinload(Shift.allocations)
+                .selectinload(Allocation.student)
+            )
+            .filter_by(id=1)
+            .first()
+        )
+        
         if not schedule:
+            logger.info("No schedule found - returning empty template")
             # Instead of returning None, create an empty schedule template for UI
             return {
                 "schedule_id": None,
@@ -998,7 +1066,9 @@ def get_current_schedule():
                 ]
             }
             
-        # Format the schedule for display
+        logger.info(f"Loaded schedule {schedule.id} with {len(schedule.shifts)} shifts using eager loading")
+            
+        # OPTIMIZATION: Format the schedule for display using pre-loaded data
         shifts_by_day = {}
         
         for shift in schedule.shifts:
@@ -1011,10 +1081,20 @@ def get_current_schedule():
             if day_idx not in shifts_by_day:
                 shifts_by_day[day_idx] = {}
                 
+            # OPTIMIZATION: Build assistants from pre-loaded data instead of separate query
+            assistants = []
+            for allocation in shift.allocations:
+                if allocation.student:  # Already loaded via eager loading
+                    assistants.append({
+                        "id": allocation.student.username,
+                        "name": allocation.student.get_name(),
+                        "degree": getattr(allocation.student, 'degree', 'N/A')
+                    })
+                
             shifts_by_day[day_idx][hour] = {
                 "shift_id": shift.id,
                 "time": shift.formatted_time(),
-                "assistants": get_assistants_for_shift(shift.id)
+                "assistants": assistants
             }
         
         # Format into days array with shifts
@@ -1040,15 +1120,21 @@ def get_current_schedule():
                 "shifts": day_shifts
             })
         
-        return {
+        result = {
             "schedule_id": schedule.id,
             "date_range": f"{schedule.start_date.strftime('%d %b')} - {schedule.end_date.strftime('%d %b, %Y')}" if schedule.start_date and schedule.end_date else "Current Schedule",
             "is_published": schedule.is_published,
             "days": days
         }
+        
+        logger.info(f"Successfully formatted current schedule with {len(days)} days")
+        return result
+        
     except Exception as e:
         # Log the error
         logger.error(f"Error getting current schedule: {e}")
+        import traceback
+        traceback.print_exc()
         # Return an empty schedule template for UI
         return {
             "schedule_id": None,

@@ -4,6 +4,9 @@ from App.views.api_v2 import api_v2
 from App.views.api_v2.utils import api_success, api_error, validate_json_request
 from App.models import Course
 from App.database import db
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 @api_v2.route('/courses', methods=['GET'])
 def get_courses():
@@ -16,7 +19,6 @@ def get_courses():
     """
     try:
         courses = Course.query.all()
-        
         # Format courses for frontend consumption
         courses_data = []
         for course in courses:

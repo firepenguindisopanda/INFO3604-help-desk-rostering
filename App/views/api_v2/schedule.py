@@ -5,6 +5,7 @@ import logging
 from io import BytesIO
 import tempfile
 import os
+from sqlalchemy.orm import selectinload
 
 from App.views.api_v2 import api_v2
 from App.views.api_v2.utils import api_success, api_error, validate_json_request
@@ -143,7 +144,7 @@ def generate_schedule():
 @admin_required  
 def get_current_schedule():
     """
-    Get the current active schedule for the admin's domain (helpdesk/lab)
+    OPTIMIZED: Get the current active schedule for the admin's domain (helpdesk/lab)
     and format response to match the classic endpoint structure so the Next.js
     calendar renders consistently.
     """
@@ -153,22 +154,25 @@ def get_current_schedule():
         schedule_id = 1 if schedule_type == 'helpdesk' else 2
         logger.info(f"API v2: Fetching current {schedule_type} schedule (ID: {schedule_id})")
 
-        schedule = Schedule.query.filter_by(id=schedule_id, type=schedule_type).first()
+        # OPTIMIZATION: Single query with eager loading to prevent N+1 queries
+        schedule = (
+            db.session.query(Schedule)
+            .options(
+                selectinload(Schedule.shifts)
+                .selectinload(Shift.allocations)
+                .selectinload(Allocation.student)
+            )
+            .filter_by(id=schedule_id, type=schedule_type)
+            .first()
+        )
+        
         if not schedule:
             logger.warning(f"API v2: No {schedule_type} schedule found with ID {schedule_id}")
             return api_error(f"No current {schedule_type} schedule found", status_code=404)
 
         logger.info(
-            f"API v2: Found schedule id={schedule.id}, start={schedule.start_date}, end={schedule.end_date}, published={schedule.is_published}"
+            f"API v2: Found schedule id={schedule.id} with {len(schedule.shifts)} shifts, start={schedule.start_date}, end={schedule.end_date}, published={schedule.is_published}"
         )
-
-        shifts = (
-            Shift.query
-            .filter_by(schedule_id=schedule.id)
-            .order_by(Shift.date, Shift.start_time)
-            .all()
-        )
-        logger.info(f"API v2: Loaded {len(shifts)} shifts for schedule {schedule.id}")
 
         formatted = {
             "schedule_id": schedule.id,
@@ -178,9 +182,9 @@ def get_current_schedule():
             "days": []
         }
 
-        # Group shifts by weekday index
+        # OPTIMIZATION: Group shifts by weekday index using pre-loaded data
         shifts_by_day = {}
-        for shift in shifts:
+        for shift in schedule.shifts:
             day_idx = shift.date.weekday()
             # Skip out-of-range days
             if schedule_type == 'helpdesk' and day_idx > 4:
@@ -191,16 +195,14 @@ def get_current_schedule():
             if day_idx not in shifts_by_day:
                 shifts_by_day[day_idx] = []
 
-            # Collect assistants for this shift
-            allocations = Allocation.query.filter_by(shift_id=shift.id).all()
+            # OPTIMIZATION: Use pre-loaded data instead of separate queries
             assistants = []
-            for alloc in allocations:
-                student = Student.query.get(alloc.username)
-                if student:
+            for alloc in shift.allocations:
+                if alloc.student:  # Already loaded via eager loading
                     assistants.append({
-                        "id": student.username,
-                        "name": student.get_name(),
-                        "username": student.username
+                        "id": alloc.student.username,
+                        "name": alloc.student.get_name(),
+                        "username": alloc.student.username
                     })
 
             shifts_by_day[day_idx].append({

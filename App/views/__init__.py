@@ -8,6 +8,7 @@ from .requests import requests_views
 from .profile import profile_views
 from .volunteer import volunteer_views 
 from .notification import notification_views
+from .performance import performance_bp
 
 # All blueprints to be registered
 views = [
@@ -20,4 +21,5 @@ views = [
     profile_views,     # User profiles
     volunteer_views,   # New volunteer views
     notification_views,
+    performance_bp,    # Performance monitoring
 ]

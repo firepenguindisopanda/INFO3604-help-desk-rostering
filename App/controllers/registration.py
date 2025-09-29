@@ -11,7 +11,7 @@ from datetime import datetime, time
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 
-def create_registration_request(username, name, email, degree, reason=None, phone=None, transcript_file=None, profile_picture_file=None, courses=None, password=None, availability_slots=None):
+def create_registration_request(username, name, email, degree, reason=None, phone=None, transcript_url=None, profile_picture_url=None, courses=None, password=None, availability_slots=None):
     """Create a new registration request with password and availability"""
     import json
     import os
@@ -25,43 +25,17 @@ def create_registration_request(username, name, email, degree, reason=None, phon
         if existing_request:
             return False, "You already have a pending registration request"
         
-        if isinstance(profile_picture_file, list):
-            profile_picture_file = profile_picture_file[0] if profile_picture_file else None
+        if isinstance(profile_picture_url, list):
+            profile_picture_url = profile_picture_url[0] if profile_picture_url else None
             
-        if isinstance(transcript_file, list):
-            transcript_file = transcript_file[0] if transcript_file else None
+        if isinstance(transcript_url, list):
+            transcript_url = transcript_url[0] if transcript_url else None
         
-        if not profile_picture_file or not profile_picture_file.filename:
-            return False, "Profile picture is required"
+        if not profile_picture_url or not isinstance(profile_picture_url, str):
+            return False, "Profile picture URL is required"
         
-        transcript_path = None
-        if transcript_file and transcript_file.filename:
-            
-            filename = secure_filename(transcript_file.filename)
-            timestamp = trinidad_now().strftime('%Y%m%d%H%M%S')
-            filename = f"{username}_{timestamp}_{filename}"
-            
-            upload_dir = os.path.join('App', 'uploads', 'transcripts')
-            if not os.path.exists(upload_dir):
-                os.makedirs(upload_dir)
-            
-            file_path = os.path.join(upload_dir, filename)
-            transcript_file.save(file_path)
-            transcript_path = f"transcripts/{filename}"
-        
-        profile_picture_path = None
-        
-        filename = secure_filename(profile_picture_file.filename)
-        timestamp = trinidad_now().strftime('%Y%m%d%H%M%S')
-        filename = f"{username}_{timestamp}_{filename}"
-        
-        upload_dir = os.path.join('App', 'static', 'uploads', 'profile_pictures')
-        if not os.path.exists(upload_dir):
-            os.makedirs(upload_dir)
-        
-        file_path = os.path.join(upload_dir, filename)
-        profile_picture_file.save(file_path)
-        profile_picture_path = f"uploads/profile_pictures/{filename}"
+        transcript_path = transcript_url  # Store the URL directly
+        profile_picture_path = profile_picture_url  # Store the URL directly
         
         registration = RegistrationRequest(
             username=username,
