@@ -7,6 +7,24 @@ from App.controllers.notification import (
     notify_missed_shift
 )
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
+from App.utils.profile_images import resolve_profile_image
+import json
+
+
+def _resolve_profile_image_url(student):
+    raw_profile_data = getattr(student, 'profile_data', None) if student else None
+    image_url = resolve_profile_image(raw_profile_data)
+
+    if raw_profile_data:
+        try:
+            parsed = json.loads(raw_profile_data) if isinstance(raw_profile_data, str) else raw_profile_data
+        except (TypeError, ValueError):
+            parsed = {}
+        legacy_filename = parsed.get('image_filename') if isinstance(parsed, dict) else None
+        if legacy_filename and '://' not in str(legacy_filename):
+            return f"/static/{str(legacy_filename).lstrip('/')}"
+
+    return image_url
 
 def get_student_stats(username):
     """Get attendance statistics for a student"""
@@ -82,7 +100,7 @@ def get_help_desk_assistant_stats():
             stats.append({
                 'id': assistant.username,
                 'name': student.get_name(),
-                'image': '/static/images/DefaultAvatar.png',
+                'image': _resolve_profile_image_url(student),
                 'semester_attendance': f"{assistant_stats['semester']['hours']:.1f}",
                 'week_attendance': f"{assistant_stats['weekly']['hours']:.1f}"
             })
@@ -106,7 +124,7 @@ def get_lab_assistant_stats():
             stats.append({
                 'id': assistant.username,
                 'name': student.get_name(),
-                'image': '/static/images/DefaultAvatar.png',
+                'image': _resolve_profile_image_url(student),
                 'semester_attendance': f"{assistant_stats['semester']['hours']:.1f}",
                 'week_attendance': f"{assistant_stats['weekly']['hours']:.1f}"
             })
@@ -272,7 +290,7 @@ def get_shift_attendance_records(shift_id=None, date_range=None):
             record = {
                 'staff_id': entry.username,
                 'staff_name': student.get_name(),
-                'image': '/static/images/DefaultAvatar.png',
+                'image': _resolve_profile_image_url(student),
                 'date': entry.clock_in.strftime('%m-%d-%y') if entry.clock_in else 'ABSENT',
                 'day': entry.clock_in.strftime('%A') if entry.clock_in else 'ABSENT',
                 'login_time': entry.clock_in.strftime('%I:%M%p') if entry.clock_in else 'ABSENT',

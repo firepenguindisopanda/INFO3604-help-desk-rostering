@@ -129,11 +129,17 @@ def approve_registration(request_id, admin_username):
         if User.query.get(username):
             return False, f"A user with username {username} already exists in the system"
 
-        profile_data = json.dumps({
+        profile_data_payload = {
             "email": email,
             "phone": phone,
-            "image_filename": profile_picture_path
-        })
+        }
+
+        if profile_picture_path:
+            profile_data_payload["profile_picture_url"] = profile_picture_path
+            # Preserve legacy field for backwards compatibility when using static uploads
+            profile_data_payload["image_filename"] = profile_picture_path
+
+        profile_data = json.dumps(profile_data_payload)
 
         # Create Student only (inherits from User -> will insert into users + student tables once)
         # Provide a dummy plaintext; we'll overwrite with stored hash next.

@@ -15,6 +15,7 @@ from App.middleware import admin_required
 from App.models import TimeEntry, Student, HelpDeskAssistant
 import json
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
+from App.utils.profile_images import resolve_profile_image
 
 tracking_views = Blueprint('tracking_views', __name__, template_folder='../templates')
 
@@ -42,19 +43,20 @@ def time_tracking():
     for staff in staff_data:
         # Get the student record to access profile_data
         student = Student.query.get(staff['id'])
+        profile_data = {}
         if student and hasattr(student, 'profile_data') and student.profile_data:
             try:
                 profile_data = json.loads(student.profile_data)
-                print(f"Loaded profile data for {student.username}: {profile_data}")
-                image_filename = profile_data.get('image_filename', '')
-                if image_filename:
-                    staff['image_url'] = image_filename
-                else:
-                    staff['image_url'] = url_for('static', filename='images/DefaultAvatar.png')
-            except:
-                staff['image_url'] = url_for('static', filename='images/DefaultAvatar.png')
-        else:
-            staff['image_url'] = url_for('static', filename='images/DefaultAvatar.png')
+            except Exception:
+                profile_data = {}
+
+        legacy_filename = profile_data.get('image_filename') if isinstance(profile_data, dict) else None
+        profile_image_url = resolve_profile_image(getattr(student, 'profile_data', None))
+        if legacy_filename and '://' not in str(legacy_filename):
+            profile_image_url = url_for('static', filename=str(legacy_filename))
+
+        staff['image_url'] = profile_image_url
+        staff['profile_image_url'] = profile_image_url
     
     # Mark the first student as selected for initial display
     if staff_data:

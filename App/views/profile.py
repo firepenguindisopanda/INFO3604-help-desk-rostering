@@ -7,6 +7,7 @@ from App.controllers.student import get_student
 from App.models import Student, HelpDeskAssistant, CourseCapability, Availability, User, Course
 from App.database import db
 from App.middleware import admin_required
+from App.utils.profile_images import resolve_profile_image
 from datetime import time
 import json
 
@@ -24,7 +25,8 @@ def profile():
         'name': user.username,
         'username': user.username,
         'email': f"{user.username}@admin.uwi.edu",
-        'role': user.role
+        'role': user.role,
+        'profile_image_url': resolve_profile_image(getattr(user, 'profile_data', None))
     }
     
     # Filter students based on admin role
@@ -46,11 +48,17 @@ def profile():
                 profile_data = json.loads(student.profile_data)
             except:
                 profile_data = {}
-                
+
+        legacy_filename = profile_data.get('image_filename') if isinstance(profile_data, dict) else None
+        profile_image_url = resolve_profile_image(getattr(student, 'profile_data', None))
+        if legacy_filename and '://' not in str(legacy_filename):
+            profile_image_url = url_for('static', filename=str(legacy_filename))
+
         formatted_students.append({
             'username': student.username,
             'name': student.name if student.name else student.username,
-            'image_filename': profile_data.get('image_filename', '')
+            'image_filename': profile_data.get('image_filename', ''),
+            'profile_image_url': profile_image_url
         })
     
     return render_template('admin/profile/index.html', 
@@ -100,6 +108,11 @@ def staff_profile(username):
             profile_data = {}
     
     # Build profile data
+    legacy_filename = profile_data.get('image_filename') if isinstance(profile_data, dict) else None
+    profile_image_url = resolve_profile_image(getattr(student, 'profile_data', None))
+    if legacy_filename and '://' not in str(legacy_filename):
+        profile_image_url = url_for('static', filename=str(legacy_filename))
+
     profile = {
         'username': username,
         'name': student.name if student.name else username,
@@ -112,7 +125,8 @@ def staff_profile(username):
         'availabilities': [avail.get_json() for avail in availabilities],
         'email': profile_data.get('email', f"{username}@my.uwi.edu"),
         'phone': profile_data.get('phone', ''),  # Get phone from profile_data
-        'image_filename': profile_data.get('image_filename', '')  # Add this line for the profile picture
+        'image_filename': profile_data.get('image_filename', ''),  # Legacy image filename
+        'profile_image_url': profile_image_url
     }
     
     # Store the referrer information to use in template for back button

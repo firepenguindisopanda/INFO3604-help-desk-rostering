@@ -11,11 +11,7 @@
 <div class="staff-profile-card">
     <div class="profile-header">
         <div class="profile-avatar">
-            {% if profile.image_filename %}
-                <img src="{{ url_for('static', filename=profile.image_filename) }}" alt="{{ profile.name }}" width="120" height="120">
-            {% else %}
-                <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="{{ profile.name }}" width="120" height="120">
-            {% endif %}
+            <img src="{{ profile.profile_image_url or url_for('static', filename='images/DefaultAvatar.png') }}" alt="{{ profile.name }}" width="120" height="120">
         </div>
         <div class="profile-info">
             <h1 class="profile-name">{{ profile.name }}</h1>

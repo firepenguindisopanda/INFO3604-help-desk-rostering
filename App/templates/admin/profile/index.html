@@ -13,7 +13,7 @@
     <h2>Your Profile</h2>
     <div class="profile-info">
         <div class="profile-avatar">
-            <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="{{ admin_profile.name }}" class="avatar avatar-lg">
+            <img src="{{ admin_profile.profile_image_url or url_for('static', filename='images/DefaultAvatar.png') }}" alt="{{ admin_profile.name }}" class="avatar avatar-lg">
             <div class="avatar-overlay">
                 <span class="material-icons">photo_camera</span>
             </div>
@@ -48,11 +48,7 @@
         {% for student in students %}
         <div class="staff-item" data-username="{{ student.username }}">
             <div class="staff-avatar">
-                {% if student.image_filename %}
-                    <img src="{{ url_for('static', filename=student.image_filename) }}" alt="{{ student.name }}" class="avatar avatar-sm">
-                {% else %}
-                    <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="{{ student.name }}" class="avatar avatar-sm">
-                {% endif %}
+                <img src="{{ student.profile_image_url or url_for('static', filename='images/DefaultAvatar.png') }}" alt="{{ student.name }}" class="avatar avatar-sm">
             </div>
             <div class="staff-info">
                 <h4 class="staff-name">{{ student.name }}</h4>

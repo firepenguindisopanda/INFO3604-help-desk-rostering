@@ -2,6 +2,7 @@ from App.models import Availability, Student, HelpDeskAssistant, LabAssistant
 from App.database import db
 from datetime import datetime, time
 import logging
+from App.utils.profile_images import resolve_profile_image
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,8 @@ def get_available_staff_for_time(day, time_slot):
                 staff_list.append({
                     "id": availability.username,
                     "name": student.name or availability.username,
-                    "type": "student"
+                    "type": "student",
+                    "profile_image_url": resolve_profile_image(student.profile_data)
                 })
         
         return staff_list

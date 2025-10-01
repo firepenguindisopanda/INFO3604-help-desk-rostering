@@ -24,7 +24,7 @@
     <!-- Profile Information Section -->
     <div class="profile-info-section">
         <div class="profile-image">
-            <img src="{{ user.image_url|default(url_for('static', filename='images/DefaultAvatar.png')) }}" alt="Profile Image" id="profileDisplayImage">
+            <img src="{{ user.profile_image_url or user.image_url or url_for('static', filename='images/DefaultAvatar.png') }}" alt="{{ user.name }} profile" id="profileDisplayImage">
             <div class="profile-image-overlay">
                 <span class="change-image-btn">Change Photo</span>
             </div>

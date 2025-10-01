@@ -8,10 +8,11 @@ import os
 from sqlalchemy.orm import selectinload
 
 from App.views.api_v2 import api_v2
-from App.views.api_v2.utils import api_success, api_error, validate_json_request
+from App.views.api_v2.utils import api_success, api_error, validate_json_request, jwt_required_secure
 from App.middleware import admin_required
 from App.database import db
 from App.models import Schedule, Shift, Allocation, Student
+from App.utils.profile_images import resolve_profile_image
 
 # Constants for cleaner code
 UNKNOWN_ERROR_MSG = "Unknown error"
@@ -202,7 +203,8 @@ def get_current_schedule():
                     assistants.append({
                         "id": alloc.student.username,
                         "name": alloc.student.get_name(),
-                        "username": alloc.student.username
+                        "username": alloc.student.username,
+                        "profile_image_url": resolve_profile_image(getattr(alloc.student, 'profile_data', None))
                     })
 
             shifts_by_day[day_idx].append({
@@ -403,6 +405,8 @@ def _process_schedule_assignments(schedule, assignments, start_date, end_date):
     """Process and save schedule assignments"""
     from App.models.shift import Shift
     from App.models.allocation import Allocation
+    from App.models.student import Student
+    import re
     
     # Clear existing allocations in date range
     shifts_to_clear = Shift.query.filter(
@@ -418,27 +422,146 @@ def _process_schedule_assignments(schedule, assignments, start_date, end_date):
     assignments_processed = 0
     errors = []
     
+    # Day name to weekday index mapping
+    day_mapping = {
+        'monday': 0, 'tuesday': 1, 'wednesday': 2, 
+        'thursday': 3, 'friday': 4, 'saturday': 5, 'sunday': 6
+    }
+    
     for assignment in assignments:
         try:
-            day = assignment.get('day')
-            time_str = assignment.get('time')
+            day = assignment.get('day', '').lower().strip()
+            time_str = assignment.get('time', '').strip()
             staff_assignments = assignment.get('staff', [])
+            cell_id = assignment.get('cell_id', '')
             
-            if not day or not time_str:
+            if not day or not time_str or not staff_assignments:
+                if day and time_str:  # Only log if we have basic info
+                    logger.debug(f"Skipping assignment for {day} {time_str} - no staff assigned")
+                continue
+            
+            # Convert day name to weekday index
+            day_idx = day_mapping.get(day)
+            if day_idx is None:
+                errors.append({
+                    "assignment": assignment,
+                    "error": f"Invalid day name: {day}"
+                })
                 continue
                 
-            # Process each staff assignment
-            for _ in staff_assignments:
-                # Implementation would go here based on existing logic
-                pass
+            # Parse time string to extract hour (e.g., "9:00 am to 10:00 am" -> hour 9)
+            time_match = re.search(r'(\d+):?\d*\s*(am|pm)?', time_str.lower())
+            if not time_match:
+                errors.append({
+                    "assignment": assignment,
+                    "error": f"Could not parse time: {time_str}"
+                })
+                continue
                 
-            assignments_processed += 1
+            hour = int(time_match.group(1))
+            is_pm = time_match.group(2) == 'pm'
             
+            # Convert to 24-hour format
+            if is_pm and hour != 12:
+                hour += 12
+            elif not is_pm and hour == 12:
+                hour = 0
+                
+            # Calculate the target date for this assignment
+            target_date = start_date + timedelta(days=day_idx)
+            if target_date > end_date:
+                # If day is beyond end date, skip
+                continue
+                
+            # Find the matching shift
+            matching_shift = Shift.query.filter(
+                Shift.schedule_id == schedule.id,
+                Shift.date == target_date,
+                Shift.start_time.hour == hour
+            ).first()
+            
+            if not matching_shift:
+                # Try to find any shift on this day and hour
+                matching_shift = Shift.query.filter(
+                    Shift.schedule_id == schedule.id,
+                    Shift.date == target_date
+                ).filter(
+                    Shift.start_time >= datetime.combine(target_date, datetime.min.time()) + timedelta(hours=hour),
+                    Shift.start_time < datetime.combine(target_date, datetime.min.time()) + timedelta(hours=hour+1)
+                ).first()
+                
+            if not matching_shift:
+                errors.append({
+                    "assignment": assignment,
+                    "error": f"No shift found for {day} at {time_str} (date: {target_date}, hour: {hour})"
+                })
+                continue
+            
+            # Process each staff assignment for this shift
+            staff_processed = 0
+            for staff_info in staff_assignments:
+                staff_id = staff_info.get('id') or staff_info.get('username')
+                staff_name = staff_info.get('name', '')
+                
+                if not staff_id:
+                    errors.append({
+                        "assignment": assignment,
+                        "staff": staff_info,
+                        "error": "Missing staff ID"
+                    })
+                    continue
+                    
+                # Verify staff member exists
+                student = Student.query.get(staff_id)
+                if not student:
+                    errors.append({
+                        "assignment": assignment,
+                        "staff": staff_info,
+                        "error": f"Student {staff_id} not found"
+                    })
+                    continue
+                
+                # Check if allocation already exists
+                existing_allocation = Allocation.query.filter_by(
+                    username=staff_id,
+                    shift_id=matching_shift.id
+                ).first()
+                
+                if existing_allocation:
+                    logger.debug(f"Allocation already exists for {staff_id} on shift {matching_shift.id}")
+                    staff_processed += 1
+                    continue
+                
+                # Create new allocation
+                new_allocation = Allocation(
+                    username=staff_id,
+                    shift_id=matching_shift.id,
+                    schedule_id=schedule.id
+                )
+                db.session.add(new_allocation)
+                staff_processed += 1
+                
+                logger.debug(f"Created allocation: {staff_id} -> shift {matching_shift.id} ({day} {time_str})")
+            
+            if staff_processed > 0:
+                assignments_processed += 1
+                
         except Exception as assignment_error:
+            logger.error(f"Error processing assignment: {assignment_error}")
             errors.append({
                 "assignment": assignment,
                 "error": str(assignment_error)
             })
+    
+    # Flush changes to get any database errors before returning
+    try:
+        db.session.flush()
+    except Exception as flush_error:
+        logger.error(f"Database flush error: {flush_error}")
+        errors.append({
+            "database": "flush_error",
+            "error": str(flush_error)
+        })
     
     return assignments_processed, errors
 
