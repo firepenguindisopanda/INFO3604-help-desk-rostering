@@ -1,7 +1,7 @@
 from App.database import db
-from datetime import datetime
+from typing import Optional
 from werkzeug.security import generate_password_hash
-from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
+from App.utils.time_utils import trinidad_now
 import os
 
 LEGACY_UPLOAD_PREFIX = 'App/uploads/'
@@ -74,7 +74,7 @@ class RegistrationRequest(db.Model):
         return DEFAULT_PROFILE_IMAGE_URL
 
     @staticmethod
-    def _build_static_path(path_str: str) -> str | None:
+    def _build_static_path(path_str: str) -> Optional[str]:
         normalized = path_str.replace('\\', '/')
         if normalized.startswith('App/static/'):
             return '/' + normalized[4:]
@@ -92,7 +92,7 @@ class RegistrationRequest(db.Model):
         return normalized
 
     @staticmethod
-    def _resolve_legacy_upload(path_str: str) -> str | None:
+    def _resolve_legacy_upload(path_str: str) -> Optional[str]:
         if not path_str.startswith(LEGACY_UPLOAD_PREFIX):
             return None
         legacy_relative = path_str[len(LEGACY_UPLOAD_PREFIX):]
