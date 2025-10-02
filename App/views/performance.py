@@ -6,6 +6,7 @@ Provides admin access to performance metrics and system health.
 from flask import Blueprint, jsonify, render_template
 from flask_jwt_extended import jwt_required
 from App.middleware import admin_required
+from App.views.api_v2.utils import jwt_required_secure
 from App.utils.performance_monitor import (
     get_performance_summary,
     log_performance_summary,

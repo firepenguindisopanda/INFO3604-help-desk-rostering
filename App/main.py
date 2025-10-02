@@ -170,15 +170,6 @@ def create_app(overrides={}):
         app.logger.info("healthz result: %s", checks)
         return jsonify(status='ok' if overall_ok else 'fail', checks=checks), status_code
     # --- end healthz ---
-
-    # Add this to your Flask app for testing
-    @app.route('/db-test')
-    def db_test():
-        from App.models import User, Student, Course
-        users = User.query.count()
-        students = Student.query.count() 
-        courses = Course.query.count()
-        return f"Users: {users}, Students: {students}, Courses: {courses}"
     
     @jwt.invalid_token_loader
     @jwt.unauthorized_loader

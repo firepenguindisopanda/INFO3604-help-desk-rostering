@@ -29,6 +29,7 @@ from App.controllers.request import (
     get_available_replacements
 )
 from App.controllers.request import create_student_request
+from App.utils.profile_images import resolve_profile_image
 
 volunteer_views = Blueprint('volunteer_views', __name__, template_folder='../templates')
 
@@ -290,15 +291,13 @@ def profile():
         except:
             profile_data = {}
     
-    # Get the profile image path and create URL
-    image_filename = profile_data.get('image_filename', '')
-    if image_filename:
-        # Debug output for troubleshooting image paths
-        print(f"Profile image found: {image_filename}")
-        image_url = url_for('static', filename=image_filename)
-    else:
-        print(f"No profile image found for user {username}")
-        image_url = url_for('static', filename='images/DefaultAvatar.png')
+    image_url = resolve_profile_image(getattr(student, 'profile_data', None))
+    legacy_filename = profile_data.get('image_filename') if isinstance(profile_data, dict) else None
+    if legacy_filename and '://' not in str(legacy_filename):
+        import os
+        filepath = os.path.join('App', 'static', str(legacy_filename).lstrip('/'))
+        if os.path.exists(filepath):
+            image_url = url_for('static', filename=str(legacy_filename))
     
     # Build user data dictionary with image_url
     user_data = {
@@ -306,7 +305,8 @@ def profile():
         "id": username,
         "phone": profile_data.get('phone', ''),
         "email": profile_data.get('email', f"{username}@my.uwi.edu"),
-        "image_url": image_url,
+    "image_url": image_url,
+    "profile_image_url": image_url,
         "degree": student.degree,
         "enrolled_courses": [cap.course_code for cap in course_capabilities],
         "availability": availability_by_day,

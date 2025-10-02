@@ -1,0 +1,73 @@
+{# Reusable registration card partial #}
+{% set card_status = status_label if status_label is defined else 'PENDING' %}
+<div class="registration-card {{ card_status|lower }}" data-name="{{ registration.name }}" data-id="{{ registration.username }}">
+  <div class="registration-top">
+    <div class="registration-info">
+      <div class="registration-name">{{ registration.name }}</div>
+      <div class="registration-id">ID: {{ registration.username }}</div>
+    </div>
+    <div class="registration-profile-image">
+      <img src="{{ registration.get_profile_picture_url() }}" alt="Profile of {{ registration.name }}" class="profile-thumb" loading="lazy">
+    </div>
+    <div class="registration-status">{{ card_status }}</div>
+  </div>
+
+  <div class="registration-detail-row">
+    <div class="registration-label">Email:</div>
+    <div class="registration-value">{{ registration.email }}</div>
+  </div>
+  <div class="registration-detail-row">
+    <div class="registration-label">Phone:</div>
+    <div class="registration-value">{{ registration.phone if registration.phone else 'Not provided' }}</div>
+  </div>
+  <div class="registration-detail-row">
+    <div class="registration-label">Degree:</div>
+    <div class="registration-value">{{ registration.degree }}</div>
+  </div>
+  <div class="registration-detail-row">
+    <div class="registration-label">Submitted:</div>
+    <div class="registration-value">{{ registration.created_at|datetime }}</div>
+  </div>
+
+  <div class="registration-detail-row">
+    <div class="registration-label">Courses:</div>
+    <div class="registration-value">
+      <div class="course-tags">
+        {% for course in registration.courses %}
+          <span class="course-tag">{{ course.course_code }}</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {% if show_decision_meta %}
+    <div class="registration-detail-row">
+      <div class="registration-label">{{ card_status|title }} at:</div>
+      <div class="registration-value">{{ registration.processed_at|datetime }}</div>
+    </div>
+    <div class="registration-detail-row">
+      <div class="registration-label">{{ card_status|title }} by:</div>
+      <div class="registration-value">{{ registration.processed_by }}</div>
+    </div>
+  {% endif %}
+
+  <div class="registration-detail-row">
+    <div class="registration-label">Profile Picture:</div>
+    <div class="registration-value">
+      <a href="{{ registration.get_profile_picture_url() }}" class="file-download view-profile-pic" target="_blank" rel="noopener noreferrer">
+        <i class="material-icons">photo</i> View Full Picture
+      </a>
+    </div>
+  </div>
+
+  {% if registration.transcript_path %}
+  <div class="registration-detail-row">
+    <div class="registration-label">Transcript:</div>
+    <div class="registration-value">
+      <a href="{{ url_for('requests_views.download_transcript', registration_id=registration.id) }}" class="file-download" target="_blank" rel="noopener noreferrer">
+        <i class="material-icons">description</i> View Transcript
+      </a>
+    </div>
+  </div>
+  {% endif %}
+</div>

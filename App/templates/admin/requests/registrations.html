@@ -8,15 +8,21 @@
 {% endblock %}
 
 {% block content %}
+{% set pending_count = pending_registrations|default([], true)|length %}
 <div class="registrations-container">
     <div class="registrations-header">
         <h4>Registration Management</h4>
+    <span class="pending-badge" title="Pending registrations" aria-label="{{ pending_count }} pending registrations">{{ pending_count }}</span>
     </div>
 
-    <div class="tabs">
-        <div class="tab" onclick="window.location.href='{{ url_for('requests_views.requests') }}'">Shift Requests</div>
-        <div class="tab active">Registration Requests</div>
-        <div class="tab" onclick="window.location.href='{{ url_for('requests_views.password_resets') }}'">Password Reset Requests</div>
+    <div class="tabs" role="tablist">
+        <a class="tab" role="tab" href="{{ url_for('requests_views.requests') }}">Shift Requests</a>
+        <a class="tab active" role="tab" aria-current="page" href="{{ url_for('requests_views.registrations') }}">Registration Requests
+            {% if pending_count %}
+                <span class="tab-badge" aria-hidden="true">{{ pending_count }}</span>
+            {% endif %}
+        </a>
+        <a class="tab" role="tab" href="{{ url_for('requests_views.password_resets') }}">Password Reset Requests</a>
     </div>
 
     <!-- Flash Messages -->
@@ -44,277 +50,42 @@
     </div>
 
     <!-- Pending Registrations -->
-    <div class="section-header">
-        <h5>Pending Registrations</h5>
-    </div>
-
+    <div class="section-header"><h5>Pending Registrations</h5></div>
     <div id="pendingRegistrations" class="registrations-section">
         {% if pending_registrations %}
             {% for registration in pending_registrations %}
-                <div class="registration-card pending" data-name="{{ registration.name }}" data-id="{{ registration.username }}">
-                    <div class="registration-top">
-                        <div class="registration-info">
-                            <div class="registration-name">{{ registration.name }}</div>
-                            <div class="registration-id">ID: {{ registration.username }}</div>
-                        </div>
-                        <div class="registration-profile-image">
-                            {% if registration.profile_picture_path %}
-                                <img src="{{ registration.profile_picture_path }}" alt="{{ registration.name }}'s profile picture">
-                            {% else %}
-                                <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="Default profile picture">
-                            {% endif %}
-                        </div>
-                        <div class="registration-status">PENDING</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Email:</div>
-                        <div class="registration-value">{{ registration.email }}</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Phone:</div>
-                        <div class="registration-value">{{ registration.phone if registration.phone else "Not provided" }}</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Degree:</div>
-                        <div class="registration-value">{{ registration.degree }}</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Date:</div>
-                        <div class="registration-value">{{ registration.created_at|datetime }}</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Courses:</div>
-                        <div class="registration-value">
-                            <div class="course-tags">
-                                {% for course in registration.courses %}
-                                    <span class="course-tag">{{ course.course_code }}</span>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {% if registration.profile_picture_path %}
-                        <div class="registration-detail-row">
-                            <div class="registration-label">Profile Picture:</div>
-                            <div class="registration-value">
-                                <a href="{{ registration.profile_picture_path }}" 
-                                class="file-download view-profile-pic" 
-                                target="_blank" 
-                                rel="noopener noreferrer">
-                                    <i class="material-icons">photo</i> View Full Picture
-                                </a>
-                            </div>
-                        </div>
-                    {% endif %}
-                    
-                    {% if registration.transcript_path %}
-                        <div class="registration-detail-row">
-                            <div class="registration-label">Transcript:</div>
-                            <div class="registration-value">
-                                <a href="{{ url_for('requests_views.download_transcript', registration_id=registration.id) }}" 
-                                class="file-download" 
-                                target="_blank" 
-                                rel="noopener noreferrer">
-                                    <i class="material-icons">description</i> View Transcript
-                                </a>
-                            </div>
-                        </div>
-                    {% endif %}
-                    
-                    {% if registration.reason %}
-                        <div class="registration-detail-row">
-                            <div class="registration-label">Reason:</div>
-                            <div class="registration-value">
-                                <div class="registration-reason">{{ registration.reason }}</div>
-                            </div>
-                        </div>
-                    {% endif %}
-                    
-                    <div class="registration-actions">
-                        <button class="btn-reject" onclick="rejectRegistration({{ registration.id }})">Reject</button>
-                        <button class="btn-approve" onclick="approveRegistration({{ registration.id }})">Approve</button>
-                    </div>
-                </div>
+                {% include 'admin/requests/partials/_registration_card.html' with context %}
             {% endfor %}
         {% else %}
-            <div class="no-registrations">
-                <p>No pending registration requests.</p>
-            </div>
+            <div class="no-registrations"><p>No pending registration requests.</p></div>
         {% endif %}
     </div>
 
     <!-- Approved Registrations -->
-    <div class="section-header">
-        <h5>Approved Registrations</h5>
-    </div>
-
+    <div class="section-header"><h5>Approved Registrations</h5></div>
     <div id="approvedRegistrations" class="registrations-section">
         {% if approved_registrations %}
             {% for registration in approved_registrations %}
-                <div class="registration-card approved" data-name="{{ registration.name }}" data-id="{{ registration.username }}">
-                    <div class="registration-top">
-                        <div class="registration-info">
-                            <div class="registration-name">{{ registration.name }}</div>
-                            <div class="registration-id">ID: {{ registration.username }}</div>
-                        </div>
-                        <div class="registration-profile-image">
-                            {% if registration.profile_picture_path %}
-                                <img src="{{ registration.profile_picture_path }}" alt="{{ registration.name }}'s profile picture">
-                            {% else %}
-                                <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="Default profile picture">
-                            {% endif %}
-                        </div>
-                        <div class="registration-status">APPROVED</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Email:</div>
-                        <div class="registration-value">{{ registration.email }}</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Degree:</div>
-                        <div class="registration-value">{{ registration.degree }}</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Date:</div>
-                        <div class="registration-value">{{ registration.created_at|datetime }}</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Approved at:</div>
-                        <div class="registration-value">{{ registration.processed_at|datetime }}</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Approved by:</div>
-                        <div class="registration-value">{{ registration.processed_by }}</div>
-                    </div>
-                    
-                    {% if registration.profile_picture_path %}
-                        <div class="registration-detail-row">
-                            <div class="registration-label">Profile Picture:</div>
-                            <div class="registration-value">
-                                <a href="{{ registration.profile_picture_path }}" 
-                                class="file-download view-profile-pic" 
-                                target="_blank" 
-                                rel="noopener noreferrer">
-                                    <i class="material-icons">photo</i> View Full Picture
-                                </a>
-                            </div>
-                        </div>
-                    {% endif %}
-                    
-                    {% if registration.transcript_path %}
-                        <div class="registration-detail-row">
-                            <div class="registration-label">Transcript:</div>
-                            <div class="registration-value">
-                                <a href="{{ url_for('requests_views.download_transcript', registration_id=registration.id) }}" 
-                                class="file-download" 
-                                target="_blank" 
-                                rel="noopener noreferrer">
-                                    <i class="material-icons">description</i> View Transcript
-                                </a>
-                            </div>
-                        </div>
-                    {% endif %}
-                </div>
+                {% set status_label = 'APPROVED' %}
+                {% set show_decision_meta = True %}
+                {% include 'admin/requests/partials/_registration_card.html' with context %}
             {% endfor %}
         {% else %}
-            <div class="no-registrations">
-                <p>No approved registration requests.</p>
-            </div>
+            <div class="no-registrations"><p>No approved registration requests.</p></div>
         {% endif %}
     </div>
 
     <!-- Rejected Registrations -->
-    <div class="section-header">
-        <h5>Rejected Registrations</h5>
-    </div>
-
+    <div class="section-header"><h5>Rejected Registrations</h5></div>
     <div id="rejectedRegistrations" class="registrations-section">
         {% if rejected_registrations %}
             {% for registration in rejected_registrations %}
-                <div class="registration-card rejected" data-name="{{ registration.name }}" data-id="{{ registration.username }}">
-                    <div class="registration-top">
-                        <div class="registration-info">
-                            <div class="registration-name">{{ registration.name }}</div>
-                            <div class="registration-id">ID: {{ registration.username }}</div>
-                        </div>
-                        <div class="registration-profile-image">
-                            {% if registration.profile_picture_path %}
-                                <img src="{{ registration.profile_picture_path }}" alt="{{ registration.name }}'s profile picture">
-                            {% else %}
-                                <img src="{{ url_for('static', filename='images/DefaultAvatar.png') }}" alt="Default profile picture">
-                            {% endif %}
-                        </div>
-                        <div class="registration-status">REJECTED</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Email:</div>
-                        <div class="registration-value">{{ registration.email }}</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Degree:</div>
-                        <div class="registration-value">{{ registration.degree }}</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Date:</div>
-                        <div class="registration-value">{{ registration.created_at|datetime }}</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Rejected at:</div>
-                        <div class="registration-value">{{ registration.processed_at|datetime }}</div>
-                    </div>
-                    
-                    <div class="registration-detail-row">
-                        <div class="registration-label">Rejected by:</div>
-                        <div class="registration-value">{{ registration.processed_by }}</div>
-                    </div>
-                    
-                    {% if registration.profile_picture_path %}
-                        <div class="registration-detail-row">
-                            <div class="registration-label">Profile Picture:</div>
-                            <div class="registration-value">
-                                <a href="{{ registration.profile_picture_path }}" 
-                                class="file-download view-profile-pic" 
-                                target="_blank" 
-                                rel="noopener noreferrer">
-                                    <i class="material-icons">photo</i> View Full Picture
-                                </a>
-                            </div>
-                        </div>
-                    {% endif %}
-                    
-                    {% if registration.transcript_path %}
-                        <div class="registration-detail-row">
-                            <div class="registration-label">Transcript:</div>
-                            <div class="registration-value">
-                                <a href="{{ url_for('requests_views.download_transcript', registration_id=registration.id) }}" 
-                                class="file-download" 
-                                target="_blank" 
-                                rel="noopener noreferrer">
-                                    <i class="material-icons">description</i> View Transcript
-                                </a>
-                            </div>
-                        </div>
-                    {% endif %}
-                </div>
+                {% set status_label = 'REJECTED' %}
+                {% set show_decision_meta = True %}
+                {% include 'admin/requests/partials/_registration_card.html' with context %}
             {% endfor %}
         {% else %}
-            <div class="no-registrations">
-                <p>No rejected registration requests.</p>
-            </div>
+            <div class="no-registrations"><p>No rejected registration requests.</p></div>
         {% endif %}
     </div>
 </div>
@@ -341,3 +112,4 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/admin/registrations.js') }}"></script>
 {% endblock %}
+

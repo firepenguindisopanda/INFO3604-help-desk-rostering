@@ -218,9 +218,8 @@ def check_scheduling_feasibility():
             "message": f"Error checking feasibility: {str(e)}"
         }
 
-
 @performance_monitor("generate_help_desk_schedule", log_slow_threshold=2.0)
-def generate_help_desk_schedule(start_date=None, end_date=None):
+def generate_help_desk_schedule(start_date=None, end_date=None, **generation_options):
     """
     Generate a help desk schedule with flexible date range - OPTIMIZED VERSION
     
@@ -254,12 +253,14 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
         
         # Check if we're scheduling for a full week or partial week
         is_full_week = start_date.weekday() == 0 and (end_date - start_date).days >= 4
+        generation_payload = {k: v for k, v in generation_options.items() if v is not None}
         
         structured_logger.info(
             "Starting help desk schedule generation",
             start_date=start_date.isoformat(),
             end_date=end_date.isoformat(),
-            is_full_week=is_full_week
+            is_full_week=is_full_week,
+            generation_options=generation_payload
         )
         
         # Get or create the main schedule
@@ -559,7 +560,8 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
                     "is_full_week": is_full_week,
                     "shifts_created": len(shifts),
                     "assignments_created": assignment_count,
-                    "objective_value": solver.ObjectiveValue()
+                    "objective_value": solver.ObjectiveValue(),
+                    "generation_options": generation_payload
                 }
             }
         else:
@@ -576,7 +578,6 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
                 "message": message
             }
     
-
 def get_schedule(id, start_date, end_date, type='helpdesk'):
     """Get or create the main schedule object based on type"""
     # Use different IDs for different schedule types
@@ -1156,7 +1157,7 @@ def get_current_schedule():
         }
 
 
-def generate_lab_schedule(start_date=None, end_date=None):
+def generate_lab_schedule(start_date=None, end_date=None, **generation_options):
     try:
         model = cp_model.CpModel()
         
@@ -1193,6 +1194,15 @@ def generate_lab_schedule(start_date=None, end_date=None):
 
         # Check if we're scheduling for a full week or partial week
         is_full_week = start_date.weekday() == 0 and (end_date - start_date).days >= 5
+        generation_payload = {k: v for k, v in generation_options.items() if v is not None}
+
+        structured_logger.info(
+            "Starting lab schedule generation",
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            is_full_week=is_full_week,
+            generation_options=generation_payload
+        )
         
         # Get or create the main schedule
         schedule = get_schedule(1, start_date, end_date, 'lab')  # Change type to 'lab'
@@ -1370,7 +1380,8 @@ def generate_lab_schedule(start_date=None, end_date=None):
                     "end_date": end_date.strftime('%Y-%m-%d'),
                     "is_full_week": is_full_week,
                     "shifts_created": len(shifts),
-                    "objective_value": solver.ObjectiveValue()
+                    "objective_value": solver.ObjectiveValue(),
+                    "generation_options": generation_payload
                 }
             }
         else:
@@ -1450,14 +1461,171 @@ def generate_schedule_pdf(schedule_data, export_format='standard'):
         BytesIO buffer containing PDF data
     """
     try:
-        # Implementation would generate PDF using existing logic
-        # For now, return empty buffer
         from io import BytesIO
+        from weasyprint import HTML, CSS
+        from flask import render_template_string
+        
+        if not schedule_data:
+            logger.error("No schedule data provided for PDF generation")
+            return None
+            
+        # Determine schedule type from data or default to helpdesk
+        schedule_type = schedule_data.get('type', 'helpdesk')
+        schedule_id = schedule_data.get('schedule_id', 'N/A')
+        date_range = schedule_data.get('date_range', 'Unknown Date Range')
+        
+        # Create HTML template for PDF
+        html_template = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>{{ schedule_type|title }} Schedule - {{ date_range }}</title>
+            <style>
+                @page {
+                    size: A4 landscape;
+                    margin: 1cm;
+                }
+                body {
+                    font-family: Arial, sans-serif;
+                    font-size: 10pt;
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 20px;
+                    border-bottom: 2px solid #333;
+                    padding-bottom: 10px;
+                }
+                .schedule-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 20px;
+                }
+                .schedule-table th, .schedule-table td {
+                    border: 1px solid #ccc;
+                    padding: 8px;
+                    text-align: center;
+                    vertical-align: top;
+                }
+                .schedule-table th {
+                    background-color: #f5f5f5;
+                    font-weight: bold;
+                }
+                .day-header {
+                    background-color: #e8e8e8;
+                    font-weight: bold;
+                }
+                .time-slot {
+                    font-weight: bold;
+                    background-color: #f9f9f9;
+                }
+                .staff-name {
+                    display: block;
+                    margin: 2px 0;
+                    padding: 2px 4px;
+                    background-color: #e3f2fd;
+                    border-radius: 3px;
+                    font-size: 9pt;
+                }
+                .no-staff {
+                    color: #999;
+                    font-style: italic;
+                }
+                .footer {
+                    margin-top: 20px;
+                    font-size: 8pt;
+                    color: #666;
+                    text-align: center;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>{{ schedule_type|title }} Schedule</h1>
+                <h2>{{ date_range }}</h2>
+                {% if schedule_id %}
+                <p>Schedule ID: {{ schedule_id }}</p>
+                {% endif %}
+            </div>
+            
+            <table class="schedule-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        {% for day in days %}
+                        <th class="day-header">{{ day.day }}<br>{{ day.date }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set time_slots = [] %}
+                    {% if days %}
+                        {% for shift in days[0].shifts %}
+                            {% set _ = time_slots.append(shift.time) %}
+                        {% endfor %}
+                    {% endif %}
+                    
+                    {% for time_slot in time_slots %}
+                    <tr>
+                        <td class="time-slot">{{ time_slot }}</td>
+                        {% for day in days %}
+                            {% set shift = day.shifts[loop.index0] if loop.index0 < day.shifts|length else None %}
+                            <td>
+                                {% if shift and shift.assistants %}
+                                    {% for assistant in shift.assistants %}
+                                    <span class="staff-name">{{ assistant.name or assistant.id }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="no-staff">No staff assigned</span>
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <div class="footer">
+                <p>Generated on {{ current_time }} | Schedule Type: {{ schedule_type|title }}</p>
+                <p>Total Days: {{ days|length }} | Export Format: {{ export_format }}</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Get days data or create empty structure
+        days = schedule_data.get('days', [])
+        
+        # Add current timestamp
+        from datetime import datetime
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Render HTML with schedule data
+        html_content = render_template_string(
+            html_template,
+            schedule_type=schedule_type,
+            schedule_id=schedule_id,
+            date_range=date_range,
+            days=days,
+            current_time=current_time,
+            export_format=export_format
+        )
+        
+        # Generate PDF from HTML
+        pdf_bytes = HTML(string=html_content).write_pdf()
+        
+        # Create BytesIO buffer and write PDF data
         pdf_buffer = BytesIO()
+        pdf_buffer.write(pdf_bytes)
+        pdf_buffer.seek(0)  # Reset pointer to beginning
+        
+        logger.info(f"Successfully generated PDF for {schedule_type} schedule (format: {export_format})")
         return pdf_buffer
         
     except Exception as e:
         logger.error(f"Error generating schedule PDF: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 

@@ -4,6 +4,7 @@ from App.views.api_v2 import api_v2
 from App.views.api_v2.utils import api_success, api_error, validate_json_request
 from App.controllers.auth import login as auth_login
 from App.controllers.user import get_user
+from App.utils.profile_images import resolve_profile_image
 from App.models.registration_request import RegistrationRequest
 
 @api_v2.route('/auth/login', methods=['POST'])
@@ -84,6 +85,8 @@ def login():
     is_admin = hasattr(user_entity, 'role') or user_type == 'admin'
     role = getattr(user_entity, 'role', None)
 
+    profile_image_url = resolve_profile_image(getattr(user_entity, 'profile_data', None))
+
     return api_success({
         "user": {
             "username": user_entity.username,
@@ -92,6 +95,7 @@ def login():
             "last_name": getattr(user_entity, 'last_name', ''),
             "role": role,
             "is_admin": is_admin,
+            "profile_image_url": profile_image_url,
         },
         "token": token
     }, "Login successful")
@@ -248,6 +252,8 @@ def get_current_user():
     is_admin = hasattr(user, 'role')
     role = getattr(user, 'role', None)
     
+    profile_image_url = resolve_profile_image(getattr(user, 'profile_data', None))
+
     return api_success({
         "username": user.username,
         "email": getattr(user, 'email', ''),
@@ -257,6 +263,7 @@ def get_current_user():
         "role": role,
         "student_id": getattr(user, 'student_id', None) if not is_admin else None,
         "created_at": getattr(user, 'created_at', None).isoformat() if hasattr(user, 'created_at') and getattr(user, 'created_at') else None,
+        "profile_image_url": profile_image_url,
     })
 
 @api_v2.route('/me', methods=['PUT'])
@@ -302,6 +309,8 @@ def update_current_user():
         is_admin = hasattr(user, 'role')
         role = getattr(user, 'role', None)
         
+        profile_image_url = resolve_profile_image(getattr(user, 'profile_data', None))
+
         return api_success({
             "username": user.username,
             "email": getattr(user, 'email', ''),
@@ -310,6 +319,7 @@ def update_current_user():
             "is_admin": is_admin,
             "role": role,
             "student_id": getattr(user, 'student_id', None) if not is_admin else None,
+            "profile_image_url": profile_image_url,
         }, "Profile updated successfully")
         
     except Exception as e:
