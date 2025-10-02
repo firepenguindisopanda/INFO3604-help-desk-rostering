@@ -70,4 +70,15 @@
     </div>
   </div>
   {% endif %}
+
+  {% if card_status == 'PENDING' %}
+  <div class="registration-actions">
+    <button type="button" class="btn-approve" onclick="approveRegistration({{ registration.id }})" data-registration-id="{{ registration.id }}" data-name="{{ registration.name }}">
+      <i class="material-icons">check_circle</i> Approve
+    </button>
+    <button type="button" class="btn-reject" onclick="rejectRegistration({{ registration.id }})" data-registration-id="{{ registration.id }}" data-name="{{ registration.name }}">
+      <i class="material-icons">cancel</i> Reject
+    </button>
+  </div>
+  {% endif %}
 </div>

@@ -1,4 +1,6 @@
-from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for, send_from_directory
+import mimetypes
+
+from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for, send_file, current_app
 from flask_jwt_extended import jwt_required, current_user
 from App.middleware import admin_required, volunteer_required
 from App.controllers.request import (
@@ -14,7 +16,8 @@ from App.controllers.request import (
 from App.controllers.registration import (
     get_all_registration_requests,
     approve_registration,
-    reject_registration
+    reject_registration,
+    resolve_transcript_asset
 )
 
 from App.controllers.password_reset import (
@@ -28,6 +31,8 @@ from App.models import RegistrationRequest
 
 
 requests_views = Blueprint('requests_views', __name__, template_folder='../templates')
+
+VOLUNTEER_REQUESTS_ENDPOINT = 'requests_views.volunteer_requests'
 
 # Remove the old datetime filter to avoid conflicts
 # The filter is now registered globally in main.py
@@ -135,7 +140,7 @@ def submit_request():
     # Validate required fields
     if not shift_id or not reason:
         flash("Shift and reason are required fields", "error")
-        return redirect(url_for('requests_views.volunteer_requests'))
+        return redirect(url_for(VOLUNTEER_REQUESTS_ENDPOINT))
     
     # Create the request
     success, message = create_student_request(
@@ -150,7 +155,7 @@ def submit_request():
     else:
         flash(message, "error")
         
-    return redirect(url_for('requests_views.volunteer_requests'))
+    return redirect(url_for(VOLUNTEER_REQUESTS_ENDPOINT))
 
 @requests_views.route('/volunteer/cancel_request/<int:request_id>', methods=['POST'])
 @jwt_required()
@@ -164,7 +169,7 @@ def cancel_request_endpoint(request_id):
     else:
         flash(message, "error")
         
-    return redirect(url_for('requests_views.volunteer_requests'))
+    return redirect(url_for(VOLUNTEER_REQUESTS_ENDPOINT))
 
 # API Routes for both admin and volunteer
 @requests_views.route('/api/requests', methods=['GET'])
@@ -221,22 +226,30 @@ def reject_registration_endpoint(registration_id):
 @jwt_required()
 @admin_required
 def download_transcript(registration_id):
-    """Download a transcript file for a registration request"""
+    """Stream or redirect to a transcript file for a registration request."""
 
-    
     registration = RegistrationRequest.query.get(registration_id)
-    if not registration or not registration.transcript_path:
+    if not registration:
         flash("Transcript not found", "error")
         return redirect(url_for('requests_views.registrations'))
-    
-    # Extract filename from path
-    filename = os.path.basename(registration.transcript_path)
-    
-    # The files are saved in uploads/transcripts, not App/uploads/transcripts
-    directory = os.path.join('uploads', 'transcripts')
-    
-    # Return the file
-    return send_from_directory(directory, filename)
+
+    asset = resolve_transcript_asset(registration, base_path=current_app.root_path)
+    if not asset:
+        flash("Transcript not found", "error")
+        return redirect(url_for('requests_views.registrations'))
+
+    if asset['mode'] == 'remote':
+        return redirect(asset['url'])
+
+    mimetype, _ = mimetypes.guess_type(asset['filename'])
+    response = send_file(
+        asset['absolute_path'],
+        mimetype=mimetype or 'application/pdf',
+        as_attachment=False,
+        conditional=True
+    )
+    response.headers['Content-Disposition'] = f'inline; filename="{asset["filename"]}"'
+    return response
 
 @requests_views.route('/api/available-shifts', methods=['GET'])
 @jwt_required()

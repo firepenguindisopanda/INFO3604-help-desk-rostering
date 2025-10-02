@@ -2,6 +2,9 @@ from App.database import db
 from datetime import datetime
 from werkzeug.security import generate_password_hash
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
+import os
+
+LEGACY_UPLOAD_PREFIX = 'App/uploads/'
 
 class RegistrationRequest(db.Model):
     __tablename__ = 'registration_request'
@@ -48,30 +51,65 @@ class RegistrationRequest(db.Model):
     
     def get_profile_picture_url(self):
         """Return a usable profile picture URL, checking if file exists or using fallback"""
-        if not self.profile_picture_path:
-            from App.utils.profile_images import DEFAULT_PROFILE_IMAGE_URL
-            return DEFAULT_PROFILE_IMAGE_URL
-        
-        # If it's already an HTTP(S) URL, return it
-        if '://' in str(self.profile_picture_path):
-            return self.profile_picture_path
-        
-        # Check if local file exists
-        import os
-        if os.path.exists(self.profile_picture_path):
-            # Convert filesystem path to web path
-            path_str = str(self.profile_picture_path).replace('\\', '/')
-            if path_str.startswith('App/static/'):
-                return '/' + path_str[4:]  # Remove 'App/' prefix
-            elif path_str.startswith('static/'):
-                return '/' + path_str
-            elif not path_str.startswith('/'):
-                return '/static/' + path_str.lstrip('/')
-            return path_str
-        
-        # File doesn't exist, use fallback
         from App.utils.profile_images import DEFAULT_PROFILE_IMAGE_URL
+
+        path = self.profile_picture_path
+        if not path:
+            return DEFAULT_PROFILE_IMAGE_URL
+
+        path_str = str(path)
+        if '://' in path_str:
+            return path_str
+
+        fs_path = os.path.normpath(path_str)
+        if os.path.exists(fs_path):
+            resolved = self._build_static_path(fs_path)
+            if resolved:
+                return resolved
+
+        legacy_resolved = self._resolve_legacy_upload(path_str)
+        if legacy_resolved:
+            return legacy_resolved
+
         return DEFAULT_PROFILE_IMAGE_URL
+
+    @staticmethod
+    def _build_static_path(path_str: str) -> str | None:
+        normalized = path_str.replace('\\', '/')
+        if normalized.startswith('App/static/'):
+            return '/' + normalized[4:]
+        if normalized.startswith('static/'):
+            return '/' + normalized
+        if normalized.startswith(LEGACY_UPLOAD_PREFIX):
+            legacy_relative = normalized[len(LEGACY_UPLOAD_PREFIX):]
+            candidate = os.path.join('App', 'static', 'uploads', legacy_relative)
+            if os.path.exists(candidate):
+                normalized_candidate = str(candidate).replace('\\', '/')
+                return '/' + normalized_candidate[4:] if normalized_candidate.startswith('App/') else '/' + normalized_candidate
+            return None
+        if not normalized.startswith('/'):
+            return '/static/' + normalized.lstrip('/')
+        return normalized
+
+    @staticmethod
+    def _resolve_legacy_upload(path_str: str) -> str | None:
+        if not path_str.startswith(LEGACY_UPLOAD_PREFIX):
+            return None
+        legacy_relative = path_str[len(LEGACY_UPLOAD_PREFIX):]
+        candidate = os.path.join('App', 'static', 'uploads', legacy_relative)
+        source_path = os.path.normpath(path_str)
+        candidate_path = os.path.normpath(candidate)
+        if not os.path.exists(candidate_path) and os.path.exists(source_path):
+            os.makedirs(os.path.dirname(candidate_path), exist_ok=True)
+            import shutil
+            try:
+                shutil.copy2(source_path, candidate_path)
+            except OSError:
+                return None
+        if os.path.exists(candidate_path):
+            normalized_candidate = str(candidate_path).replace('\\', '/')
+            return '/' + normalized_candidate[4:] if normalized_candidate.startswith('App/') else '/' + normalized_candidate
+        return None
     
     def get_json(self):
         return {
