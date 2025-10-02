@@ -1,5 +1,6 @@
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
+from werkzeug.datastructures import FileStorage
 from App.models import RegistrationRequest, RegistrationCourse, RegistrationAvailability, Student, User, HelpDeskAssistant, CourseCapability, Notification, Availability
 from App.database import db
 from App.controllers.user import create_user
@@ -8,6 +9,7 @@ from App.controllers.availability import create_availability
 import os
 import json
 from datetime import datetime, time
+from urllib.parse import urlparse
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 
 
@@ -31,11 +33,39 @@ def create_registration_request(username, name, email, degree, reason=None, phon
         if isinstance(transcript_url, list):
             transcript_url = transcript_url[0] if transcript_url else None
         
-        if not profile_picture_url or not isinstance(profile_picture_url, str):
-            return False, "Profile picture URL is required"
+        # Profile picture is optional for legacy registration (file uploads)
+        # If it's a FileStorage object (uploaded file), handle it appropriately
+        # If None or empty, we'll use default avatar as fallback during rendering
         
-        transcript_path = transcript_url  # Store the URL directly
-        profile_picture_path = profile_picture_url  # Store the URL directly
+        # Profile picture is optional for legacy registration (file uploads)
+        # If it's a FileStorage object (uploaded file), handle it appropriately
+        # If None or empty, we'll use default avatar as fallback during rendering
+        
+        # Handle file uploads for legacy registration
+        transcript_path = None
+        profile_picture_path = None
+
+        if transcript_url:
+            if isinstance(transcript_url, FileStorage) and transcript_url.filename:
+                filename = secure_filename(transcript_url.filename)
+                upload_folder = os.path.join('uploads', 'transcripts')
+                os.makedirs(upload_folder, exist_ok=True)
+                filepath = os.path.join(upload_folder, f"{username}_{filename}")
+                transcript_url.save(filepath)
+                transcript_path = filepath
+            elif isinstance(transcript_url, str):
+                transcript_path = transcript_url
+
+        if profile_picture_url:
+            if isinstance(profile_picture_url, FileStorage) and profile_picture_url.filename:
+                filename = secure_filename(profile_picture_url.filename)
+                upload_folder = os.path.join('App', 'static', 'uploads', 'profile_pictures')
+                os.makedirs(upload_folder, exist_ok=True)
+                filepath = os.path.join(upload_folder, f"{username}_{filename}")
+                profile_picture_url.save(filepath)
+                profile_picture_path = filepath
+            elif isinstance(profile_picture_url, str):
+                profile_picture_path = profile_picture_url
         
         registration = RegistrationRequest(
             username=username,
@@ -108,6 +138,74 @@ def create_registration_request(username, name, email, degree, reason=None, phon
         db.session.rollback()
         print(f"Error creating registration request: {e}")
         return False, f"An error occurred: {str(e)}"
+
+
+def _is_within_path(path, root):
+    try:
+        return os.path.commonpath([os.path.normpath(path), os.path.normpath(root)]) == os.path.normpath(root)
+    except ValueError:
+        return False
+
+
+def _candidate_transcript_paths(path_str, base_path):
+    normalized = os.path.normpath(path_str)
+    if os.path.isabs(normalized):
+        return [normalized]
+
+    bases = []
+    if base_path:
+        bases.extend([
+            os.path.join(base_path, '..', normalized),
+            os.path.join(base_path, normalized)
+        ])
+    bases.append(os.path.abspath(normalized))
+
+    candidates = []
+    for path in bases:
+        norm_path = os.path.normpath(path)
+        if norm_path not in candidates:
+            candidates.append(norm_path)
+    return candidates
+
+
+def _allowed_transcript_roots(base_path):
+    roots = []
+    if base_path:
+        roots.extend([
+            os.path.normpath(os.path.join(base_path, '..', 'uploads', 'transcripts')),
+            os.path.normpath(os.path.join(base_path, 'uploads', 'transcripts'))
+        ])
+    roots.append(os.path.normpath(os.path.join(os.getcwd(), 'uploads', 'transcripts')))
+    return roots
+
+
+def resolve_transcript_asset(registration, base_path=None):
+    """Resolve transcript storage and return metadata for response handling."""
+    transcript_path = getattr(registration, 'transcript_path', None)
+    if not transcript_path:
+        return None
+
+    path_str = str(transcript_path).strip()
+    if not path_str:
+        return None
+
+    parsed = urlparse(path_str)
+    if parsed.scheme.lower() in {"http", "https"}:
+        return {"mode": "remote", "url": path_str}
+
+    candidates = _candidate_transcript_paths(path_str, base_path)
+    allowed_roots = _allowed_transcript_roots(base_path)
+
+    for candidate in candidates:
+        if os.path.exists(candidate) and any(_is_within_path(candidate, root) for root in allowed_roots):
+            return {
+                "mode": "local",
+                "absolute_path": candidate,
+                "directory": os.path.dirname(candidate),
+                "filename": os.path.basename(candidate)
+            }
+
+    return None
     
 def approve_registration(request_id, admin_username):
     """Approve a registration request using ORM transactions."""
