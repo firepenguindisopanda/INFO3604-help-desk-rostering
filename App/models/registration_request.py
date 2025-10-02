@@ -46,6 +46,33 @@ class RegistrationRequest(db.Model):
         """Create hashed password."""
         self.password = generate_password_hash(password)
     
+    def get_profile_picture_url(self):
+        """Return a usable profile picture URL, checking if file exists or using fallback"""
+        if not self.profile_picture_path:
+            from App.utils.profile_images import DEFAULT_PROFILE_IMAGE_URL
+            return DEFAULT_PROFILE_IMAGE_URL
+        
+        # If it's already an HTTP(S) URL, return it
+        if '://' in str(self.profile_picture_path):
+            return self.profile_picture_path
+        
+        # Check if local file exists
+        import os
+        if os.path.exists(self.profile_picture_path):
+            # Convert filesystem path to web path
+            path_str = str(self.profile_picture_path).replace('\\', '/')
+            if path_str.startswith('App/static/'):
+                return '/' + path_str[4:]  # Remove 'App/' prefix
+            elif path_str.startswith('static/'):
+                return '/' + path_str
+            elif not path_str.startswith('/'):
+                return '/static/' + path_str.lstrip('/')
+            return path_str
+        
+        # File doesn't exist, use fallback
+        from App.utils.profile_images import DEFAULT_PROFILE_IMAGE_URL
+        return DEFAULT_PROFILE_IMAGE_URL
+    
     def get_json(self):
         return {
             'id': self.id,

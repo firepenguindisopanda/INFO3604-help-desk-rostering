@@ -22,7 +22,10 @@ def _resolve_profile_image_url(student):
             parsed = {}
         legacy_filename = parsed.get('image_filename') if isinstance(parsed, dict) else None
         if legacy_filename and '://' not in str(legacy_filename):
-            return f"/static/{str(legacy_filename).lstrip('/')}"
+            import os
+            filepath = os.path.join('App', 'static', str(legacy_filename).lstrip('/'))
+            if os.path.exists(filepath):
+                return f"/static/{str(legacy_filename).lstrip('/')}"
 
     return image_url
 

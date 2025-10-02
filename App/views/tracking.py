@@ -53,7 +53,10 @@ def time_tracking():
         legacy_filename = profile_data.get('image_filename') if isinstance(profile_data, dict) else None
         profile_image_url = resolve_profile_image(getattr(student, 'profile_data', None))
         if legacy_filename and '://' not in str(legacy_filename):
-            profile_image_url = url_for('static', filename=str(legacy_filename))
+            import os
+            filepath = os.path.join('App', 'static', str(legacy_filename).lstrip('/'))
+            if os.path.exists(filepath):
+                profile_image_url = url_for('static', filename=str(legacy_filename))
 
         staff['image_url'] = profile_image_url
         staff['profile_image_url'] = profile_image_url

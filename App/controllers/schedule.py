@@ -218,9 +218,8 @@ def check_scheduling_feasibility():
             "message": f"Error checking feasibility: {str(e)}"
         }
 
-
 @performance_monitor("generate_help_desk_schedule", log_slow_threshold=2.0)
-def generate_help_desk_schedule(start_date=None, end_date=None):
+def generate_help_desk_schedule(start_date=None, end_date=None, **generation_options):
     """
     Generate a help desk schedule with flexible date range - OPTIMIZED VERSION
     
@@ -254,12 +253,14 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
         
         # Check if we're scheduling for a full week or partial week
         is_full_week = start_date.weekday() == 0 and (end_date - start_date).days >= 4
+        generation_payload = {k: v for k, v in generation_options.items() if v is not None}
         
         structured_logger.info(
             "Starting help desk schedule generation",
             start_date=start_date.isoformat(),
             end_date=end_date.isoformat(),
-            is_full_week=is_full_week
+            is_full_week=is_full_week,
+            generation_options=generation_payload
         )
         
         # Get or create the main schedule
@@ -559,7 +560,8 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
                     "is_full_week": is_full_week,
                     "shifts_created": len(shifts),
                     "assignments_created": assignment_count,
-                    "objective_value": solver.ObjectiveValue()
+                    "objective_value": solver.ObjectiveValue(),
+                    "generation_options": generation_payload
                 }
             }
         else:
@@ -576,7 +578,6 @@ def generate_help_desk_schedule(start_date=None, end_date=None):
                 "message": message
             }
     
-
 def get_schedule(id, start_date, end_date, type='helpdesk'):
     """Get or create the main schedule object based on type"""
     # Use different IDs for different schedule types
@@ -1156,7 +1157,7 @@ def get_current_schedule():
         }
 
 
-def generate_lab_schedule(start_date=None, end_date=None):
+def generate_lab_schedule(start_date=None, end_date=None, **generation_options):
     try:
         model = cp_model.CpModel()
         
@@ -1193,6 +1194,15 @@ def generate_lab_schedule(start_date=None, end_date=None):
 
         # Check if we're scheduling for a full week or partial week
         is_full_week = start_date.weekday() == 0 and (end_date - start_date).days >= 5
+        generation_payload = {k: v for k, v in generation_options.items() if v is not None}
+
+        structured_logger.info(
+            "Starting lab schedule generation",
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            is_full_week=is_full_week,
+            generation_options=generation_payload
+        )
         
         # Get or create the main schedule
         schedule = get_schedule(1, start_date, end_date, 'lab')  # Change type to 'lab'
@@ -1370,7 +1380,8 @@ def generate_lab_schedule(start_date=None, end_date=None):
                     "end_date": end_date.strftime('%Y-%m-%d'),
                     "is_full_week": is_full_week,
                     "shifts_created": len(shifts),
-                    "objective_value": solver.ObjectiveValue()
+                    "objective_value": solver.ObjectiveValue(),
+                    "generation_options": generation_payload
                 }
             }
         else:

@@ -4,7 +4,12 @@
   padding-bottom: 2rem;
 }
 
+
 .registrations-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
@@ -15,11 +20,28 @@
   margin: 0;
 }
 
+.pending-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2rem;
+  height: 2.2rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+  color: #0f2a52;
+  background: linear-gradient(135deg, #e0f2ff, #cde9ff);
+  box-shadow: inset 0 0 0 1px rgba(0, 102, 204, 0.12);
+  font-size: 0.95rem;
+}
+
 /* Tabs styling */
 .tabs {
   display: flex;
   border-bottom: 1px solid #e6e9ef;
   margin-bottom: 1.75rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .tab {
@@ -29,6 +51,11 @@
   font-weight: 500;
   color: #64748b;
   transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 999px 999px 0 0;
 }
 
 .tab:hover {
@@ -38,6 +65,24 @@
 .tab.active {
   color: #0066cc;
   border-bottom: 2px solid #0066cc;
+}
+
+.tab:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background-color: #2563eb;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 /* Search container styling */
@@ -152,6 +197,17 @@
   border-bottom: 1px solid #f1f5f9;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+.registration-profile-image img.profile-thumb,
+.registration-profile-image img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e2e8f0;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
 }
 
 .registration-name {
@@ -329,10 +385,6 @@
   font-size: 1.2rem;
   cursor: pointer;
   color: rgba(0,0,0,0.6);
-}
-
-.flash-message {
-  position: relative;
 }
 
 .no-registrations {
@@ -611,14 +663,17 @@
 }
 
 .registration-profile-image {
-  width: 60px;
-  height: 60px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   border: 2px solid #fff;
-  margin-right: 1rem;
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fbff;
 }
 
 .registration-profile-image img {

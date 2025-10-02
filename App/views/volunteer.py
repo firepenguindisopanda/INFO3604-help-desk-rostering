@@ -294,7 +294,10 @@ def profile():
     image_url = resolve_profile_image(getattr(student, 'profile_data', None))
     legacy_filename = profile_data.get('image_filename') if isinstance(profile_data, dict) else None
     if legacy_filename and '://' not in str(legacy_filename):
-        image_url = url_for('static', filename=str(legacy_filename))
+        import os
+        filepath = os.path.join('App', 'static', str(legacy_filename).lstrip('/'))
+        if os.path.exists(filepath):
+            image_url = url_for('static', filename=str(legacy_filename))
     
     # Build user data dictionary with image_url
     user_data = {

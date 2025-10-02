@@ -1,12 +1,14 @@
 import click, pytest, sys
+from typing import Optional
 from flask import Flask
 from flask.cli import with_appcontext, AppGroup
+from datetime import datetime
 
 from App.database import db, get_migrate
 from App.models import User
 from App.main import create_app
 from App.controllers import (create_user, get_all_users_json, get_all_users, initialize, 
-    generate_help_desk_schedule)
+    generate_help_desk_schedule, generate_lab_schedule)
 
 import csv
 
@@ -37,6 +39,142 @@ def list_user_command(format):
         print(get_all_users_json())
 
 app.cli.add_command(user_cli)
+
+# Schedule Commands
+
+DATE_FORMAT = "%Y-%m-%d"
+
+
+def _parse_date_arg(value: str, label: str) -> datetime:
+    try:
+        return datetime.strptime(value, DATE_FORMAT)
+    except ValueError as exc:
+        raise click.BadParameter(
+            f"{label} must be in YYYY-MM-DD format"
+        ) from exc
+
+
+def _summarize_schedule(result: dict, schedule_type: str, generation_options: dict) -> str:
+    details = result.get("details", {}) if isinstance(result, dict) else {}
+    start = details.get("start_date", "?")
+    end = details.get("end_date", "?")
+    assignments = details.get("assignments_created")
+    shifts = details.get("shifts_created")
+    option_summary = ", ".join(f"{k}={v}" for k, v in generation_options.items()) if generation_options else "none"
+    return (
+        f"[{schedule_type}] Schedule {result.get('status', 'unknown')} for {start} to {end}. "
+        f"Shifts: {shifts if shifts is not None else '?'} | "
+        f"Assignments: {assignments if assignments is not None else '?'} | "
+        f"Options: {option_summary}"
+    )
+
+
+schedule_cli = AppGroup('schedule', help='Help desk schedule operations')
+
+
+def _validate_non_negative_option(option_name: str, value: Optional[int]):
+    if value is not None and value < 0:
+        label = option_name.replace("_", " ")
+        raise click.BadParameter(f'{label} must be non-negative', param_hint=f'--{option_name.replace("_", "-")}')
+
+
+def _validate_positive_option(option_name: str, value: Optional[int]):
+    if value is not None and value <= 0:
+        label = option_name.replace("_", " ")
+        raise click.BadParameter(f'{label} must be greater than 0', param_hint=f'--{option_name.replace("_", "-")}')
+
+
+def _validate_staff_hierarchy(minimum: Optional[int], preferred: Optional[int], maximum: Optional[int]):
+    if minimum is not None and maximum is not None and minimum > maximum:
+        raise click.BadParameter('minimum-staff cannot exceed maximum-staff', param_hint='--minimum-staff')
+    if preferred is not None and maximum is not None and preferred > maximum:
+        raise click.BadParameter('preferred-staff cannot exceed maximum-staff', param_hint='--preferred-staff')
+    if minimum is not None and preferred is not None and minimum > preferred:
+        raise click.BadParameter('minimum-staff cannot exceed preferred-staff', param_hint='--minimum-staff')
+
+
+def _run_schedule_generation(schedule_type: str, start_dt: datetime, end_dt: datetime, quiet: bool, **options):
+    if end_dt < start_dt:
+        raise click.BadParameter('end_date must be on or after start_date', param_hint='end_date')
+
+    for option_name in ('minimum_staff', 'preferred_staff', 'maximum_staff'):
+        _validate_non_negative_option(option_name, options.get(option_name))
+
+    _validate_positive_option('break_duration_minutes', options.get('break_duration_minutes'))
+    _validate_positive_option('max_consecutive_hours', options.get('max_consecutive_hours'))
+
+    _validate_staff_hierarchy(
+        options.get('minimum_staff'),
+        options.get('preferred_staff'),
+        options.get('maximum_staff'),
+    )
+
+    generator_map = {
+        'helpdesk': generate_help_desk_schedule,
+        'lab': generate_lab_schedule,
+    }
+
+    generator = generator_map[schedule_type]
+    filtered_options = {k: v for k, v in options.items() if v is not None}
+    result = generator(start_dt, end_dt, **filtered_options)
+    if not quiet:
+        click.echo(_summarize_schedule(result, schedule_type, filtered_options))
+
+
+
+@schedule_cli.command('generate-range', help='Generate schedule for an explicit date range')
+@click.argument('start_date')
+@click.argument('end_date')
+@click.option('--schedule-type', 'schedule_type', required=True, type=click.Choice(['helpdesk', 'lab']), help='Type of schedule to generate')
+@click.option('--minimum-staff', type=int, default=None, help='Minimum staff per shift')
+@click.option('--preferred-staff', type=int, default=None, help='Preferred staff per shift')
+@click.option('--maximum-staff', type=int, default=None, help='Maximum staff per shift')
+@click.option('--break-duration-minutes', type=int, default=None, help='Break duration between shifts in minutes')
+@click.option('--max-consecutive-hours', type=int, default=None, help='Maximum consecutive hours per staff member')
+@click.option('--quiet', is_flag=True, help='Suppress summary output')
+def generate_range_command(start_date, end_date, schedule_type, minimum_staff, preferred_staff, maximum_staff, break_duration_minutes, max_consecutive_hours, quiet):
+    start_dt = _parse_date_arg(start_date, 'start_date')
+    end_dt = _parse_date_arg(end_date, 'end_date')
+    _run_schedule_generation(
+        schedule_type,
+        start_dt,
+        end_dt,
+        quiet,
+        minimum_staff=minimum_staff,
+        preferred_staff=preferred_staff,
+        maximum_staff=maximum_staff,
+        break_duration_minutes=break_duration_minutes,
+        max_consecutive_hours=max_consecutive_hours,
+    )
+
+
+@schedule_cli.command('generate', help='Generate schedule with optional parameters')
+@click.option('--schedule-type', 'schedule_type', required=True, type=click.Choice(['helpdesk', 'lab']), help='Type of schedule to generate')
+@click.option('--start-date', 'start_date', required=True, help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', 'end_date', required=True, help='End date (YYYY-MM-DD)')
+@click.option('--minimum-staff', type=int, default=None, help='Minimum staff per shift')
+@click.option('--preferred-staff', type=int, default=None, help='Preferred staff per shift')
+@click.option('--maximum-staff', type=int, default=None, help='Maximum staff per shift')
+@click.option('--break-duration-minutes', type=int, default=None, help='Break duration between shifts in minutes')
+@click.option('--max-consecutive-hours', type=int, default=None, help='Maximum consecutive hours per staff member')
+@click.option('--quiet', is_flag=True, help='Suppress summary output')
+def generate_command(schedule_type, start_date, end_date, minimum_staff, preferred_staff, maximum_staff, break_duration_minutes, max_consecutive_hours, quiet):
+    start_dt = _parse_date_arg(start_date, 'start_date')
+    end_dt = _parse_date_arg(end_date, 'end_date')
+    _run_schedule_generation(
+        schedule_type,
+        start_dt,
+        end_dt,
+        quiet,
+        minimum_staff=minimum_staff,
+        preferred_staff=preferred_staff,
+        maximum_staff=maximum_staff,
+        break_duration_minutes=break_duration_minutes,
+        max_consecutive_hours=max_consecutive_hours,
+    )
+
+
+app.cli.add_command(schedule_cli)
 
 # Seed Helpers
 

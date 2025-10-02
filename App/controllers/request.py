@@ -24,12 +24,15 @@ def get_all_requests():
     result = []
     for student in students_with_requests:
         # Basic student info
+        from App.utils.profile_images import resolve_profile_image
+        profile_image = resolve_profile_image(getattr(student, 'profile_data', None))
+        
         student_data = {
             "id": student.username,
             "name": student.get_name(),
             "role": "Student Assistant",
             "id_number": student.username,
-            "image": "/static/images/DefaultAvatar.png",
+            "image": profile_image,
             "requests": []
         }
         
