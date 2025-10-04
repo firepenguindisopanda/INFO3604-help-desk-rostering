@@ -321,9 +321,8 @@ document.addEventListener('DOMContentLoaded', function() {
       // Send update to server
       fetch('/api/admin/staff/update-profile', {
           method: 'POST',
-          headers: {
-              'Content-Type': 'application/json'
-          },
+          headers: buildAuthHeaders(),
+          credentials: 'same-origin',
           body: JSON.stringify(formData)
       })
       .then(response => response.json())
@@ -378,9 +377,8 @@ document.addEventListener('DOMContentLoaded', function() {
       // Make the API request
       fetch('/api/staff/attendance/report', {
           method: 'POST',
-          headers: {
-              'Content-Type': 'application/json'
-          },
+          headers: buildAuthHeaders(),
+          credentials: 'same-origin',
           body: JSON.stringify({
               staff_id: staffId,
               download: true

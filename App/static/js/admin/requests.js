@@ -219,9 +219,8 @@ function approveRequest(requestId) {
         // Make API call to approve the request
         fetch(`/api/requests/${requestId}/approve`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
+            headers: buildAuthHeaders(),
+            credentials: 'same-origin'
         })
         .then(response => response.json())
         .then(data => {
@@ -272,9 +271,8 @@ function rejectRequest(requestId) {
         // Make API call to reject the request
         fetch(`/api/requests/${requestId}/reject`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
+            headers: buildAuthHeaders(),
+            credentials: 'same-origin'
         })
         .then(response => response.json())
         .then(data => {

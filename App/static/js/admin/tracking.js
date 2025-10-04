@@ -199,9 +199,8 @@ function generateAttendanceReport(staffId, staffName) {
   // Make the API call to generate the report
   fetch('/api/staff/attendance/report', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: buildAuthHeaders(),
+    credentials: 'same-origin',
     body: JSON.stringify({
       staff_id: staffId,
       start_date: startOfMonth.toISOString().split('T')[0],
