@@ -644,9 +644,8 @@ function initializeGenerateButton() {
 
         fetch('/api/schedule/generate', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: buildAuthHeaders(),
+            credentials: 'same-origin',
             body: JSON.stringify({
                 start_date: startDate,
                 end_date: endDate
@@ -806,9 +805,8 @@ function saveScheduleChanges() {
     // Send to server
     fetch('/api/schedule/save', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: buildAuthHeaders(),
+        credentials: 'same-origin',
         body: JSON.stringify(payload)
     })
     .then(response => {
@@ -857,9 +855,8 @@ function publishScheduleWithSync(scheduleId) {
     
     fetch(`/api/schedule/${scheduleId}/publish_with_sync`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
+        headers: buildAuthHeaders(),
+        credentials: 'same-origin'
     })
     .then(response => {
         if (!response.ok) {
@@ -893,9 +890,8 @@ function publishSchedule(scheduleId) {
     
     fetch(`/api/schedule/${scheduleId}/publish`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
+        headers: buildAuthHeaders(),
+        credentials: 'same-origin'
     })
     .then(response => {
         if (!response.ok) {
@@ -973,9 +969,8 @@ async function handleStaffRemoval(event) {
     try {
         const response = await fetch('/api/schedule/remove-staff', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: buildAuthHeaders(),
+            credentials: 'same-origin',
             body: JSON.stringify({
                 staff_id: staffId,
                 day: cellDay,
@@ -1919,9 +1914,8 @@ function clearSchedule() {
     
     fetch('/api/schedule/clear', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: buildAuthHeaders(),
+        credentials: 'same-origin',
         body: JSON.stringify({
             schedule_type: currentRole,
             schedule_id: scheduleId
