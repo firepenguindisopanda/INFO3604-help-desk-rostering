@@ -516,7 +516,14 @@ def generate_help_desk_schedule(start_date=None, end_date=None, **generation_opt
         
         # --- Solve the Model ---
         solver = cp_model.CpSolver()
-        solver.parameters.max_time_in_seconds = 60.0  # Increase time limit to 60 seconds
+        # Allow time limit to be configured via app config (default 60s)
+        try:
+            from flask import current_app
+            time_limit = float(current_app.config.get('CP_SAT_TIME_LIMIT', 60))
+        except Exception:
+            # Fallback when not running in an app context
+            time_limit = 60.0
+        solver.parameters.max_time_in_seconds = float(time_limit)
         solver.parameters.num_search_workers = 8  # Use more worker threads
         solver.parameters.log_search_progress = True  # Log search progress
         status = solver.Solve(model)

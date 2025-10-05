@@ -28,6 +28,7 @@ def api_get_performance_metrics():
     """Return summarized performance metrics for admin dashboards."""
     try:
         summary = get_performance_summary()
+        logger.info('Metrics summary: %s', summary)
         return api_success(data=summary)
     except Exception as exc:
         logger.exception('API v2: Failed to retrieve performance metrics')
@@ -45,6 +46,7 @@ def api_get_slow_operations():
     """Return slow operations along with optimization recommendations."""
     try:
         summary = get_performance_summary()
+        logger.info('Performance summary: %s', summary)
         slow_ops = summary.get('slow_operations', [])
 
         for op in slow_ops:
@@ -110,6 +112,7 @@ def api_log_performance_summary():
     """Trigger logging of current performance summary."""
     try:
         summary = log_performance_summary()
+        logger.info('Logged performance summary: %s', summary)
         return api_success(
             data=summary,
             message='Performance summary logged',

@@ -18,6 +18,27 @@ Currently the Lab Assistant Sheduler model is also implemented, however only the
 - Notification system for shift approvals, missed shifts, etc.
 - PDF generation for attendance and schedule reports.
 
+## Standalone Linear Programming Scheduler
+In addition to the in-app OR-Tools model, the repository now includes a
+framework-agnostic mixed-integer linear programming module under
+`scheduler_lp/`. It exposes typed helper classes (`Assistant`, `Shift`,
+`CourseDemand`, etc.) plus a `solve_helpdesk_schedule` function powered by
+[PuLP](https://coin-or.github.io/pulp/). The module is designed for quick
+experiments in notebooks or scripts without needing to stand up the Flask app.
+
+To try it out, install requirements and run the included demo:
+
+```powershell
+python -m scheduler_lp.examples
+```
+
+The script prints assignments, hour totals, and shortfall diagnostics for a
+small synthetic instance, demonstrating the expected data structures for your
+own experiments. If you prefer a notebook workflow, open
+`notebooks/scheduler_lp_colab_demo.ipynb` locally or upload it to Google Colab
+and follow the embedded steps to install dependencies and pull the latest
+module files from GitHub.
+
 ## The Help Desk Model
 This is currently the model that is being used for the Help Desk website:  
 

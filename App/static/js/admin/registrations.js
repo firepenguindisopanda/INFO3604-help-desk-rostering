@@ -283,28 +283,6 @@ function showConfirmation(message, onConfirm) {
 /**
 * Approve registration request
 */
-function getCsrfToken() {
-    const value = `; ${document.cookie}`;
-    const parts = value.split('; csrf_access_token=');
-    if (parts.length === 2) {
-        return parts.pop().split(';').shift();
-    }
-    return null;
-}
-
-function buildAuthHeaders() {
-    const headers = {
-        'Content-Type': 'application/json'
-    };
-
-    const csrfToken = getCsrfToken();
-    if (csrfToken) {
-        headers['X-CSRF-TOKEN'] = csrfToken;
-    }
-
-    return headers;
-}
-
 function approveRegistration(registrationId) {
     // Show custom confirmation dialog
     showConfirmation('Are you sure you want to approve this registration request?', () => {

@@ -1,0 +1,85 @@
+{% extends 'flask_admin/base.html' %}
+{% block body %}
+<style>
+  .admin-dashboard {font-family: system-ui, sans-serif; padding: 1.25rem;}
+  .kpi-grid {display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;margin:1rem 0 2rem;}
+  .kpi {background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:0.9rem 1rem;box-shadow:0 1px 2px rgba(0,0,0,0.04);} 
+  .kpi h4 {margin:0;font-size:0.8rem;letter-spacing:.5px;font-weight:600;color:#475569;text-transform:uppercase;} 
+  .kpi .value {font-size:1.75rem;font-weight:600;color:#0f172a;margin-top:4px;} 
+  .section {margin-bottom:2.25rem;} 
+  .section h3 {font-size:1rem;text-transform:uppercase;letter-spacing:.5px;font-weight:700;color:#334155;margin-bottom:.75rem;display:flex;align-items:center;gap:.4rem;} 
+  .quick-links a {display:inline-block;margin:.35rem .5rem .35rem 0;padding:.55rem .85rem;border:1px solid #cbd5e1;border-radius:6px;text-decoration:none;color:#334155;background:#f8fafc;font-size:.8rem;font-weight:500;} 
+  .quick-links a:hover {background:#eef2f7;} 
+  .bulk-actions, .single-actions {background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:1rem 1.25rem;line-height:1.5;} 
+  .code-inline {font-family:ui-monospace,monospace;background:#f1f5f9;padding:2px 5px;border-radius:4px;font-size:.75rem;} 
+  .badge {display:inline-block;padding:2px 6px;border-radius:12px;font-size:.65rem;font-weight:600;letter-spacing:.5px;vertical-align:middle;} 
+  .badge-pending {background:#e0f2fe;color:#075985;} 
+  .badge-approved {background:#dcfce7;color:#166534;} 
+  .badge-rejected {background:#fee2e2;color:#991b1b;} 
+  .two-col {display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1.25rem;} 
+  .footer-note {margin-top:2rem;font-size:.7rem;color:#64748b;} 
+</style>
+<div class="admin-dashboard">
+  <h2 style="margin-top:0;font-weight:600;color:#0f172a;">Admin Control Center</h2>
+  <p style="margin:0 0 1.25rem;color:#475569;">Operational overview and management shortcuts.</p>
+
+  <div class="kpi-grid">
+    <div class="kpi"><h4>Pending Registrations</h4><div class="value">{{ stats.pending_registrations }}</div></div>
+    <div class="kpi"><h4>Total Courses</h4><div class="value">{{ stats.courses }}</div></div>
+    <div class="kpi"><h4>Active Assistants</h4><div class="value">{{ stats.assistants }}</div></div>
+    <div class="kpi"><h4>Defined Shifts</h4><div class="value">{{ stats.shifts }}</div></div>
+  </div>
+
+  <div class="section">
+    <h3>Quick Navigation</h3>
+    <div class="quick-links">
+      <a href="/registrationrequest/">Registration Requests</a>
+      <a href="/helpdeskassistant/">Help Desk Assistants</a>
+      <a href="/course/">Courses</a>
+      <a href="/shift/">Shifts</a>
+      <a href="/schedule/">Schedules</a>
+      <a href="/availability/">Availability</a>
+      <a href="/timeentry/">Time Entries</a>
+      <a href="/notification/">Notifications</a>
+      <a href="/shiftcoursedemand/">Shift Course Demand</a>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="bulk-actions">
+      <h3>Bulk Action Examples</h3>
+      <p>Select multiple rows on <strong>Registration Requests</strong> and choose:
+        <span class="code-inline">Approve Selected</span> or <span class="code-inline">Reject Selected</span> from the action dropdown at the top.</p>
+      <ul style="margin:0 0 0.75rem 1.1rem;padding:0;font-size:.8rem;color:#475569;">
+        <li>Only <span class="badge badge-pending">PENDING</span> items are modified.</li>
+        <li>Status safely ignored for already processed requests.</li>
+        <li>Audit fields <em>processed_at</em> and <em>processed_by</em> are updated automatically.</li>
+      </ul>
+      <p style="margin:0;font-size:.75rem;color:#64748b;">Need more? We can add export, CSV import, or automated notification triggers.</p>
+    </div>
+
+    <div class="single-actions">
+      <h3>Single Record Actions</h3>
+      <p>Inside <strong>Registration Requests</strong>, each <span class="badge badge-pending">PENDING</span> row includes inline <em>Approve</em>/<em>Reject</em> links for quick handling.</p>
+      <p>Other common operations you can perform directly from list views:</p>
+      <ul style="margin:0 0 .6rem 1.1rem;padding:0;font-size:.8rem;color:#475569;">
+        <li>Inline edit course names (click the value)</li>
+        <li>Remove obsolete shifts</li>
+        <li>Drill into time entries for audit verification</li>
+      </ul>
+      <p style="margin:0;font-size:.75rem;color:#64748b;">We can further add row-level buttons or modal detail views if desired.</p>
+    </div>
+  </div>
+
+  <div class="section" style="margin-top:2rem;">
+    <h3>Status Legend</h3>
+    <p style="margin:0;font-size:.8rem;color:#475569;">
+      <span class="badge badge-pending">PENDING</span> awaiting review &nbsp;|&nbsp;
+      <span class="badge badge-approved">APPROVED</span> accepted &nbsp;|&nbsp;
+      <span class="badge badge-rejected">REJECTED</span> declined
+    </p>
+  </div>
+
+  <div class="footer-note">Dashboard scaffold. Extend with charts (e.g. Chart.js), trend metrics, or SLA indicators as next steps.</div>
+</div>
+{% endblock %}
