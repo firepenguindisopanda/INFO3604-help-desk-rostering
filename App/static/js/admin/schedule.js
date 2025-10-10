@@ -327,7 +327,9 @@ function loadCurrentSchedule() {
     const currentRole = document.querySelector('.schedule-header-helpdesk') ? 'helpdesk' : 'lab';
     console.log(`Current admin role: ${currentRole}`);
     
-    return fetch('/api/schedule/current')
+    return fetch('/api/schedule/current', {
+        headers: buildAuthHeaders()
+    })
         .then(response => {
             if (!response.ok) {
                 if (response.status === 404) {
@@ -378,7 +380,9 @@ function loadScheduleData(scheduleId) {
     const currentRole = document.querySelector('.schedule-header-helpdesk') ? 'helpdesk' : 'lab';
     
     // Fetch the generated schedule data
-    fetch(`/api/schedule/details?id=${scheduleId}`)
+    fetch(`/api/schedule/details?id=${scheduleId}`, {
+        headers: buildAuthHeaders()
+    })
         .then(response => {
             if (!response.ok) {
                 return response.json().then(errorData => {
@@ -682,7 +686,9 @@ function initializeGenerateButton() {
                 
                 // For helpdesk, continue with the normal flow (fetch and render)
                 console.log(`Fetching schedule details for ID: ${scheduleId}`);
-                return fetch(`/api/schedule/details?id=${scheduleId}`)
+                return fetch(`/api/schedule/details?id=${scheduleId}`, {
+                    headers: buildAuthHeaders()
+                })
                     .then(response => {
                         if (!response.ok) {
                             throw new Error('Failed to fetch schedule details.');
@@ -1091,7 +1097,7 @@ function highlightAllCellsForStaff(staffId) {
     // Perform single batch request
     fetch('/api/staff/check-availability/batch', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthHeaders(),
         body: JSON.stringify({ queries: batchQueries })
     })
     .then(r => r.ok ? r.json() : Promise.reject(new Error('Batch availability failed')))
@@ -1153,7 +1159,9 @@ function checkAndUpdateCellAvailability(staffId, day, timeSlot, cell) {
     }
     
     // Make API call if no cached result
-    fetch(`/api/staff/check-availability?staff_id=${encodeURIComponent(staffId)}&day=${encodeURIComponent(day)}&time=${encodeURIComponent(timeSlot)}`)
+    fetch(`/api/staff/check-availability?staff_id=${encodeURIComponent(staffId)}&day=${encodeURIComponent(day)}&time=${encodeURIComponent(timeSlot)}`, {
+        headers: buildAuthHeaders()
+    })
         .then(response => {
             if (!response.ok) {
                 throw new Error(`Server error: ${response.status}`);
@@ -1197,7 +1205,9 @@ function fetchAndUpdateAvailability(staffId, day, timeSlot, cell) {
     const cacheKey = `${staffId}-${day}-${timeSlot}`;
     
     // Make the API call
-    fetch(`/api/staff/check-availability?staff_id=${staffId}&day=${encodeURIComponent(day)}&time=${encodeURIComponent(timeSlot)}`)
+    fetch(`/api/staff/check-availability?staff_id=${staffId}&day=${encodeURIComponent(day)}&time=${encodeURIComponent(timeSlot)}`, {
+        headers: buildAuthHeaders()
+    })
         .then(response => {
             if (!response.ok) {
                 throw new Error('Failed to fetch availability');
@@ -1499,7 +1509,7 @@ function prefetchCommonAvailabilityData() {
     console.log(`Batch prefetching ${queries.length} availability combinations`);
     fetch('/api/staff/check-availability/batch', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthHeaders(),
         body: JSON.stringify({ queries })
     }).then(r => r.ok ? r.json() : null).then(data => {
         if (!data || data.status !== 'success') return;
@@ -1589,7 +1599,9 @@ function searchAvailableStaff(searchTerm, day, timeSlot) {
     resultsContainer.innerHTML = '<div class="loading-message">Loading available staff...</div>';
     
     // Fetch available staff from the API
-    fetch(`/api/staff/available?day=${encodeURIComponent(day)}&time=${encodeURIComponent(timeSlot)}`)
+    fetch(`/api/staff/available?day=${encodeURIComponent(day)}&time=${encodeURIComponent(timeSlot)}`, {
+        headers: buildAuthHeaders()
+    })
         .then(response => {
             if (!response.ok) {
                 throw new Error('Failed to fetch available staff');
@@ -1750,7 +1762,9 @@ async function isStaffAvailableForTimeSlot(staffId, day, timeSlot) {
         const url = `/api/staff/check-availability?staff_id=${staffId}&day=${encodedDay}&time=${encodedTime}`;
         
         console.log(`Checking availability: ${url}`);
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            headers: buildAuthHeaders()
+        });
         
         if (!response.ok) {
             console.error(`Error checking availability: ${response.statusText}`);
@@ -1793,7 +1807,9 @@ function checkAvailabilitySync(staffId, day, timeSlot) {
         const currentKey = `${staffId}-${day}-${timeSlot}`;
         if (availabilityCache[currentKey] === undefined) {
             // Fetch fresh availability
-            fetch(`/api/staff/check-availability?staff_id=${encodeURIComponent(staffId)}&day=${encodeURIComponent(day)}&time=${encodeURIComponent(timeSlot)}`)
+            fetch(`/api/staff/check-availability?staff_id=${encodeURIComponent(staffId)}&day=${encodeURIComponent(day)}&time=${encodeURIComponent(timeSlot)}`, {
+                headers: buildAuthHeaders()
+            })
                 .then(response => response.json())
                 .then(data => {
                     if (data && data.status === 'success') {

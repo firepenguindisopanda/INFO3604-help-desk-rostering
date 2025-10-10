@@ -26,13 +26,13 @@ def delete_assistant_fully(username: str) -> Tuple[bool, Dict[str, Any]]:
       (success, payload) where payload contains message or error details.
     """
     try:
-        student: Student | None = Student.query.get(username)
-        if not student:
-            return False, {"message": "Student not found", "code": 404}
-
         user: User | None = User.query.get(username)
         if user and user.is_admin():
             return False, {"message": "Cannot delete an admin user", "code": 400}
+
+        student: Student | None = Student.query.get(username)
+        if not student:
+            return False, {"message": "Student not found", "code": 404}
 
         if not _is_assistant(username):
             return False, {"message": "User is not an assistant", "code": 400}
