@@ -56,7 +56,7 @@ def api_success(data=None, message=None, status_code=200):
     """
     response = {
         "success": True,
-        "data": data or {}
+        "data": data if data is not None else {}
     }
     if message:
         response["message"] = message

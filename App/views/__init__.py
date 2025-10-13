@@ -1,7 +1,6 @@
 from .user import user_views
 from .index import index_views
 from .auth import auth_views
-from .admin import setup_admin
 from .schedule import schedule_views
 from .tracking import tracking_views
 from .requests import requests_views

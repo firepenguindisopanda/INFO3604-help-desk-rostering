@@ -17,7 +17,8 @@ from App.controllers.registration import (
     get_all_registration_requests,
     approve_registration,
     reject_registration,
-    resolve_transcript_asset
+    resolve_transcript_asset,
+    get_registration_request
 )
 
 from App.controllers.password_reset import (
@@ -27,7 +28,6 @@ from App.controllers.password_reset import (
 )
 import os
 from datetime import datetime
-from App.models import RegistrationRequest
 
 
 requests_views = Blueprint('requests_views', __name__, template_folder='../templates')
@@ -228,7 +228,7 @@ def reject_registration_endpoint(registration_id):
 def download_transcript(registration_id):
     """Stream or redirect to a transcript file for a registration request."""
 
-    registration = RegistrationRequest.query.get(registration_id)
+    registration = get_registration_request(registration_id)
     if not registration:
         flash("Transcript not found", "error")
         return redirect(url_for('requests_views.registrations'))

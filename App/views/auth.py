@@ -7,10 +7,10 @@ from App.controllers import (
     login,
     create_registration_request
 )
-from App.models import RegistrationRequest
-from App.models import Course, Availability
-from App.database import db
+from App.controllers.registration import get_registration_request, get_registration_request_by_username
+from App.controllers.course import get_all_courses
 from App.controllers.password_reset import create_password_reset_request
+from App.database import db
 
 auth_views = Blueprint('auth_views', __name__, template_folder='../templates')
 
@@ -33,7 +33,7 @@ def admin_login():
 
 @auth_views.route('/register', methods=['GET'])
 def register():
-    courses = Course.query.all()
+    courses = get_all_courses()
     return render_template('auth/register.html', courses=courses)
 
 @auth_views.route('/register', methods=['POST'])
@@ -110,8 +110,8 @@ def login_action():
         username = data.get('username')
         password = data.get('password')
 
-        # Check for existing registration requests for this username
-        reg = RegistrationRequest.query.filter_by(username=username).order_by(RegistrationRequest.created_at.desc()).first()
+        # Check for existing registration requests for this username using controller
+        reg = get_registration_request_by_username(username)
         if reg:
             status = (reg.status or '').upper()
             if status == 'PENDING':

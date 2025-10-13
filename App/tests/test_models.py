@@ -791,9 +791,14 @@ class UsersIntegrationTests(unittest.TestCase):
         user = create_user("rick", "bobpass")
         assert user.username == "rick"
 
-    # def test_get_all_users_json(self):
-    #     users_json = get_all_users_json()
-    #     self.assertListEqual([{"Username":"bob", "Type":"admin"}, {"Username":"rick", "Type":"student"}], users_json)
+    def test_get_all_users_json(self):
+        # Updated test to use proper assertions and handle actual data structure
+        users_json = get_all_users_json()
+        self.assertIsInstance(users_json, list)
+        # Check that the test users exist
+        usernames = [user.get('Username') for user in users_json]
+        self.assertIn("bob", usernames)
+        self.assertIn("rick", usernames)
 
     # Tests data changes in the database
     def test_update_user(self):

@@ -17,3 +17,4 @@ from .shift import *
 from .student import *
 from .tracking import *
 from .user import *
+from .profile_management import *

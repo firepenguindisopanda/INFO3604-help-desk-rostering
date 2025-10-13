@@ -220,6 +220,25 @@ flask db upgrade
 
 # Initialize the database with sample data
 flask init
+
+### Sync production data to your local database (optional)
+
+If you need a local snapshot of the Neon-hosted data, use the helper script in
+`scripts/sync_neon_to_local.py`. Provide connection strings via flags or the
+environment variables `SYNC_SOURCE_URL` and `SYNC_TARGET_URL`:
+
+```powershell
+python scripts/sync_neon_to_local.py `
+	--source-url postgresql://<neon-user>:<password>@<neon-host>/<dbname>?sslmode=require `
+	--target-url postgresql://<local-user>:<password>@localhost:5433/info3604_helpdesk
+```
+
+The script truncates every table in the target database (using `TRUNCATE ...
+CASCADE`) before copying data, so double-check the destination URL before
+running it.
+
+> To run the export script: `python scripts/export_scheduler_data.py --mode pre-schedule --database-url postgresql://<username>:<password>@localhost:5433/<database-name> --output data/helpdesk_scheduler_inputs.xlsx`
+
 ```
 
 ### 5. Running the Application

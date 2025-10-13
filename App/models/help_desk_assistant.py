@@ -49,6 +49,22 @@ class HelpDeskAssistant(db.Model):
             'Minimum Hours': self.hours_minimum,
             'Course Capabilities': [cap.course_code for cap in self.course_capabilities] if hasattr(self, 'course_capabilities') else []
         }
+
+    def to_dict(self):
+        """Return a lightweight representation for API responses."""
+        student_name = None
+        if hasattr(self, 'student') and self.student:
+            student_name = self.student.get_name() if hasattr(self.student, 'get_name') else getattr(self.student, 'name', None)
+
+        return {
+            'id': self.username,
+            'username': self.username,
+            'name': student_name or self.username,
+            'rate': float(self.rate) if self.rate is not None else None,
+            'active': bool(self.active),
+            'hours_worked': int(self.hours_worked) if self.hours_worked is not None else 0,
+            'hours_minimum': int(self.hours_minimum) if self.hours_minimum is not None else 0,
+        }
     
     def activate(self):
         self.active = True

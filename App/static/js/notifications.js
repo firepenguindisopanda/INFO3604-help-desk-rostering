@@ -300,13 +300,13 @@ function showNotification(message, type = 'info', duration = 5000) {
   // Add icon based on type
   let icon = '';
   if (type === 'success') {
-    icon = '<span class="notification-icon">✓</span>';
+    icon = '<span class="notification-icon material-icons">check_circle</span>';
   } else if (type === 'error') {
-    icon = '<span class="notification-icon">⚠️</span>';
+    icon = '<span class="notification-icon material-icons">error</span>';
   } else if (type === 'warning') {
-    icon = '<span class="notification-icon">⚠</span>';
+    icon = '<span class="notification-icon material-icons">warning</span>';
   } else {
-    icon = '<span class="notification-icon">ℹ</span>';
+    icon = '<span class="notification-icon material-icons">info</span>';
   }
   
   notification.innerHTML = icon + message;

@@ -29,6 +29,15 @@
     <div class="registration-value">{{ registration.created_at|datetime }}</div>
   </div>
 
+  {% if registration.reason %}
+  <div class="registration-detail-row">
+    <div class="registration-label">Reason:</div>
+    <div class="registration-value">
+      <div class="registration-reason">{{ registration.reason }}</div>
+    </div>
+  </div>
+  {% endif %}
+
   <div class="registration-detail-row">
     <div class="registration-label">Courses:</div>
     <div class="registration-value">

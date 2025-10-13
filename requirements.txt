@@ -15,6 +15,7 @@ Werkzeug==3.0.6
 gevent==23.9.0
 Flask-Admin==1.6.1
 ortools==9.11.4210
+PuLP==2.8.0
 WeasyPrint==52.5
 locust==2.34.0
 flake8==7.0.0

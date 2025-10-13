@@ -327,9 +327,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add icon based on type
     let icon = '';
     if (type === 'success') {
-      icon = '<span style="margin-right: 8px;">✓</span>';
+      icon = '<span class="material-icons" style="margin-right: 8px; font-size: 18px;">check_circle</span>';
     } else if (type === 'error') {
-      icon = '<span style="margin-right: 8px;">⚠️</span>';
+      icon = '<span class="material-icons" style="margin-right: 8px; font-size: 18px;">error</span>';
     }
     
     notification.innerHTML = icon + message;
