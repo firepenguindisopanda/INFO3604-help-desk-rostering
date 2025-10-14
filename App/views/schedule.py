@@ -27,6 +27,12 @@ from weasyprint import HTML, CSS
 import tempfile
 import os
 from functools import lru_cache
+import hashlib
+import json
+
+# Simple in-memory cache for schedule data
+_schedule_cache = {}
+_cache_timeout_seconds = 300  # 5 minutes
 
 logger = logging.getLogger(__name__)
 
@@ -273,6 +279,17 @@ def publish_schedule_with_sync(schedule_id):
     
     result = publish_and_notify(schedule_id)
     return jsonify(result)
+
+def _get_cache_key(schedule_id, schedule_type):
+    """Generate cache key for schedule data"""
+    return f"schedule_{schedule_id}_{schedule_type}"
+
+def _is_cache_valid(cache_entry):
+    """Check if cache entry is still valid"""
+    if not cache_entry:
+        return False
+    cache_time = cache_entry.get('timestamp', 0)
+    return (datetime.now().timestamp() - cache_time) < _cache_timeout_seconds
 
 @schedule_views.route('/api/schedule/current', methods=['GET'])
 @jwt_required()
