@@ -3,7 +3,7 @@ from flask import jsonify, render_template, url_for
 from ortools.sat.python import cp_model
 import logging, csv, random
 from sqlalchemy import text, and_, func, select
-from typing import Any
+from typing import Any, Union, Optional
 
 # Try to import SQLAlchemy ORM functions with fallback for older versions
 try:
@@ -1727,7 +1727,7 @@ def _schedule_id_for_type(schedule_type: str) -> int:
     return 1 if schedule_type == 'helpdesk' else 2
 
 
-def _normalize_day_index(day_label: str) -> int | None:
+def _normalize_day_index(day_label: str) -> Optional[int]:
     if not day_label:
         return None
     if isinstance(day_label, str):
@@ -1738,7 +1738,7 @@ def _normalize_day_index(day_label: str) -> int | None:
     return None
 
 
-def _parse_time_to_hour(time_str: str, schedule_type: str) -> int | None:
+def _parse_time_to_hour(time_str: str, schedule_type: str) -> Optional[int]:
     """
     Parse time string to hour with comprehensive error handling.
     Supports various time formats and handles edge cases.
@@ -1907,7 +1907,7 @@ def save_schedule_assignments(schedule_type: str, start_date_str: str, end_date_
         return {'status': 'error', 'message': str(exc)}, 500
 
 
-def remove_staff_allocation(schedule_type: str, staff_id: str | int, day_label: str, time_slot: str, shift_id: int | None = None):
+def remove_staff_allocation(schedule_type: str, staff_id: Union[str, int], day_label: str, time_slot: str, shift_id: Optional[int] = None):
     try:
         if not staff_id:
             return {'status': 'error', 'message': 'Staff identifier is required.'}, 400
@@ -1995,7 +1995,7 @@ def _check_time_slot_availability(availability_slots, requested_time):
     return None
 
 
-def list_available_staff_for_slot(schedule_type: str, day_label: str, time_slot: str | int):
+def list_available_staff_for_slot(schedule_type: str, day_label: str, time_slot: Union[str, int]):
     try:
         day_index = _normalize_day_index(day_label)
         if day_index is None:
@@ -2035,7 +2035,7 @@ def list_available_staff_for_slot(schedule_type: str, day_label: str, time_slot:
         return {'status': 'error', 'message': str(exc)}, 500
 
 
-def check_staff_availability_for_slot(schedule_type: str, staff_id: str | int, day_label: str, time_slot: str | int):
+def check_staff_availability_for_slot(schedule_type: str, staff_id: Union[str, int], day_label: str, time_slot: Union[str, int]):
     try:
         staff = HelpDeskAssistant.query.filter_by(username=staff_id).first()
         if not staff:

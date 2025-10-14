@@ -1,4 +1,4 @@
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 from sqlalchemy.exc import SQLAlchemyError
 from App.database import db
 from App.models import Student, HelpDeskAssistant, LabAssistant, TimeEntry, User
@@ -26,11 +26,11 @@ def delete_assistant_fully(username: str) -> Tuple[bool, Dict[str, Any]]:
       (success, payload) where payload contains message or error details.
     """
     try:
-        user: User | None = User.query.get(username)
+        user: Optional[User] = User.query.get(username)
         if user and user.is_admin():
             return False, {"message": "Cannot delete an admin user", "code": 400}
 
-        student: Student | None = Student.query.get(username)
+        student: Optional[Student] = Student.query.get(username)
         if not student:
             return False, {"message": "Student not found", "code": 404}
 
