@@ -31,7 +31,6 @@ if [ ! -f .env.docker ]; then
         sed -i '' "s/change_this_secure_password_123/${DB_PASSWORD}/" .env.docker
         sed -i '' "s/change-this-super-secret-key-in-production/${SECRET_KEY}/" .env.docker
     else
-        # Linux
         sed -i "s/change_this_secure_password_123/${DB_PASSWORD}/" .env.docker
         sed -i "s/change-this-super-secret-key-in-production/${SECRET_KEY}/" .env.docker
     fi
@@ -42,7 +41,6 @@ else
     echo " .env.docker already exists"
 fi
 
-# Create docker directory if it doesn't exist
 mkdir -p docker/postgres-data
 
 echo " Building and starting Docker services..."
@@ -51,7 +49,6 @@ docker-compose up -d --build
 echo " Waiting for database to be ready..."
 sleep 10
 
-# Check if database is ready
 until docker-compose exec -T db pg_isready -U $(grep POSTGRES_USER .env.docker | cut -d '=' -f2) -d $(grep POSTGRES_DB .env.docker | cut -d '=' -f2); do
     echo "Waiting for PostgreSQL to start..."
     sleep 2

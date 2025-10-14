@@ -45,7 +45,7 @@ This guide explains how to run the Help Desk Rostering application using Docker 
 - **Build**: Multi-stage Dockerfile (optimized)
 - **Port**: 8000
 - **Health check**: /healthcheck endpoint
-- **Uploads**: Persisted in `./App/uploads/`
+- **Uploads**: Persisted in `./App/static/uploads/`
 
 ## Environment Configuration
 

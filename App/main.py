@@ -1,5 +1,7 @@
 import os
-from flask import Flask, render_template, redirect, url_for, jsonify
+import uuid
+from time import perf_counter
+from flask import Flask, render_template, redirect, url_for, jsonify, request, g
 from flask_uploads import DOCUMENTS, IMAGES, TEXT, UploadSet, configure_uploads
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -14,7 +16,8 @@ from App.controllers import (
     setup_jwt,
     add_auth_context
 )
-from App.views import views, setup_admin
+from App.views import views
+from App.logging_config import configure_logging
 
 def add_views(app):
     for view in views:
@@ -26,13 +29,78 @@ def register_api_v2(app):
         from App.views.api_v2 import register_api_v2
         register_api_v2(app)
     except ImportError as e:
-        app.logger.warning(f"API v2 not available: {e}")
+        app.logger.warning(
+            'API v2 not available',
+            extra={'event': 'api_registration_failed', 'error': str(e)},
+        )
 
 def create_app(overrides={}):
     # Load environment variables from .env if present
     load_dotenv()
     app = Flask(__name__, static_url_path='/static')
     load_config(app, overrides)
+
+    configure_logging(app)
+    app.logger.info(
+        'Flask application configured',
+        extra={
+            'event': 'app_boot',
+            'environment': app.config.get('ENV'),
+            'debug': app.debug,
+            'service': app.config.get('SERVICE_NAME', 'info3604-help-desk-rostering'),
+        },
+    )
+
+    @app.before_request
+    def _structured_request_logging() -> None:
+        g.request_timer = perf_counter()
+        g.request_id = request.headers.get('X-Request-ID') or str(uuid.uuid4())
+        app.logger.info(
+            'Incoming request',
+            extra={
+                'event': 'request_started',
+                'request_id': g.request_id,
+                'method': request.method,
+                'path': request.path,
+                'remote_addr': request.remote_addr,
+                'user_agent': request.user_agent.string,
+            },
+        )
+
+    @app.after_request
+    def _structured_response_logging(response):
+        duration_ms = None
+        if hasattr(g, 'request_timer'):
+            duration_ms = round((perf_counter() - g.request_timer) * 1000, 2)
+        request_id = getattr(g, 'request_id', None)
+        if request_id:
+            response.headers['X-Request-ID'] = request_id
+        app.logger.info(
+            'Completed request',
+            extra={
+                'event': 'request_completed',
+                'request_id': request_id,
+                'method': request.method,
+                'path': request.path,
+                'status_code': response.status_code,
+                'duration_ms': duration_ms,
+            },
+        )
+        return response
+
+    @app.teardown_request
+    def _structured_request_teardown(exc):
+        if exc is not None:
+            request_id = getattr(g, 'request_id', None)
+            app.logger.exception(
+                'Unhandled request exception',
+                extra={
+                    'event': 'request_exception',
+                    'request_id': request_id,
+                    'method': getattr(request, 'method', None),
+                    'path': getattr(request, 'path', None),
+                },
+            )
     
     # Configure CORS for API endpoints - allow frontend origins
     CORS(app, resources={
@@ -67,7 +135,6 @@ def create_app(overrides={}):
     # Initialize migration extension early so Alembic env can access metadata
     Migrate(app, db)
     jwt = setup_jwt(app)
-    setup_admin(app)
     
     # Create database tables if they don't exist (safer approach)
     with app.app_context():
@@ -85,18 +152,44 @@ def create_app(overrides={}):
             
             if tables_to_create:
                 db.create_all()
-                print(f"Database tables created successfully: {', '.join(tables_to_create)}")
+                app.logger.info(
+                    'Database tables created',
+                    extra={
+                        'event': 'db_schema_sync',
+                        'tables': tables_to_create,
+                        'mode': 'initial',
+                    },
+                )
             else:
-                print("All database tables already exist")
+                app.logger.info(
+                    'Database tables already exist',
+                    extra={
+                        'event': 'db_schema_sync',
+                        'tables': [],
+                        'mode': 'noop',
+                    },
+                )
                 
         except Exception as e:
-            print(f"Database setup info: {e}")
+            app.logger.warning(
+                'Database setup encountered an issue',
+                extra={'event': 'db_schema_warning', 'error': str(e)},
+            )
             # Try the fallback approach for compatibility
             try:
                 db.create_all()
-                print("Database tables created using fallback method")
+                app.logger.info(
+                    'Database tables created using fallback method',
+                    extra={'event': 'db_schema_sync', 'mode': 'fallback'},
+                )
             except Exception as fallback_e:
-                print(f"Warning: Database table creation issue: {fallback_e}")
+                app.logger.error(
+                    'Database table creation failed',
+                    extra={
+                        'event': 'db_schema_error',
+                        'error': str(fallback_e),
+                    },
+                )
                 # Continue anyway - app might still work with existing tables
 
     # --- Hardened /healthcheck endpoint ---
@@ -167,17 +260,43 @@ def create_app(overrides={}):
             # overall_ok = False
 
         status_code = 200 if overall_ok else 503
-        app.logger.info("healthz result: %s", checks)
+        app.logger.info(
+            'Healthcheck completed',
+            extra={
+                'event': 'healthcheck_completed',
+                'overall_ok': overall_ok,
+                'checks': checks,
+                'request_id': getattr(g, 'request_id', None),
+            },
+        )
         return jsonify(status='ok' if overall_ok else 'fail', checks=checks), status_code
     # --- end healthz ---
     
     @jwt.invalid_token_loader
     @jwt.unauthorized_loader
     def custom_unauthorized_response(error):
+        app.logger.warning(
+            'Unauthorized access attempt',
+            extra={
+                'event': 'security_auth_failure',
+                'reason': error,
+                'path': request.path,
+                'request_id': getattr(g, 'request_id', None),
+            },
+        )
         return render_template('errors/401.html', error=error), 401
     
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_data):
+        app.logger.info(
+            'JWT token expired',
+            extra={
+                'event': 'security_token_expired',
+                'identity': jwt_data.get('sub') if isinstance(jwt_data, dict) else None,
+                'path': request.path,
+                'request_id': getattr(g, 'request_id', None),
+            },
+        )
         return redirect(url_for('auth_views.login_page'))
     
     app.app_context().push()

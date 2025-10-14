@@ -46,5 +46,5 @@ dist/
 node_modules/
 
 # Uploaded files (optional; comment out if you want them in image)
-App/uploads/
+App/static/uploads/
 uploads/

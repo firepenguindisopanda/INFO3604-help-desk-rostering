@@ -45,7 +45,7 @@ services:
       - "8000:8000"
     volumes:
       # Mount uploads directory for persistent file storage
-      - ./App/uploads:/app/App/uploads
+      - ./App/static/uploads:/app/App/static/uploads
       # Optional: Mount source code for development (comment out for production)
       - ./App:/app/App:ro
       - ./wsgi.py:/app/wsgi.py:ro

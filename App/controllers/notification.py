@@ -1,6 +1,7 @@
 from App.models import Notification, User
 from App.database import db
 from datetime import datetime
+from App.utils.time_utils import trinidad_now
 
 def create_notification(username, message, notification_type):
     """Create a new notification for a user"""
@@ -9,6 +10,8 @@ def create_notification(username, message, notification_type):
         message=message,
         notification_type=notification_type
     )
+    # Explicitly set the timestamp to ensure it uses the current (possibly mocked) time
+    notification.created_at = trinidad_now()
     db.session.add(notification)
     db.session.commit()
     return notification

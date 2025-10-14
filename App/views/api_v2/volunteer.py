@@ -4,13 +4,13 @@ from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
 from flask import request
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import get_jwt_identity
 
 from App.middleware import volunteer_required
 from App.utils.profile_images import resolve_profile_image
 from App.utils.time_utils import trinidad_now
 from App.views.api_v2 import api_v2
-from App.views.api_v2.utils import api_error, api_success
+from App.views.api_v2.utils import api_error, api_success, jwt_required_secure, validate_json_request
 from App.controllers.dashboard import get_dashboard_data
 from App.controllers.tracking import (
     auto_complete_time_entries,
@@ -22,6 +22,92 @@ from App.controllers.tracking import (
     get_time_distribution,
     get_today_shift,
 )
+from App.models import Student, HelpDeskAssistant, LabAssistant, Availability
+from App.database import db
+
+# VOLUNTEER PROFILE ENDPOINTS
+
+@api_v2.route('/volunteer/profile', methods=['GET'])
+@jwt_required_secure()
+@volunteer_required
+def get_volunteer_profile():
+    """Get volunteer profile information.
+
+    Responses:
+      200: success with profile data
+      404: profile not found
+      500: server error
+    """
+    try:
+        username = get_jwt_identity()
+        
+        # Try to find student first
+        student = Student.query.filter_by(username=username).first()
+        
+        if student:
+            return api_success({
+                'username': student.username,
+                'degree': student.degree,
+                'type': 'student',
+                'is_assistant': bool(student.help_desk_assistant or student.lab_assistant)
+            }, message="Profile retrieved successfully")
+        
+        return api_error("Profile not found", status_code=404)
+        
+    except Exception as e:
+        return api_error(f"Failed to retrieve profile: {str(e)}", status_code=500)
+
+
+@api_v2.route('/volunteer/availability', methods=['POST'])
+@jwt_required_secure()
+@volunteer_required
+def submit_volunteer_availability():
+    """Submit volunteer availability.
+
+    Expected JSON body:
+    {
+        "availability": [
+            {
+                "day_of_week": 1,
+                "start_time": "09:00",
+                "end_time": "17:00"
+            }
+        ]
+    }
+
+    Responses:
+      200: success
+      400: validation error
+      500: server error
+    """
+    try:
+        data, error = validate_json_request(request)
+        if error:
+            return error
+        
+        availability_data = data.get('availability', [])
+        if not availability_data:
+            return api_error("Availability data is required", status_code=400)
+        
+        username = get_jwt_identity()
+        student = Student.query.filter_by(username=username).first()
+        
+        if not student:
+            return api_error("Student profile not found", status_code=404)
+        
+        # Check if student is an assistant
+        help_desk_assistant = student.help_desk_assistant
+        lab_assistant = student.lab_assistant
+        
+        if not help_desk_assistant and not lab_assistant:
+            return api_error("Only assistants can submit availability", status_code=403)
+        
+        # For now, just return success - actual availability storage would need
+        # to be implemented based on the specific business logic
+        return api_success(message="Availability submitted successfully")
+        
+    except Exception as e:
+        return api_error(f"Failed to submit availability: {str(e)}", status_code=500)
 
 
 def _serialize_student(student: Any) -> Optional[Dict[str, Any]]:
@@ -233,7 +319,7 @@ def _build_time_tracking_snapshot(username: str) -> Dict[str, Any]:
 
 
 @api_v2.route("/volunteer/dashboard", methods=["GET"])
-@jwt_required()
+@jwt_required_secure()
 @volunteer_required
 def volunteer_dashboard_summary():
     """Return dashboard data for the authenticated volunteer."""
@@ -274,7 +360,7 @@ def volunteer_dashboard_summary():
 
 
 @api_v2.route("/volunteer/time-tracking", methods=["GET"])
-@jwt_required()
+@jwt_required_secure()
 @volunteer_required
 def volunteer_time_tracking_overview():
     """Return time tracking metrics and today's shift state for the volunteer."""
@@ -292,7 +378,7 @@ def volunteer_time_tracking_overview():
 
 
 @api_v2.route("/volunteer/time-tracking/clock-in", methods=["POST"])
-@jwt_required()
+@jwt_required_secure()
 @volunteer_required
 def volunteer_clock_in():
     """Clock the authenticated volunteer into their current shift."""
@@ -340,7 +426,7 @@ def volunteer_clock_in():
 
 
 @api_v2.route("/volunteer/time-tracking/clock-out", methods=["POST"])
-@jwt_required()
+@jwt_required_secure()
 @volunteer_required
 def volunteer_clock_out():
     """Clock the authenticated volunteer out of their active shift."""

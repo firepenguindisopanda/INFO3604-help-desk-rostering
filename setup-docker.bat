@@ -48,7 +48,6 @@ if %errorlevel% neq 0 (
 echo Waiting for database to be ready...
 timeout /t 10 /nobreak >nul
 
-REM Wait for database to be ready (simplified check)
 echo Running database migrations...
 docker-compose exec -T api flask db upgrade
 

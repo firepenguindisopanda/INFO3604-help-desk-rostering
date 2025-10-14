@@ -12,7 +12,7 @@ class Allocation(db.Model):
     username = db.Column(db.String(20), db.ForeignKey('student.username', ondelete='CASCADE', onupdate='CASCADE'), nullable=False, index=True)
     shift_id = db.Column(db.Integer, db.ForeignKey('shift.id', ondelete='CASCADE'), nullable=False, index=True)
     schedule_id = db.Column(db.Integer, db.ForeignKey('schedule.id', ondelete='CASCADE'), nullable=False, index=True)
-    created_at = db.Column(db.DateTime, default=trinidad_now(), index=True)
+    created_at = db.Column(db.DateTime, default=trinidad_now, index=True)
     
     # Add composite index for common queries
     __table_args__ = (

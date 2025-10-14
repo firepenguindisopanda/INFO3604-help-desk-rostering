@@ -29,9 +29,39 @@ def _get_current_timestamp():
 logger = logging.getLogger(__name__)
 
 
-# ===========================
+# SCHEDULE LISTING & OVERVIEW
+
+@api_v2.route('/schedules', methods=['GET'])
+@jwt_required_secure()
+@admin_required
+def api_get_schedules():
+    """Get all schedules for administrative view.
+
+    Responses:
+      200: success with list of schedules
+      500: server error
+    """
+    try:
+        schedules = Schedule.query.all()
+        
+        schedules_data = []
+        for schedule in schedules:
+            schedules_data.append({
+                'id': schedule.id,
+                'start_date': schedule.start_date.isoformat() if schedule.start_date else None,
+                'end_date': schedule.end_date.isoformat() if schedule.end_date else None,
+                'published': schedule.published,
+                'created_at': schedule.created_at.isoformat() if schedule.created_at else None,
+                'published_at': schedule.published_at.isoformat() if schedule.published_at else None
+            })
+        
+        return api_success(data=schedules_data, message="Schedules retrieved successfully")
+        
+    except Exception as e:
+        return api_error(f"Failed to retrieve schedules: {str(e)}", status_code=500)
+
+
 # SCHEDULE GENERATION & MANAGEMENT
-# ===========================
 
 @api_v2.route('/admin/schedule/generate', methods=['POST'])
 @jwt_required()
@@ -155,7 +185,7 @@ def get_current_schedule():
         schedule_id = 1 if schedule_type == 'helpdesk' else 2
         logger.info(f"API v2: Fetching current {schedule_type} schedule (ID: {schedule_id})")
 
-        # OPTIMIZATION: Single query with eager loading to prevent N+1 queries
+        # Single query with eager loading to prevent N+1 queries
         schedule = (
             db.session.query(Schedule)
             .options(
@@ -183,7 +213,7 @@ def get_current_schedule():
             "days": []
         }
 
-        # OPTIMIZATION: Group shifts by weekday index using pre-loaded data
+        # Group shifts by weekday index using pre-loaded data
         shifts_by_day = {}
         for shift in schedule.shifts:
             day_idx = shift.date.weekday()
@@ -196,7 +226,7 @@ def get_current_schedule():
             if day_idx not in shifts_by_day:
                 shifts_by_day[day_idx] = []
 
-            # OPTIMIZATION: Use pre-loaded data instead of separate queries
+            # Use pre-loaded data instead of separate queries
             assistants = []
             for alloc in shift.allocations:
                 if alloc.student:  # Already loaded via eager loading

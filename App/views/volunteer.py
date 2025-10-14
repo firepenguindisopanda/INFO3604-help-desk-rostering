@@ -2,33 +2,36 @@ from flask import Blueprint, render_template, jsonify, request, flash, redirect,
 from flask_jwt_extended import jwt_required, current_user
 from werkzeug.utils import secure_filename
 from App.middleware import volunteer_required
-from App.models import Student, HelpDeskAssistant, CourseCapability, Availability, User, Course, TimeEntry
+from App.controllers.student import (
+    get_student, get_student_by_id, get_student_profile_data,
+    update_student_courses, update_student_availability
+)
+from App.controllers.help_desk_assistant import get_help_desk_assistant
+from App.controllers.course import get_all_courses
 from App.controllers.tracking import (
     get_student_stats, 
     get_today_shift,
     get_shift_history,
     get_time_distribution,
     clock_in,
-    clock_out
+    clock_out,
+    check_and_complete_abandoned_entry,
+    auto_complete_time_entries
+)
+from App.controllers.notification import notify_availability_updated
+from App.controllers.dashboard import get_dashboard_data
+from App.controllers.request import (
+    get_student_requests,
+    get_available_shifts_for_student,
+    get_available_replacements,
+    create_student_request
 )
 from App.database import db
-from App.controllers.notification import notify_availability_updated
-from App.controllers.course import get_all_courses
 import datetime
 import os
 import json
 from App.utils.time_utils import trinidad_now, convert_to_trinidad_time
 from datetime import datetime, timedelta, time
-from App.controllers.tracking import check_and_complete_abandoned_entry
-from App.controllers.dashboard import get_dashboard_data
-from App.controllers.tracking import auto_complete_time_entries
-from App.controllers.tracking import get_student_stats
-from App.controllers.request import (
-    get_student_requests,
-    get_available_shifts_for_student,
-    get_available_replacements
-)
-from App.controllers.request import create_student_request
 from App.utils.profile_images import resolve_profile_image
 
 volunteer_views = Blueprint('volunteer_views', __name__, template_folder='../templates')
@@ -205,29 +208,21 @@ def clock_out_endpoint():
 @jwt_required()
 @volunteer_required
 def profile():
-    # Get current user data from database
+    # Get current user data using controller
     username = current_user.username
     import json  # Ensure json is imported here
    
-    # Get the user details
-    student = Student.query.get(username)
+    # Get the student profile data using controller
+    student = get_student(username)
     if not student:
         flash("Student profile not found", "error")
         return redirect(url_for('volunteer_views.dashboard'))
     
-    # Get help desk assistant details
-    assistant = HelpDeskAssistant.query.get(username)
-    if not assistant:
-        flash("Assistant profile not found", "error")
+    # Get profile data using controller
+    profile_data = get_student_profile_data(student)
+    if not profile_data:
+        flash("Unable to retrieve profile data", "error")
         return redirect(url_for('volunteer_views.dashboard'))
-    
-    # Get course capabilities
-    course_capabilities = CourseCapability.query.filter_by(assistant_username=username).all()
-    
-    # Get availabilities
-    availabilities = Availability.query.filter_by(username=username).all()
-    
-    print(f"Found {len(availabilities)} availability records for {username}")
     
     # Format availabilities by day
     availability_by_day = {
@@ -238,40 +233,48 @@ def profile():
         0: 'MON', 1: 'TUE', 2: 'WED', 3: 'THUR', 4: 'FRI'
     }
     
+    # Use availability data from profile_data controller
+    availabilities = profile_data.get('availability', [])
+    
     for avail in availabilities:
         try:
-            day_name = days_mapping.get(avail.day_of_week)
+            day_idx = avail.get('day_of_week')
+            day_name = days_mapping.get(day_idx)
             if not day_name:
-                print(f"Warning: Invalid day_of_week value: {avail.day_of_week}")
+                print(f"Warning: Invalid day_of_week value: {day_idx}")
                 continue
                 
             # Format time slot based on the hour
-            if avail.start_time:
-                start_hour = avail.start_time.hour
-                
-                # Map hours to specific slots for display
-                time_slot_mapping = {
-                    9: '9am - 10am', 
-                    10: '10am - 11am', 
-                    11: '11am - 12pm',
-                    12: '12pm - 1pm',
-                    13: '1pm - 2pm',
-                    14: '2pm - 3pm',
-                    15: '3pm - 4pm',
-                    16: '4pm - 5pm'
-                }
-                
-                if start_hour in time_slot_mapping:
-                    time_slot = time_slot_mapping[start_hour]
-                    if time_slot not in availability_by_day[day_name]:
-                        availability_by_day[day_name].append(time_slot)
-                else:
-                    print(f"Warning: Hour {start_hour} not in expected time slots")
+            start_time_str = avail.get('start_time')
+            if start_time_str:
+                try:
+                    hour = int(start_time_str.split(':')[0])
+                    
+                    # Map hours to specific slots for display
+                    time_slot_mapping = {
+                        9: '9am - 10am', 
+                        10: '10am - 11am', 
+                        11: '11am - 12pm',
+                        12: '12pm - 1pm',
+                        13: '1pm - 2pm',
+                        14: '2pm - 3pm',
+                        15: '3pm - 4pm',
+                        16: '4pm - 5pm'
+                    }
+                    
+                    if hour in time_slot_mapping:
+                        time_slot = time_slot_mapping[hour]
+                        if time_slot not in availability_by_day[day_name]:
+                            availability_by_day[day_name].append(time_slot)
+                    else:
+                        print(f"Warning: Hour {hour} not in expected time slots")
+                except (ValueError, IndexError) as e:
+                    print(f"Error parsing time {start_time_str}: {e}")
             else:
-                print(f"Warning: Missing start time for availability ID {avail.id}")
+                print(f"Warning: Missing start time for availability")
                 
         except Exception as e:
-            print(f"Error processing availability {avail.id}: {e}")
+            print(f"Error processing availability: {e}")
     
     # Get stats
 
@@ -283,32 +286,32 @@ def profile():
         'absences': 0
     }
     
-    # Get profile data from student record
-    profile_data = {}
+    # Get profile data from student record for image/contact info
+    stored_profile_data = {}
     if hasattr(student, 'profile_data') and student.profile_data:
         try:
-            profile_data = json.loads(student.profile_data)
+            stored_profile_data = json.loads(student.profile_data)
         except:
-            profile_data = {}
-    
+            stored_profile_data = {}
+
     image_url = resolve_profile_image(getattr(student, 'profile_data', None))
-    legacy_filename = profile_data.get('image_filename') if isinstance(profile_data, dict) else None
+    legacy_filename = stored_profile_data.get('image_filename') if isinstance(stored_profile_data, dict) else None
     if legacy_filename and '://' not in str(legacy_filename):
         import os
         filepath = os.path.join('App', 'static', str(legacy_filename).lstrip('/'))
         if os.path.exists(filepath):
             image_url = url_for('static', filename=str(legacy_filename))
-    
-    # Build user data dictionary with image_url
+
+    # Build user data dictionary - use profile_data from controller for courses
     user_data = {
         "name": student.name if student.name else username,
         "id": username,
-        "phone": profile_data.get('phone', ''),
-        "email": profile_data.get('email', f"{username}@my.uwi.edu"),
-    "image_url": image_url,
-    "profile_image_url": image_url,
-        "degree": student.degree,
-        "enrolled_courses": [cap.course_code for cap in course_capabilities],
+        "phone": stored_profile_data.get('phone', ''),
+        "email": stored_profile_data.get('email', f"{username}@my.uwi.edu"),
+        "image_url": image_url,
+        "profile_image_url": image_url,
+        "degree": getattr(student, 'degree', ''),
+        "enrolled_courses": [cap.get('course_code', '') for cap in profile_data.get('course_capabilities', [])],
         "availability": availability_by_day,
         "stats": {
             "weekly": {
@@ -363,14 +366,14 @@ def update_profile():
                 # Save the file
                 profile_image.save(filepath)
                 
-                # Update the user's profile data
-                student = Student.query.get(username)
+                # Update the user's profile data using controller
+                student = get_student(username)
                 if student:
                     # Get existing profile data or create new
                     if hasattr(student, 'profile_data') and student.profile_data:
                         try:
                             profile_data = json.loads(student.profile_data)
-                        except:
+                        except (json.JSONDecodeError, TypeError):
                             profile_data = {}
                     else:
                         profile_data = {}
@@ -418,11 +421,8 @@ def update_availability():
         
         print(f"Received availability data: {data}")
         
-        # First, clear existing availabilities
-        Availability.query.filter_by(username=username).delete()
-        db.session.commit()
-        
-        # Add new availabilities
+        # Parse availability data for controller
+        availability_data = []
         if 'availabilities' in data and data['availabilities']:
             for slot in data['availabilities']:
                 try:
@@ -436,68 +436,46 @@ def update_availability():
                     if not isinstance(start_time_str, str) or not isinstance(end_time_str, str):
                         print(f"Invalid time format: start={start_time_str}, end={end_time_str}")
                         continue
-                        
-                    try:
-                        # Try parsing as HH:MM:SS
-                        hour, minute, second = map(int, start_time_str.split(':'))
-                        start_time = time(hour=hour, minute=minute, second=second)
-                    except ValueError:
-                        # If that fails, just use the hour
-                        try:
-                            hour = int(start_time_str.split(':')[0])
-                            start_time = time(hour=hour)
-                        except ValueError:
-                            print(f"Could not parse start time: {start_time_str}")
-                            continue
-                            
-                    try:
-                        # Try parsing as HH:MM:SS
-                        hour, minute, second = map(int, end_time_str.split(':'))
-                        end_time = time(hour=hour, minute=minute, second=second)
-                    except ValueError:
-                        # If that fails, just use the hour
-                        try:
-                            hour = int(end_time_str.split(':')[0])
-                            end_time = time(hour=hour)
-                        except ValueError:
-                            print(f"Could not parse end time: {end_time_str}")
-                            continue
                     
-                    # Ensure day is an integer in range 0-4 (Mon-Fri)
-                    day = int(day)
-                    if day < 0 or day > 4:
-                        print(f"Day out of range (0-4): {day}")
-                        continue
-                    
-                    availability = Availability(username, day, start_time, end_time)
-                    db.session.add(availability)
-                    print(f"Added availability: Day {day}, {start_time}-{end_time}")
+                    availability_data.append({
+                        'day_of_week': day,
+                        'start_time': start_time_str,
+                        'end_time': end_time_str
+                    })
                 except Exception as e:
-                    print(f"Error adding individual availability: {e}")
-                    # Continue with other availabilities even if this one failed
+                    print(f"Error processing availability slot: {e}")
+                    continue
         
-        db.session.commit()
+        # Use controller to update availability
+        student = get_student(username)
+        if not student:
+            return jsonify({
+                'success': False,
+                'message': 'Student not found'
+            })
         
-        # Create notification
-        notify_availability_updated(username)
+        success, message = update_student_availability(student.username, availability_data)
         
-        # Get updated availabilities to return
-        updated_availabilities = Availability.query.filter_by(username=username).all()
-        
-        print(f"Successfully updated {len(updated_availabilities)} availability slots")
-        
-        return jsonify({
-            "success": True, 
-            "message": "Availability updated successfully",
-            "count": len(updated_availabilities)
-        })
+        if success:
+            # Send notification about availability update
+            notify_availability_updated(username)
+            
+            return jsonify({
+                'success': True,
+                'message': message
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': message
+            })
+            
     except Exception as e:
-        db.session.rollback()
         print(f"Error updating availability: {e}")
         return jsonify({
-            "success": False,
-            "message": f"Error updating availability: {str(e)}"
-        }), 500
+            'success': False,
+            'message': f'An error occurred while updating availability: {str(e)}'
+        })
 
 @volunteer_views.route('/api/courses')
 @jwt_required()
@@ -581,15 +559,17 @@ def submit_request():
 @jwt_required()
 def debug_availability():
     username = current_user.username
-    availabilities = Availability.query.filter_by(username=username).all()
     
-    result = []
-    for avail in availabilities:
-        result.append({
-            'id': avail.id,
-            'day_of_week': avail.day_of_week,
-            'start_time': avail.start_time.strftime('%H:%M:%S') if avail.start_time else None,
-            'end_time': avail.end_time.strftime('%H:%M:%S') if avail.end_time else None,
-        })
+    # Get student and profile data using controller
+    student = get_student(username)
+    if not student:
+        return jsonify({'error': 'Student not found'})
     
-    return jsonify(result)
+    profile_data = get_student_profile_data(student)
+    if not profile_data:
+        return jsonify({'error': 'Profile data not found'})
+    
+    # Return availability from profile data
+    availabilities = profile_data.get('availability', [])
+    
+    return jsonify(availabilities)

@@ -10,7 +10,7 @@ class Notification(db.Model):
     message = db.Column(db.String(255), nullable=False)
     notification_type = db.Column(db.String(50), nullable=False, index=True)
     is_read = db.Column(db.Boolean, default=False, index=True)
-    created_at = db.Column(db.DateTime, default=trinidad_now(), index=True)
+    created_at = db.Column(db.DateTime, default=trinidad_now, index=True)
     
     # Add constraints and indexes
     __table_args__ = (

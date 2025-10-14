@@ -61,12 +61,20 @@
     <div class="enrolled-courses-section">
         <h3 class="section-title">ENROLLED COURSES</h3>
         <div class="course-tags">
-            {% if user.enrolled_courses %}
+            {% if user.enrolled_courses and user.enrolled_courses|length > 0 %}
                 {% for course in user.enrolled_courses %}
-                <span class="course-tag">{{ course }}</span>
+                    {% if course %}
+                        <span class="course-tag">{{ course }}</span>
+                    {% endif %}
                 {% endfor %}
             {% else %}
-                <p>No courses selected yet. Please contact an administrator to update your courses.</p>
+                <p>No courses assigned yet. This could mean:</p>
+                <ul style="margin-left: 20px; color: #666;">
+                    <li>Your help desk assistant application is still pending approval</li>
+                    <li>Your courses haven't been assigned yet by an administrator</li>
+                    <li>You need to complete the registration process</li>
+                </ul>
+                <p style="color: #666; font-style: italic;">Please contact an administrator if you believe this is an error.</p>
             {% endif %}
         </div>
     </div>

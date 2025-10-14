@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for, send_file
 from flask_jwt_extended import jwt_required, current_user
 from datetime import datetime, timedelta, time
+import logging
 from App.controllers.schedule import (
     generate_help_desk_schedule,
     generate_lab_schedule,
@@ -8,11 +9,19 @@ from App.controllers.schedule import (
     get_current_schedule,
     publish_and_notify,
     clear_schedule,
-    get_schedule_data
+    get_schedule_data,
+    save_schedule_assignments,
+    remove_staff_allocation,
+    list_available_staff_for_slot,
+    check_staff_availability_for_slot,
+    batch_staff_availability,
+    generate_schedule_pdf_for_type
 )
-from App.models import Schedule, Shift, Allocation, Student, Availability, HelpDeskAssistant
+from App.controllers.student import get_student
+from App.controllers.help_desk_assistant import get_help_desk_assistant
 from App.database import db
 from App.middleware import admin_required
+from App.models import Schedule, Shift, Allocation
 from io import BytesIO
 from weasyprint import HTML, CSS
 import tempfile
@@ -24,6 +33,8 @@ import json
 # Simple in-memory cache for schedule data
 _schedule_cache = {}
 _cache_timeout_seconds = 300  # 5 minutes
+
+logger = logging.getLogger(__name__)
 
 
 schedule_views = Blueprint('schedule_views', __name__, template_folder='../templates')
@@ -40,10 +51,9 @@ def schedule():
 def save_schedule():
     """Save schedule changes to the database"""
     try:
-        print("Received request to save schedule")
         data = request.json
         
-        # Parse dates
+        # Parse request data
         start_date_str = data.get('start_date')
         end_date_str = data.get('end_date')
         assignments = data.get('assignments', [])
@@ -51,157 +61,11 @@ def save_schedule():
         # Determine schedule type based on current user role
         schedule_type = current_user.role  # This should be 'helpdesk' or 'lab'
         
-        print(f"Save request: start={start_date_str}, end={end_date_str}, type={schedule_type}, assignments={len(assignments)}")
-        
-        # Validate
-        if not start_date_str or not end_date_str:
-            return jsonify({
-                'status': 'error',
-                'message': 'Start and end dates are required'
-            }), 400
-            
-        # Parse dates
-        try:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
-        except ValueError:
-            return jsonify({
-                'status': 'error',
-                'message': 'Invalid date format. Use YYYY-MM-DD.'
-            }), 400
-            
-        # Get or create the main schedule for the appropriate type
-        schedule_id = 1 if schedule_type == 'helpdesk' else 2  # Use different IDs for different schedule types
-        schedule = Schedule.query.filter_by(id=schedule_id, type=schedule_type).first()
-        
-        if not schedule:
-            print(f"Creating new {schedule_type} schedule")
-            schedule = Schedule(schedule_id, start_date, end_date, type=schedule_type)
-            db.session.add(schedule)
-        else:
-            print(f"Updating existing {schedule_type} schedule: id={schedule.id}")
-            schedule.start_date = start_date
-            schedule.end_date = end_date
-            db.session.add(schedule)
-            
-        db.session.flush()  # Get the schedule ID if it's new
-        
-        # IMPORTANT: First, clear ALL allocations for shifts in the date range
-        # This ensures proper cleanup before rebuilding assignments
-        shifts_to_clear = Shift.query.filter(
-            Shift.schedule_id == schedule.id,
-            Shift.date >= start_date,
-            Shift.date <= end_date
-        ).all()
-        
-        for shift in shifts_to_clear:
-            Allocation.query.filter_by(shift_id=shift.id).delete()
-        
-        # Track shifts we've processed
-        processed_shifts = {}
-        
-        # Process assignments and create/update shifts
-        for assignment in assignments:
-            day = assignment.get('day')
-            time_str = assignment.get('time')
-            staff_list = assignment.get('staff', [])
-            
-            print(f"Processing assignment: day={day}, time={time_str}, staff={len(staff_list)}")
-            
-            # Convert day name to index (0=Monday, 1=Tuesday, etc.)
-            day_map = {'MON': 0, 'TUE': 1, 'WED': 2, 'THUR': 3, 'FRI': 4, 'SAT': 5,
-                       'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5}
-            day_idx = day_map.get(day, 0)
-            
-            # Calculate shift date based on start_date and day index
-            shift_date = start_date + timedelta(days=day_idx)
-            
-            # Parse shift time
-            try:
-                hour = parse_time_to_hour(time_str, schedule_type)
-                
-                if hour is None:
-                    print(f"Could not parse hour from time: {time_str}")
-                    continue
-                    
-                print(f"Parsed time: original='{time_str}', extracted hour={hour}")
-                
-                # Create or find shift
-                shift_start = datetime.combine(shift_date.date(), datetime.min.time().replace(hour=hour, minute=0))
-                
-                # Set end time based on schedule type
-                if schedule_type == 'lab':
-                    # Lab shifts are 4 hours
-                    shift_end = shift_start + timedelta(hours=4)
-                else:
-                    # Helpdesk shifts are 1 hour
-                    shift_end = shift_start + timedelta(hours=1)
-                
-                # Look for existing shift
-                shift = Shift.query.filter_by(
-                    schedule_id=schedule.id,
-                    date=shift_date,
-                    start_time=shift_start
-                ).first()
-                
-                # If shift doesn't exist, create it
-                if not shift:
-                    print(f"Creating new shift for date={shift_date}, hour={hour}")
-                    shift = Shift(shift_date, shift_start, shift_end, schedule.id)
-                    db.session.add(shift)
-                    db.session.flush()  # Get the shift ID
-                else:
-                    print(f"Using existing shift {shift.id}")
-                
-                # Track this shift as processed
-                processed_shifts[shift.id] = True
-                
-                # Create allocations for staff if there are any
-                if staff_list:
-                    for staff in staff_list:
-                        staff_id = staff.get('id')
-                        
-                        # Verify staff exists
-                        student = Student.query.get(staff_id)
-                        if not student:
-                            print(f"Warning: Student {staff_id} not found")
-                            continue
-                            
-                        # Create allocation
-                        allocation = Allocation(staff_id, shift.id, schedule.id)
-                        db.session.add(allocation)
-                        
-                        print(f"Created allocation for staff {staff_id} on shift {shift.id}")
-                else:
-                    print(f"No Student Assistant assigned to shift {shift.id}")
-                
-            except Exception as e:
-                print(f"Error processing shift {day} at {time_str}: {e}")
-                import traceback
-                traceback.print_exc()
-                continue
-        
-        # Commit all changes
-        db.session.commit()
-        
-        # **PERFORMANCE FIX: Invalidate cache when schedule is modified**
-        cache_key = _get_cache_key(schedule.id, schedule_type)
-        if cache_key in _schedule_cache:
-            del _schedule_cache[cache_key]
-        
-        print("Schedule saved successfully")
-        
-        return jsonify({
-            'status': 'success',
-            'message': 'Schedule saved successfully',
-            'schedule_id': schedule.id
-        })
+        # Delegate to controller
+        result, status_code = save_schedule_assignments(schedule_type, start_date_str, end_date_str, assignments)
+        return jsonify(result), status_code
         
     except Exception as e:
-        db.session.rollback()
-        print(f"Error saving schedule: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({
             'status': 'error',
             'message': str(e)
@@ -256,87 +120,28 @@ def remove_staff_from_shift():
         staff_id = data.get('staff_id')
         cell_day = data.get('day')
         cell_time = data.get('time')
-        
-        print(f"Removing staff: id={staff_id}, day={cell_day}, time={cell_time}")
-        
-        if not staff_id or not cell_day or not cell_time:
-            return jsonify({
-                'status': 'error',
-                'message': 'Missing required parameters'
-            }), 400
-        
-        # Try to parse shift_id directly if it's provided
         shift_id = data.get('shift_id')
         
-        # If we have a direct shift_id, use that
-        if shift_id:
-            print(f"Using provided shift_id: {shift_id}")
-            shift = Shift.query.get(shift_id)
-        else:
-            # Otherwise, find it based on day and time
-            day_map = {'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5}
-            day_index = day_map.get(cell_day)
-            
-            if day_index is None:
-                return jsonify({'status': 'error', 'message': f'Invalid day: {cell_day}'}), 400
-            
-            # Get the current schedule based on user role
-            schedule_type = current_user.role
-            schedule = Schedule.query.filter_by(type=schedule_type).first()
-            if not schedule:
-                return jsonify({'status': 'error', 'message': 'No schedule found'}), 404
-            
-            # Calculate the date
-            shift_date = schedule.start_date + timedelta(days=day_index)
-            
-            # Parse the time
-            hour = parse_time_to_hour(cell_time, schedule_type)
-            if hour is None:
-                return jsonify({'status': 'error', 'message': f'Invalid time format: {cell_time}'}), 400
-            
-            print(f"Searching for shift: date={shift_date}, hour={hour}")
-            
-            # Find the shift
-            shift = Shift.query.filter_by(
-                schedule_id=schedule.id,
-                date=shift_date,
-                start_time=datetime.combine(shift_date, time(hour=hour))
-            ).first()
+        if not staff_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Staff ID is required'
+            }), 400
         
-        if shift:
-            print(f"Found shift: id={shift.id}")
-            
-            # Remove the allocation
-            allocation = Allocation.query.filter_by(
-                shift_id=shift.id,
-                username=staff_id
-            ).first()
-            
-            if allocation:
-                print(f"Found allocation to remove: shift_id={shift.id}, username={staff_id}")
-                db.session.delete(allocation)
-                db.session.commit()
-                
-                # **PERFORMANCE FIX: Invalidate cache when schedule is modified**
-                schedule_type = current_user.role
-                schedule_id = 1 if schedule_type == 'helpdesk' else 2
-                cache_key = _get_cache_key(schedule_id, schedule_type)
-                if cache_key in _schedule_cache:
-                    del _schedule_cache[cache_key]
-                
-                return jsonify({'status': 'success', 'message': 'Staff removed successfully'})
-            else:
-                print(f"No allocation found for shift_id={shift.id}, username={staff_id}")
-                return jsonify({'status': 'error', 'message': 'Staff allocation not found'}), 404
-        else:
-            print(f"No shift found for the given parameters")
-            return jsonify({'status': 'error', 'message': 'Shift not found'}), 404
-            
+        # Determine schedule type
+        schedule_type = current_user.role
+        
+        # Delegate to controller
+        result, status_code = remove_staff_allocation(
+            schedule_type, 
+            staff_id, 
+            cell_day, 
+            cell_time, 
+            shift_id
+        )
+        return jsonify(result), status_code
+        
     except Exception as e:
-        db.session.rollback()
-        print(f"Error removing staff: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
         
 @schedule_views.route('/api/schedule/details', methods=['GET'])
@@ -498,7 +303,7 @@ def get_current_schedule_endpoint():
         
         print(f"Getting current {schedule_type} schedule (ID: {schedule_id})")
         
-        # OPTIMIZATION: Single query with eager loading to prevent N+1 queries
+        # Single query with eager loading to prevent N+1 queries
         from sqlalchemy.orm import selectinload
         
         schedule = (
@@ -528,7 +333,7 @@ def get_current_schedule_endpoint():
             "days": []
         }
         
-        # OPTIMIZATION: Group shifts by day index using pre-loaded data
+        # Group shifts by day index using pre-loaded data
         shifts_by_day = {}
         for shift in schedule.shifts:
             day_idx = shift.date.weekday() 
@@ -542,7 +347,7 @@ def get_current_schedule_endpoint():
             if day_idx not in shifts_by_day:
                 shifts_by_day[day_idx] = []
                 
-            # OPTIMIZATION: Get assistants from pre-loaded data
+            # Get assistants from pre-loaded data
             assistants = []
             for allocation in shift.allocations:
                 if allocation.student:  # Already loaded via eager loading
@@ -676,280 +481,162 @@ def get_current_schedule_endpoint():
 @admin_required
 def get_available_staff():
     """
-    Get all staff members available for a specific day and time
+    Get all staff members available for a specific day and time.
     Query parameters:
     - day: The day of the week (e.g., "Monday", "MON")
     - time: The time slot (e.g., "9:00 am")
     """
     try:
-        # Get query parameters
-        day = request.args.get('day')
-        time_slot = request.args.get('time')
+        # Input validation
+        day = request.args.get('day', '').strip()
+        time_slot = request.args.get('time', '').strip()
         
-        if not day or not time_slot:
-            # Be tolerant – return empty list instead of 400 so the UI doesn't spam errors
+        if not day:
+            return jsonify({
+                'status': 'error',
+                'message': 'day parameter is required'
+            }), 400
+            
+        if not time_slot:
+            return jsonify({
+                'status': 'error',
+                'message': 'time parameter is required'
+            }), 400
+        
+        # Validate day format
+        valid_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+                     'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+        if day.lower() not in valid_days:
+            return jsonify({
+                'status': 'error',
+                'message': 'Invalid day format. Expected day name or abbreviation.'
+            }), 400
+        
+        # Determine schedule type
+        schedule_type = current_user.role
+        
+        # Delegate to controller
+        result, status_code = list_available_staff_for_slot(schedule_type, day, time_slot)
+        
+        if status_code == 200 and result.get('status') == 'success':
             return jsonify({
                 'status': 'success',
-                'staff': [],
-                'note': 'Missing day/time parameter'
+                'staff': result.get('available_staff', [])
             })
-        
-        # Convert day to day_of_week index (0=Monday, 1=Tuesday, etc.)
-        day_map = {
-            'MON': 0, 'TUE': 1, 'WED': 2, 'THUR': 3, 'FRI': 4,
-            'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4
-        }
-        day_of_week = day_map.get(day)
-        
-        if day_of_week is None:
-            return jsonify({
-                'status': 'success',
-                'staff': [],
-                'note': f'Unrecognized day format: {day}'
-            })
-        
-        # Convert time_slot to hour
-        hour = None
-        
-        # Parse formats like "9:00 am", "9:00 - 10:00"
-        if time_slot:
-            if '-' in time_slot:
-                # Format is "9:00 - 10:00"
-                start_time_str = time_slot.split('-')[0].strip()
-            else:
-                # Format is "9:00 am"
-                start_time_str = time_slot
-                
-            # Remove am/pm and get hour
-            if 'am' in start_time_str.lower():
-                start_time_str = start_time_str.lower().replace('am', '').strip()
-                hour = int(start_time_str.split(':')[0])
-            elif 'pm' in start_time_str.lower():
-                start_time_str = start_time_str.lower().replace('pm', '').strip()
-                hour = int(start_time_str.split(':')[0])
-                if hour < 12:
-                    hour += 12
-            else:
-                # No am/pm, assume 24-hour format
-                hour = int(start_time_str.split(':')[0])
-        
-        if hour is None:
-            return jsonify({
-                'status': 'success',
-                'staff': [],
-                'note': f'Unrecognized time format: {time_slot}'
-            })
-        
-        # Get all active help desk assistants
-        assistants = HelpDeskAssistant.query.filter_by(active=True).all()
-        
-        # Check availability for each assistant
-        available_staff = []
-        
-        for assistant in assistants:
-            # Get the student record for this assistant
-            student = Student.query.get(assistant.username)
-            
-            if not student:
-                continue
-                
-            # Check if the assistant is available at this time
-            availabilities = Availability.query.filter_by(
-                username=assistant.username,
-                day_of_week=day_of_week
-            ).all()
-            
-            is_available = False
-            
-            for avail in availabilities:
-                # Create a time object for the hour we want to check
-                check_time = time(hour=hour)
-                
-                # Check if this availability window includes our time
-                if avail.start_time <= check_time and avail.end_time >= time(hour=hour+1):
-                    is_available = True
-                    break
-            
-            if is_available:
-                available_staff.append({
-                    'id': assistant.username,
-                    'name': student.get_name(),
-                    'degree': student.degree
-                })
-        
-        # Return the available staff
-        return jsonify({
-            'status': 'success',
-            'staff': available_staff
-        })
+        else:
+            return jsonify(result), status_code
         
     except Exception as e:
-        print(f"Error getting available Student Assistant: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error fetching available staff: {e}")
         return jsonify({
             'status': 'error',
-            'message': str(e)
+            'message': 'Internal server error occurred'
         }), 500
 
 @schedule_views.route('/api/staff/check-availability', methods=['GET'])
 @jwt_required()
 def check_staff_availability():
     """
-    Check if a specific staff member is available at a given day and time
+    Check if a specific staff member is available at a given day and time.
+    Query parameters: staff_id, day, time
     """
     try:
-        # Get query parameters
-        staff_id = request.args.get('staff_id')
-        day = request.args.get('day')
-        time_slot = request.args.get('time')
+        # Input validation
+        staff_id = request.args.get('staff_id', '').strip()
+        day = request.args.get('day', '').strip()
+        time_slot = request.args.get('time', '').strip()
         
-        # Be tolerant: instead of 400 we return success false so the front-end doesn't log noisy errors
-        if not staff_id or not day or not time_slot:
+        # Validate required parameters
+        if not staff_id:
             return jsonify({
-                'status': 'success',
-                'is_available': False,
-                'note': 'Missing one or more required parameters'
-            })
-        
-        # Convert day to day_of_week index
-        day_map = {
-            'MON': 0, 'TUE': 1, 'WED': 2, 'THUR': 3, 'FRI': 4, 'SAT': 5,
-            'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5
-        }
-        day_of_week = day_map.get(day)
-        
-        if day_of_week is None:
-            return jsonify({
-                'status': 'success',
-                'is_available': False,
-                'note': f'Unrecognized day format: {day}'
-            })
-        
-        # Parse time using schedule type
-        schedule_type = current_user.role
-        hour = parse_time_to_hour(time_slot, schedule_type)
-        
-        if hour is None:
-            return jsonify({
-                'status': 'success',
-                'is_available': False,
-                'note': f'Unrecognized time format: {time_slot}'
-            })
-        
-        # Check availability in the database
-        availabilities = Availability.query.filter_by(
-            username=staff_id,
-            day_of_week=day_of_week
-        ).all()
-        
-        is_available = False
-        
-        for avail in availabilities:
-            check_time = time(hour=hour)
+                'status': 'error',
+                'message': 'staff_id parameter is required'
+            }), 400
             
-            # For lab shifts, check if the entire 4-hour block is available
-            if schedule_type == 'lab' and '-' in time_slot:
-                end_hour = hour + 4
-                if end_hour > 24:
-                    end_hour = 24  # Cap at midnight
-                end_time = time(hour=end_hour)
-                if avail.start_time <= check_time and avail.end_time >= end_time:
-                    is_available = True
-                    break
-            else:
-                # For regular hourly shifts
-                if avail.start_time <= check_time and avail.end_time >= time(hour=hour+1):
-                    is_available = True
-                    break
+        if not day:
+            return jsonify({
+                'status': 'error', 
+                'message': 'day parameter is required'
+            }), 400
+            
+        if not time_slot:
+            return jsonify({
+                'status': 'error',
+                'message': 'time parameter is required'
+            }), 400
         
-        # Check if the staff is already allocated to another shift at the same time
-        if is_available:
-            # Get the appropriate schedule
-            schedule = Schedule.query.filter_by(type=schedule_type).first()
-            if schedule:
-                # Find shifts at this time within the current week
-                if schedule.start_date:
-                    # Calculate the specific date for this day
-                    current_date = datetime.now().date()
-                    target_date = current_date + timedelta(days=(day_of_week - current_date.weekday()) % 7)
-                    
-                    # Find any conflicting shifts
-                    conflicting_shifts = Shift.query.filter(
-                        Shift.schedule_id == schedule.id,
-                        Shift.date == target_date,
-                        Shift.start_time == datetime.combine(target_date, time(hour=hour))
-                    ).all()
-                    
-                    # Check if staff is already allocated to any of these shifts
-                    for shift in conflicting_shifts:
-                        allocations = Allocation.query.filter_by(
-                            shift_id=shift.id,
-                            username=staff_id
-                        ).first()
-                        
-                        if allocations:
-                            # Staff is already allocated to a shift at this time
-                            is_available = False
-                            break
+        # Validate day format
+        valid_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        if day.lower() not in valid_days:
+            return jsonify({
+                'status': 'error',
+                'message': f'Invalid day. Must be one of: {", ".join(valid_days)}'
+            }), 400
         
-        return jsonify({
-            'status': 'success',
-            'is_available': is_available
-        })
+        # Determine schedule type
+        schedule_type = current_user.role
+        
+        # Delegate to controller
+        result, status_code = check_staff_availability_for_slot(schedule_type, staff_id, day, time_slot)
+        
+        if status_code == 200:
+            return jsonify(result)
+        else:
+            return jsonify(result), status_code
         
     except Exception as e:
-        print(f"Error checking Student Assistant availability: {e}")
-        import traceback
-        traceback.print_exc()
-        # Default to true in error cases to not block UI
+        logger.error(f"Error in staff availability check: {e}")
         return jsonify({
-            'status': 'success',
-            'is_available': True
-        })
+            'status': 'error',
+            'message': 'Internal server error occurred'
+        }), 500
 
 
-def _normalize_day(day):
-    mapping = {
-        'MON':0,'TUE':1,'WED':2,'THUR':3,'FRI':4,'SAT':5,
-        'Monday':0,'Tuesday':1,'Wednesday':2,'Thursday':3,'Friday':4,'Saturday':5
-    }
-    return mapping.get(day)
+def parse_time_to_hour(time_str, schedule_type):
+    """Helper function to parse time string to hour"""
+    try:
+        # Special handling for lab time blocks
+        if schedule_type == 'lab' and '-' in time_str:
+            if time_str == "8:00 am - 12:00 pm":
+                return 8
+            elif time_str == "12:00 pm - 4:00 pm":
+                return 12
+            elif time_str == "4:00 pm - 8:00 pm":
+                return 16
+        
+        # Regular parsing for single time format
+        if '-' in time_str:
+            # Format is "9:00 - 10:00" or "9:00 am - 10:00 am"
+            start_time_str = time_str.split('-')[0].strip()
+        else:
+            # Format is "9:00 am" or just "9:00"
+            start_time_str = time_str
+        
+        # Remove am/pm and just get the hour
+        start_time_str = start_time_str.lower()
+        if 'am' in start_time_str:
+            start_time_str = start_time_str.replace('am', '').strip()
+        elif 'pm' in start_time_str:
+            start_time_str = start_time_str.replace('pm', '').strip()
+        
+        # Extract hour
+        hour = int(start_time_str.split(':')[0])
+        
+        # Adjust hour for PM if needed (but not for 12pm)
+        if 'pm' in time_str.lower() and hour < 12:
+            hour += 12
+        
+        return hour
+    except ValueError:
+        return None
 
-def _parse_hour(time_slot, schedule_type):
-    return parse_time_to_hour(time_slot, schedule_type)
-
-@lru_cache(maxsize=2048)
-def _compute_single_availability(staff_id, day_idx, hour, schedule_type, is_block):
-    """Pure helper for availability; cached to reduce DB lookups in a batch window."""
-    # Query availabilities for staff & day
-    avails = Availability.query.filter_by(username=staff_id, day_of_week=day_idx).all()
-    if not avails:
-        return False
-    for avail in avails:
-        base_ok = avail.start_time <= time(hour=hour) and avail.end_time >= (time(hour=hour+1) if not is_block else time(hour=hour+4))
-        if base_ok:
-            # Check allocation conflicts
-            schedule = Schedule.query.filter_by(type=schedule_type).first()
-            if not schedule or not schedule.start_date:
-                return True
-            target_date = schedule.start_date + timedelta(days=day_idx)
-            conflict = Allocation.query.join(Shift, Allocation.shift_id==Shift.id).filter(
-                Allocation.username==staff_id,
-                Shift.schedule_id==schedule.id,
-                Shift.date==target_date,
-                Shift.start_time==datetime.combine(target_date, time(hour=hour))
-            ).first()
-            if conflict:
-                return False
-            return True
-    return False
 
 @schedule_views.route('/api/staff/check-availability/batch', methods=['POST'])
 @jwt_required()
+@admin_required
 def batch_check_staff_availability():
     """
-    Batch availability check.
+    Batch availability check to reduce concurrent requests.
     Request JSON: { "queries": [ {"staff_id":"...","day":"Monday","time":"9:00 am"}, ... ] }
     Response: { "status":"success", "results": [ {"staff_id":..., "day":..., "time":..., "is_available": bool} ] }
     """
@@ -957,52 +644,17 @@ def batch_check_staff_availability():
         payload = request.get_json(force=True) or {}
         queries = payload.get('queries', [])
         schedule_type = current_user.role
-        results = []
-        for q in queries:
-            staff_id = q.get('staff_id')
-            day_raw = q.get('day')
-            time_slot = q.get('time')
-            if not staff_id or not day_raw or not time_slot:
-                results.append({
-                    'staff_id': staff_id,
-                    'day': day_raw,
-                    'time': time_slot,
-                    'is_available': False,
-                    'note': 'missing parameter'
-                })
-                continue
-            day_idx = _normalize_day(day_raw)
-            if day_idx is None:
-                results.append({
-                    'staff_id': staff_id,
-                    'day': day_raw,
-                    'time': time_slot,
-                    'is_available': False,
-                    'note': 'bad day'
-                })
-                continue
-            hour = _parse_hour(time_slot, schedule_type)
-            if hour is None:
-                results.append({
-                    'staff_id': staff_id,
-                    'day': day_raw,
-                    'time': time_slot,
-                    'is_available': False,
-                    'note': 'bad time'
-                })
-                continue
-            is_block = schedule_type=='lab' and '-' in time_slot
-            is_avail = _compute_single_availability(staff_id, day_idx, hour, schedule_type, is_block)
-            results.append({
-                'staff_id': staff_id,
-                'day': day_raw,
-                'time': time_slot,
-                'is_available': is_avail
-            })
-        return jsonify({'status':'success','results':results})
+        
+        # Delegate to controller
+        result, status_code = batch_staff_availability(schedule_type, queries)
+        return jsonify(result), status_code
+        
     except Exception as e:
-        import traceback; traceback.print_exc()
-        return jsonify({'status':'error','message':str(e)}), 500
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
 
 @schedule_views.route('/api/schedule/pdf', methods=['GET'])
 @jwt_required()
@@ -1013,76 +665,21 @@ def download_schedule_pdf():
         # Determine the schedule type from user role
         schedule_type = current_user.role
         
-        # Determine the schedule ID based on type
-        schedule_id = 2 if schedule_type == 'lab' else 1
+        # Delegate to controller
+        pdf_buffer, filename, error_response, status_code = generate_schedule_pdf_for_type(schedule_type)
         
-        print(f"Generating PDF for {schedule_type} schedule (ID: {schedule_id})")
-        
-        # Get the schedule data based on correct schedule_id
-        schedule = Schedule.query.get(schedule_id)
-        if not schedule:
-            return jsonify({
-                'status': 'error',
-                'message': f'No {schedule_type} schedule found'
-            }), 404
-            
-        # Get the current schedule data
-        # We need to modify get_current_schedule to accept a schedule_id parameter
-        schedule_data = get_schedule_data(schedule_id)
-        
-        if not schedule_data:
-            return jsonify({
-                'status': 'error',
-                'message': 'Failed to load schedule data'
-            }), 404
-        
-        # Explicitly set the schedule type
-        schedule_data['type'] = schedule_type
-        
-        # Create a temporary HTML file
-        with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as f:
-            temp_html = f.name
-            
-        # Render the schedule template with the data
-        html_content = render_template(
-            'admin/schedule/pdf_template.html',
-            schedule=schedule_data
-        )
-        
-        # Write the HTML to the temporary file
-        with open(temp_html, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-        
-        # Convert HTML to PDF
-        pdf = HTML(filename=temp_html).write_pdf(
-            stylesheets=[
-                CSS(string='@page { size: letter landscape; margin: 1cm; }')
-            ]
-        )
-        
-        # Clean up the temporary file
-        os.unlink(temp_html)
-        
-        # Create a BytesIO object for the PDF data
-        pdf_bytes = BytesIO(pdf)
-        pdf_bytes.seek(0)
-        
-        # Generate a filename with current date and type
-        schedule_name = "lab_schedule" if schedule_type == "lab" else "help_desk_schedule"
-        filename = f"{schedule_name}_{datetime.now().strftime('%Y-%m-%d')}.pdf"
+        if error_response:
+            return jsonify(error_response), status_code
         
         # Send the PDF file
         return send_file(
-            pdf_bytes,
-            mimetype='application/pdf',
+            pdf_buffer,
             as_attachment=True,
-            download_name=filename
+            download_name=filename,
+            mimetype='application/pdf'
         )
         
     except Exception as e:
-        print(f"Error generating PDF: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({
             'status': 'error',
             'message': str(e)

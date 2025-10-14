@@ -64,13 +64,13 @@ function showNotification(message, type = 'info') {
     // Add icon based on type
     let icon = '';
     if (type === 'success') {
-      icon = '<span style="margin-right: 8px;">✓</span>';
+      icon = '<span class="material-icons" style="margin-right: 8px; font-size: 18px;">check_circle</span>';
     } else if (type === 'error') {
-      icon = '<span style="margin-right: 8px;">⚠️</span>';
+      icon = '<span class="material-icons" style="margin-right: 8px; font-size: 18px;">error</span>';
     } else if (type === 'warning') {
-      icon = '<span style="margin-right: 8px;">⚠</span>';
+      icon = '<span class="material-icons" style="margin-right: 8px; font-size: 18px;">warning</span>';
     } else {
-      icon = '<span style="margin-right: 8px;">ℹ</span>';
+      icon = '<span class="material-icons" style="margin-right: 8px; font-size: 18px;">info</span>';
     }
     
     notification.innerHTML = icon + message;
@@ -231,11 +231,13 @@ function addAvailabilityStyles() {
         }
         
         .unavailable-assignment::after {
-            content: "⚠️";
+            content: "warning";
+            font-family: 'Material Icons';
             position: absolute;
             right: 25px;
             top: 50%;
             transform: translateY(-50%);
+            color: #f59e0b;
         }
     `;
     document.head.appendChild(style);
@@ -1639,34 +1641,39 @@ function searchAvailableStaff(searchTerm, day, timeSlot) {
             
             // Display results with a warning about using mock data
             resultsContainer.innerHTML = '<div class="warning-message">Using mock data (API unavailable)</div>';
-            displayStaffSearchResults(staffList, resultsContainer);
+            displayStaffSearchResults(staffList, resultsContainer, { preserveWarning: true });
         });
 }
 
-function displayStaffSearchResults(staffList, container) {
-    // Clear any existing content (except warnings)
+function displayStaffSearchResults(staffList, container, options = {}) {
+    const { preserveWarning = false } = options;
+
+    // Clear any existing content (optionally keep warning banner)
     const warning = container.querySelector('.warning-message');
     container.innerHTML = '';
-    if (warning) {
+
+    if (preserveWarning && warning) {
         container.appendChild(warning);
+    } else if (warning) {
+        warning.remove();
     }
-    
+
     if (staffList.length === 0) {
         container.innerHTML += '<div class="search-result-item">No available staff found</div>';
         return;
     }
-    
+
     // Add each staff member to the results
     staffList.forEach(staff => {
         const resultItem = document.createElement('div');
         resultItem.className = 'search-result-item';
         resultItem.textContent = staff.name;
         resultItem.setAttribute('data-staff-id', staff.id);
-        
+
         resultItem.addEventListener('click', function() {
             selectStaffMember(staff.id, staff.name);
         });
-        
+
         container.appendChild(resultItem);
     });
 }

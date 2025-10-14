@@ -36,11 +36,6 @@ def create_registration_request(username, name, email, degree, reason=None, phon
         # Profile picture is optional for legacy registration (file uploads)
         # If it's a FileStorage object (uploaded file), handle it appropriately
         # If None or empty, we'll use default avatar as fallback during rendering
-        
-        # Profile picture is optional for legacy registration (file uploads)
-        # If it's a FileStorage object (uploaded file), handle it appropriately
-        # If None or empty, we'll use default avatar as fallback during rendering
-        
         # Handle file uploads for legacy registration
         transcript_path = None
         profile_picture_path = None
@@ -309,9 +304,12 @@ def reject_registration(request_id, admin_username):
     
 def get_all_registration_requests():
     """Get all registration requests grouped by status"""
-    pending = RegistrationRequest.query.filter_by(status='PENDING').order_by(RegistrationRequest.created_at.desc()).all()
-    approved = RegistrationRequest.query.filter_by(status='APPROVED').order_by(RegistrationRequest.processed_at.desc()).all()
-    rejected = RegistrationRequest.query.filter_by(status='REJECTED').order_by(RegistrationRequest.processed_at.desc()).all()
+    # Use joinedload to eagerly load courses relationship
+    from sqlalchemy.orm import joinedload
+    
+    pending = RegistrationRequest.query.options(joinedload(RegistrationRequest.courses)).filter_by(status='PENDING').order_by(RegistrationRequest.created_at.desc()).all()
+    approved = RegistrationRequest.query.options(joinedload(RegistrationRequest.courses)).filter_by(status='APPROVED').order_by(RegistrationRequest.processed_at.desc()).all()
+    rejected = RegistrationRequest.query.options(joinedload(RegistrationRequest.courses)).filter_by(status='REJECTED').order_by(RegistrationRequest.processed_at.desc()).all()
     
     return {
         'pending': pending,
@@ -342,4 +340,8 @@ def get_registration_request(request_id):
     registration_data['course_codes'] = course_codes
     
     return registration_data
+
+def get_registration_request_by_username(username):
+    """Get the latest registration request for a specific username"""
+    return RegistrationRequest.query.filter_by(username=username).order_by(RegistrationRequest.created_at.desc()).first()
 
