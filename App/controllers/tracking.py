@@ -425,9 +425,8 @@ def clock_in(username, shift_id=None):
             }
         
         # Check if the shift is currently active or within acceptable clock-in window
-        # Allow clocking in up to 15 minutes early or 30 minutes late
+        # Allow clocking in up to 15 minutes early or anytime within the shift duration
         early_window = shift.start_time - timedelta(minutes=15)
-        late_window = shift.start_time + timedelta(minutes=30)
         
         if now < early_window:
             return {
@@ -533,11 +532,58 @@ def check_and_complete_abandoned_entry(username):
     but they never clocked out. This is called when they log in again.
     """
     try:
-        # Simply call auto-complete to ensure all ended sessions are completed
-        return auto_complete_time_entries()
+        now = trinidad_now()
+        
+        # Find active entries for this user where the shift has ended
+        active_entry = TimeEntry.query.filter_by(username=username, status='active').first()
+        
+        if not active_entry:
+            return {
+                'success': True,
+                'message': 'No active entries found'
+            }
+        
+        # Get the shift for this entry
+        shift = Shift.query.get(active_entry.shift_id) if active_entry.shift_id else None
+        
+        if shift and now > shift.end_time:
+            # The shift has ended, auto-complete the entry
+            active_entry.clock_out = shift.end_time
+            active_entry.status = 'completed'
+            db.session.add(active_entry)
+            
+            # Calculate and update hours worked
+            if active_entry.clock_in:
+                hours_worked = (active_entry.clock_out - active_entry.clock_in).total_seconds() / 3600
+                assistant = HelpDeskAssistant.query.get(username)
+                if assistant:
+                    assistant.hours_worked += hours_worked
+                    db.session.add(assistant)
+            
+            db.session.commit()
+            
+            # Send notification
+            shift_details = shift.formatted_time() if hasattr(shift, 'formatted_time') else f"{shift.start_time.strftime('%I:%M %p')} to {shift.end_time.strftime('%I:%M %p')}"
+            notify_clock_out(username, shift_details, auto_completed=True)
+            
+            return {
+                'success': True,
+                'message': 'Abandoned entry completed successfully',
+                'completed_entry': active_entry.id
+            }
+        
+        return {
+            'success': True,
+            'message': 'No abandoned entries to complete'
+        }
+        
     except Exception as e:
+        db.session.rollback()
         print(f"Error checking abandoned entries: {e}")
-        return False
+        return {
+            'success': False,
+            'message': f'Error checking abandoned entries: {str(e)}'
+        }
 
 def mark_missed_shift(username, shift_id):
     """Mark a shift as missed for a student"""

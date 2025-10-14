@@ -131,11 +131,18 @@ class NotificationTimingTests(unittest.TestCase):
             self.assertEqual(notification.notification_type, 'clock_in')
             self.assertFalse(notification.is_read)
 
+    @patch('App.tests.test_notification_timing.trinidad_now')
+    @patch('App.controllers.notification.trinidad_now')
+    @patch('App.controllers.tracking.trinidad_now') 
     @patch('App.utils.time_utils.trinidad_now')
-    def test_clock_in_notification_timestamp(self, mock_now):
+    def test_clock_in_notification_timestamp(self, mock_utils_now, mock_tracking_now, mock_notification_now, mock_test_now):
         """Test clock-in notification has correct timestamp"""
         clock_in_time = datetime(2024, 10, 14, 10, 0, 0)
-        mock_now.return_value = clock_in_time
+        # Set all mocks to return the same time
+        mock_utils_now.return_value = clock_in_time
+        mock_tracking_now.return_value = clock_in_time
+        mock_notification_now.return_value = clock_in_time
+        mock_test_now.return_value = clock_in_time
         
         shift = self._create_shift(start_offset_hours=0, duration_hours=2)
         result = clock_in(self.username, shift.id)
@@ -328,11 +335,17 @@ class NotificationTimingTests(unittest.TestCase):
     # Notification Timing Edge Cases
     # ===========================================
 
+    @patch('App.tests.test_notification_timing.trinidad_now')
+    @patch('App.controllers.notification.trinidad_now')
+    @patch('App.controllers.tracking.trinidad_now') 
     @patch('App.utils.time_utils.trinidad_now')
-    def test_notifications_created_in_correct_timezone(self, mock_now):
+    def test_notifications_created_in_correct_timezone(self, mock_utils_now, mock_tracking_now, mock_notification_now, mock_test_now):
         """Test notifications use Trinidad timezone"""
         trinidad_time = datetime(2024, 10, 14, 10, 0, 0)
-        mock_now.return_value = trinidad_time
+        mock_utils_now.return_value = trinidad_time
+        mock_tracking_now.return_value = trinidad_time
+        mock_notification_now.return_value = trinidad_time
+        mock_test_now.return_value = trinidad_time
         
         shift = self._create_shift(start_offset_hours=0, duration_hours=2)
         clock_in(self.username, shift.id)
@@ -379,11 +392,17 @@ class NotificationTimingTests(unittest.TestCase):
         # Clock-out should be after clock-in
         self.assertGreater(clock_out_notif.created_at, clock_in_notif.created_at)
 
+    @patch('App.tests.test_notification_timing.trinidad_now')
+    @patch('App.controllers.notification.trinidad_now')
+    @patch('App.controllers.tracking.trinidad_now') 
     @patch('App.utils.time_utils.trinidad_now')
-    def test_notification_created_at_midnight(self, mock_now):
+    def test_notification_created_at_midnight(self, mock_utils_now, mock_tracking_now, mock_notification_now, mock_test_now):
         """Test notification creation at midnight edge case"""
         midnight = datetime(2024, 10, 14, 0, 0, 0)
-        mock_now.return_value = midnight
+        mock_utils_now.return_value = midnight
+        mock_tracking_now.return_value = midnight
+        mock_notification_now.return_value = midnight
+        mock_test_now.return_value = midnight
         
         shift = self._create_shift(start_offset_hours=0, duration_hours=2)
         clock_in(self.username, shift.id)
@@ -396,11 +415,17 @@ class NotificationTimingTests(unittest.TestCase):
         self.assertEqual(notification.created_at.hour, 0)
         self.assertEqual(notification.created_at.minute, 0)
 
+    @patch('App.tests.test_notification_timing.trinidad_now')
+    @patch('App.controllers.notification.trinidad_now')
+    @patch('App.controllers.tracking.trinidad_now') 
     @patch('App.utils.time_utils.trinidad_now')
-    def test_notification_created_before_midnight(self, mock_now):
+    def test_notification_created_before_midnight(self, mock_utils_now, mock_tracking_now, mock_notification_now, mock_test_now):
         """Test notification creation just before midnight"""
         before_midnight = datetime(2024, 10, 14, 23, 59, 59)
-        mock_now.return_value = before_midnight
+        mock_utils_now.return_value = before_midnight
+        mock_tracking_now.return_value = before_midnight
+        mock_notification_now.return_value = before_midnight
+        mock_test_now.return_value = before_midnight
         
         shift = self._create_shift(start_offset_hours=0, duration_hours=2)
         clock_in(self.username, shift.id)

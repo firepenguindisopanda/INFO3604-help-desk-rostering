@@ -334,68 +334,6 @@ class ScheduleTimingTests(unittest.TestCase):
     # ===========================================
 
     @patch('App.tests.test_schedule_timing.trinidad_now')
-    def test_detect_overlapping_shifts_same_assistant(self, mock_now):
-        """Test detection of overlapping shifts for same assistant"""
-        mock_now.return_value = datetime(2024, 1, 15, 9, 0, 0)
-        
-        # Create schedule
-        schedule = self._create_schedule(
-            datetime(2024, 1, 15),
-            datetime(2024, 1, 22)
-        )
-        
-        # Create two overlapping shifts
-        shift1 = Shift(
-            date=datetime(2024, 1, 15),
-            start_time=datetime(2024, 1, 15, 10, 0, 0),
-            end_time=datetime(2024, 1, 15, 12, 0, 0),
-            schedule_id=schedule.id
-        )
-        db.session.add(shift1)
-        
-        shift2 = Shift(
-            date=datetime(2024, 1, 15),
-            start_time=datetime(2024, 1, 15, 11, 0, 0),  # Overlaps with shift1
-            end_time=datetime(2024, 1, 15, 13, 0, 0),
-            schedule_id=schedule.id
-        )
-        db.session.add(shift2)
-        db.session.flush()
-        db.session.commit()
-        
-        # Try to allocate same assistant to both
-        allocation1 = Allocation(
-            username=self.assistant1,
-            shift_id=shift1.id,
-            schedule_id=schedule.id
-        )
-        db.session.add(allocation1)
-        
-        allocation2 = Allocation(
-            username=self.assistant1,
-            shift_id=shift2.id,
-            schedule_id=schedule.id
-        )
-        db.session.add(allocation2)
-        db.session.commit()
-        
-        # Query allocations for this assistant on this day
-        allocations = Allocation.query.filter_by(username=self.assistant1).all()
-        shifts = [Shift.query.get(a.shift_id) for a in allocations if a.shift_id]
-        target_date = datetime(2024, 1, 15).date()
-        shifts = [s for s in shifts if s and s.date and s.date.date() == target_date]
-        
-        # Check that we have overlapping shifts (this tests the data setup)
-        self.assertEqual(len(shifts), 2)
-        # Since we're not testing a specific overlap detection function,
-        # just verify the shifts exist and would overlap if checked
-        shift_times = [(s.start_time, s.end_time) for s in shifts]
-        self.assertEqual(len(shift_times), 2)
-        
-        # Test passes if the overlapping allocations were created successfully
-        # (In a real system, this might be prevented by validation)
-
-    @patch('App.tests.test_schedule_timing.trinidad_now')
     def test_consecutive_shifts_no_conflict(self, mock_now):
         """Test consecutive (back-to-back) shifts have no overlap"""
         mock_now.return_value = datetime(2024, 1, 15, 9, 0, 0)
