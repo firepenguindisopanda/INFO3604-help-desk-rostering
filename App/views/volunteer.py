@@ -1,5 +1,6 @@
-from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for
+from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for, current_app
 from flask_jwt_extended import jwt_required, current_user
+from App.views.api_v2.utils import jwt_required_secure
 from werkzeug.utils import secure_filename
 from App.middleware import volunteer_required
 from App.controllers.student import (
@@ -42,31 +43,25 @@ volunteer_views = Blueprint('volunteer_views', __name__, template_folder='../tem
 def dashboard():
     # Get current user's username
     username = current_user.username
-    
-
-
     check_and_complete_abandoned_entry(username)
-
     # Get all the data needed for the dashboard (with the latest published schedule)
     dashboard_data = get_dashboard_data(username)
-    
     if not dashboard_data:
         flash("Error retrieving dashboard data", "error")
         return redirect(url_for('auth_views.login_page'))
-    
     # Extract data for the template
     next_shift = dashboard_data['next_shift']
     my_shifts = dashboard_data['my_shifts']
     full_schedule = dashboard_data['full_schedule']
-    
-    # Debug prints
-    print(f"Rendering dashboard with data:")
-    print(f"Next shift: {next_shift}")
-    print(f"My shifts count: {len(my_shifts)}")
-    print(f"Full schedule days: {full_schedule['days_of_week']}")
-    print(f"Full schedule time slots: {full_schedule['time_slots']}")
-    
-    # Render the template with real data
+    # Debug logs
+    current_app.logger.debug("Rendering dashboard with data")
+    current_app.logger.debug("Next shift: %s", next_shift)
+    current_app.logger.debug("My shifts count: %d", len(my_shifts))
+    try:
+        current_app.logger.debug("Full schedule days: %s", full_schedule.get('days_of_week'))
+        current_app.logger.debug("Full schedule time slots: %s", full_schedule.get('time_slots'))
+    except Exception:
+        current_app.logger.debug("Full schedule details not available")
     return render_template('volunteer/dashboard/dashboard.html',
                           next_shift=next_shift,
                           my_shifts=my_shifts,
@@ -77,9 +72,7 @@ def dashboard():
 @volunteer_required
 def time_tracking():
     username = current_user.username
-    
     # Auto-complete any expired sessions first
-
     auto_complete_time_entries()
     
     # Get student stats
@@ -149,8 +142,7 @@ def time_tracking():
                           semester=semester)
 
 @volunteer_views.route('/volunteer/time_tracking/clock_in', methods=['POST'])
-@jwt_required()
-@volunteer_required
+@jwt_required_secure()
 def clock_in_endpoint():
     username = current_user.username
     
@@ -172,17 +164,21 @@ def clock_in_endpoint():
             'message': 'You are already clocked in for this shift'
         })
     
+    # Ensure the authenticated identity is a volunteer (no HTML redirect here)
+    if not current_user or not current_user.is_student():
+        current_app.logger.warning(f"Unauthorized clock-in attempt by {getattr(current_user, 'username', None)}")
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+
     # Call the clock_in controller
     result = clock_in(username, shift_id)
-    
+
     # Log the result
-    print(f"Clock in result for {username}: {result}")
-    
+    current_app.logger.info(f"Clock in result for {username}: {result}")
+
     return jsonify(result)
 
 @volunteer_views.route('/volunteer/time_tracking/clock_out', methods=['POST'])
-@jwt_required()
-@volunteer_required
+@jwt_required_secure()
 def clock_out_endpoint():
     username = current_user.username
     
@@ -196,12 +192,11 @@ def clock_out_endpoint():
             'message': 'You are not currently clocked in'
         })
     
-    # Call the clock_out controller
+    if not current_user or not current_user.is_student():
+        current_app.logger.warning(f"Unauthorized clock-out attempt by {getattr(current_user, 'username', None)}")
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
     result = clock_out(username)
-    
-    # Log the result
-    print(f"Clock out result for {username}: {result}")
-    
+    current_app.logger.info(f"Clock out result for {username}: {result}")
     return jsonify(result)
 
 @volunteer_views.route('/volunteer/profile')
@@ -241,19 +236,19 @@ def profile():
             day_idx = avail.get('day_of_week')
             day_name = days_mapping.get(day_idx)
             if not day_name:
-                print(f"Warning: Invalid day_of_week value: {day_idx}")
+                current_app.logger.warning("Invalid day_of_week value: %s", day_idx)
                 continue
-                
+
             # Format time slot based on the hour
             start_time_str = avail.get('start_time')
             if start_time_str:
                 try:
                     hour = int(start_time_str.split(':')[0])
-                    
+
                     # Map hours to specific slots for display
                     time_slot_mapping = {
-                        9: '9am - 10am', 
-                        10: '10am - 11am', 
+                        9: '9am - 10am',
+                        10: '10am - 11am',
                         11: '11am - 12pm',
                         12: '12pm - 1pm',
                         13: '1pm - 2pm',
@@ -261,20 +256,20 @@ def profile():
                         15: '3pm - 4pm',
                         16: '4pm - 5pm'
                     }
-                    
+
                     if hour in time_slot_mapping:
                         time_slot = time_slot_mapping[hour]
                         if time_slot not in availability_by_day[day_name]:
                             availability_by_day[day_name].append(time_slot)
                     else:
-                        print(f"Warning: Hour {hour} not in expected time slots")
+                        current_app.logger.warning("Hour %s not in expected time slots", hour)
                 except (ValueError, IndexError) as e:
-                    print(f"Error parsing time {start_time_str}: {e}")
+                    current_app.logger.exception("Error parsing time %s", start_time_str)
             else:
-                print(f"Warning: Missing start time for availability")
-                
+                current_app.logger.warning("Missing start time for availability")
+
         except Exception as e:
-            print(f"Error processing availability: {e}")
+            current_app.logger.exception("Error processing availability: %s", e)
     
     # Get stats
 
@@ -291,7 +286,8 @@ def profile():
     if hasattr(student, 'profile_data') and student.profile_data:
         try:
             stored_profile_data = json.loads(student.profile_data)
-        except:
+        except Exception:
+            current_app.logger.exception("Failed to parse stored profile_data for user %s", getattr(student, 'username', None))
             stored_profile_data = {}
 
     image_url = resolve_profile_image(getattr(student, 'profile_data', None))
@@ -402,10 +398,9 @@ def update_profile():
             'success': False,
             'message': 'No profile image provided'
         })
-        
     except Exception as e:
         db.session.rollback()
-        print(f"Error updating profile: {e}")
+        current_app.logger.exception("Error updating profile: %s", e)
         return jsonify({
             'success': False,
             'message': f"Error updating profile: {str(e)}"
@@ -418,8 +413,7 @@ def update_availability():
     try:
         data = request.json
         username = current_user.username
-        
-        print(f"Received availability data: {data}")
+        current_app.logger.debug("Received availability data: %s", data)
         
         # Parse availability data for controller
         availability_data = []
@@ -443,7 +437,7 @@ def update_availability():
                         'end_time': end_time_str
                     })
                 except Exception as e:
-                    print(f"Error processing availability slot: {e}")
+                    current_app.logger.exception("Error processing availability slot: %s", e)
                     continue
         
         # Use controller to update availability
@@ -468,10 +462,9 @@ def update_availability():
             return jsonify({
                 'success': False,
                 'message': message
-            })
-            
+            })   
     except Exception as e:
-        print(f"Error updating availability: {e}")
+        current_app.logger.exception("Error updating availability: %s", e)
         return jsonify({
             'success': False,
             'message': f'An error occurred while updating availability: {str(e)}'
@@ -484,7 +477,6 @@ def get_courses():
     try:
         # Format the courses as required by the frontend
         formatted_courses = [{'code': course.code, 'name': course.name} for course in get_all_courses()]
-        
         return jsonify({
             'success': True,
             'courses': formatted_courses
@@ -497,9 +489,7 @@ def get_courses():
 @jwt_required()
 @volunteer_required
 def requests():
-
     username = current_user.username
-    
     # Get the student's requests
     requests_list = get_student_requests(username)
     
@@ -526,10 +516,7 @@ def requests():
 @volunteer_required
 def submit_request():
     """Submit a new shift change request"""
-
-    
     data = request.form
-    
     # Extract data from form
     shift_id = data.get('shiftToChange')
     reason = data.get('reasonForChange')
