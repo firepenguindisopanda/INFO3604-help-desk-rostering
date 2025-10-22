@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for, send_file
+from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for, send_file, current_app, abort
 from flask_jwt_extended import jwt_required, current_user
 from datetime import datetime, timedelta, time
 import logging
@@ -130,8 +130,6 @@ def remove_staff_from_shift():
         
         # Determine schedule type
         schedule_type = current_user.role
-        
-        # Delegate to controller
         result, status_code = remove_staff_allocation(
             schedule_type, 
             staff_id, 
@@ -211,8 +209,8 @@ def generate_schedule_endpoint():
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
         
         # Log details about the request
-        print(f"Generating {user.role} schedule from {start_date} to {end_date}")
-        
+        current_app.logger.info("Generating %s schedule from %s to %s", user.role, start_date, end_date)
+
         # Filter students based on admin role
         if user.role == 'helpdesk':
             result = generate_help_desk_schedule(start_date, end_date)
@@ -224,15 +222,17 @@ def generate_schedule_endpoint():
                 'message': 'Invalid admin role for schedule generation'
             }), 400
             
-        # Log the result
-        print(f"Schedule generation result: {result}")
-        
+        current_app.logger.info("Schedule generation result: %s", result)
+
         # Add the schedule type to the result for frontend reference
         if result.get('status') == 'success':
             result['schedule_type'] = user.role
             
         return jsonify(result)
-    
+
+    except (BrokenPipeError, ConnectionResetError) as e:
+        current_app.logger.warning("Client disconnected during schedule generation: %s", e)
+        abort(499)
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -260,11 +260,9 @@ def clear_schedule_endpoint():
         
         # Get schedule ID (default to 1 for helpdesk if not specified)
         schedule_id = data.get('schedule_id', 1)
-        
         # Call the controller function to clear the schedule
-        result = clear_schedule()  # This function now handles the schedule ID
+        result = clear_schedule()
         return jsonify(result)
-    
     except Exception as e:
         return jsonify({
             'status': 'error',
@@ -301,8 +299,8 @@ def get_current_schedule_endpoint():
         schedule_type = role  # 'helpdesk' or 'lab'
         schedule_id = 1 if schedule_type == 'helpdesk' else 2 
         
-        print(f"Getting current {schedule_type} schedule (ID: {schedule_id})")
-        
+        current_app.logger.info("Getting current %s schedule (ID: %s)", schedule_type, schedule_id)
+
         # Single query with eager loading to prevent N+1 queries
         from sqlalchemy.orm import selectinload
         
@@ -318,11 +316,17 @@ def get_current_schedule_endpoint():
         )
         
         if not schedule:
-            print(f"No {schedule_type} schedule found with ID {schedule_id}")
+            current_app.logger.info("No %s schedule found with ID %s", schedule_type, schedule_id)
             return jsonify({'status': 'error', 'message': f'No {schedule_type} schedule found'}), 404
         
-        print(f"Found schedule: id={schedule.id}, start={schedule.start_date}, end={schedule.end_date}, type={schedule.type}")
-        print(f"Loaded {len(schedule.shifts)} shifts with eager loading")
+        current_app.logger.info(
+            "Found schedule: id=%s, start=%s, end=%s, type=%s",
+            schedule.id,
+            schedule.start_date,
+            schedule.end_date,
+            schedule.type,
+        )
+        current_app.logger.info("Loaded %s shifts with eager loading", len(schedule.shifts))
         
         # Format the schedule base
         formatted_schedule = {
@@ -467,13 +471,18 @@ def get_current_schedule_endpoint():
         
         formatted_schedule["days"] = days
         
-        print(f"Returning formatted {schedule_type} schedule with {len(days)} days.")
+        current_app.logger.info(
+            "Returning formatted %s schedule with %s days.", schedule_type, len(days)
+        )
         return jsonify({'status': 'success', 'schedule': formatted_schedule})
         
+    except (BrokenPipeError, ConnectionResetError) as e:
+        # Client disconnected while we were preparing the response. Log and abort
+        current_app.logger.warning("Client disconnected while getting current schedule: %s", e)
+        # Abort with a non-standard code for logging (499) so the worker does not crash
+        abort(499)
     except Exception as e:
-        print(f"Error getting current schedule: {e}")
-        import traceback
-        traceback.print_exc()
+        current_app.logger.exception("Error getting current schedule: %s", e)
         return jsonify({'status': 'error', 'message': f'An error occurred: {str(e)}'}), 500
 
 @schedule_views.route('/api/staff/available', methods=['GET'])

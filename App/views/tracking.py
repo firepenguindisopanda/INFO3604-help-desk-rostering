@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for, Response
+from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for, Response, current_app
 from flask_jwt_extended import jwt_required, current_user
 from datetime import datetime, timedelta
 from App.controllers.tracking import (
@@ -92,7 +92,7 @@ def time_tracking():
         # No staff selected, show empty records
         attendance_records = []
     
-    print(f"Loaded {len(staff_data)} Student Assistant and {len(attendance_records)} attendance records")
+    current_app.logger.info("Loaded %d Student Assistant and %d attendance records", len(staff_data), len(attendance_records))
     
     return render_template('admin/tracking/index.html',
                           staff_data=staff_data,
@@ -127,7 +127,7 @@ def get_staff_attendance(staff_id):
             "attendance_records": staff_records
         })
     except Exception as e:
-        print(f"Error fetching staff attendance: {e}")
+        current_app.logger.exception("Error fetching staff attendance: %s", e)
         return jsonify({
             "staff_id": staff_id,
             "error": str(e),
@@ -173,7 +173,6 @@ def generate_attendance_report_endpoint():
             return response
         else:
             return jsonify(report)
-    
     except Exception as e:
         return jsonify({
             'success': False,
@@ -197,7 +196,6 @@ def mark_staff_missed_endpoint(staff_id):
         
         result = mark_missed_shift(staff_id, shift_id)
         return jsonify(result)
-    
     except Exception as e:
         return jsonify({
             'success': False,

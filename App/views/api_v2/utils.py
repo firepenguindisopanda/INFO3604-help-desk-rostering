@@ -104,6 +104,31 @@ def validate_json_request(request):
 def _verify_jwt_prefer_header():
     """Verify JWT, preferring Authorization header when supplied."""
     auth_header = request.headers.get('Authorization', '') or ''
+
+    # If no Authorization header and no cookie parsed into request.cookies, attempt to
+    # recover an access token from a raw 'Cookie' header (some tests/clients set Cookie in
+    # headers rather than the WSGI environ). If found, inject it into the request environ
+    # as HTTP_AUTHORIZATION so flask-jwt-extended can pick it up via headers.
+    if not auth_header:
+        access_cookie_name = current_app.config.get('JWT_ACCESS_COOKIE_NAME', 'access_token')
+        # If request.cookies doesn't contain the access cookie but a raw Cookie header exists,
+        # try to parse it.
+        if not request.cookies.get(access_cookie_name):
+            cookie_header = request.headers.get('Cookie') or request.environ.get('HTTP_COOKIE')
+            if cookie_header:
+                try:
+                    from http.cookies import SimpleCookie
+                    sc = SimpleCookie()
+                    sc.load(cookie_header)
+                    if access_cookie_name in sc:
+                        token_value = sc[access_cookie_name].value
+                        # Inject Authorization into environ so verify_jwt_in_request can find it
+                        request.environ['HTTP_AUTHORIZATION'] = f'Bearer {token_value}'
+                        auth_header = request.environ.get('HTTP_AUTHORIZATION')
+                        current_app.logger.debug("API v2 JWT guard: extracted token from Cookie header into Authorization env")
+                except Exception:
+                    current_app.logger.exception("Failed to parse Cookie header for access token")
+
     if auth_header.lower().startswith('bearer '):
         current_app.logger.debug("API v2 JWT guard: verifying via Authorization header")
         verify_jwt_in_request(locations=["headers"])

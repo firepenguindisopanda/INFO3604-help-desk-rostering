@@ -61,7 +61,7 @@ class ProductionClockInIssueTests(unittest.TestCase):
         # Mock the current time to be a Sunday during an active shift
         sunday_base = datetime(2024, 12, 15)  # A Sunday
         shift_start = sunday_base.replace(hour=10, minute=0)  # 10:00 AM
-        shift_end = sunday_base.replace(hour=14, minute=0)    # 2:00 PM
+        shift_end = sunday_base.replace(hour=18, minute=0)    # 6:00 PM
         current_time = sunday_base.replace(hour=10, minute=30) # 10:30 AM (30 mins into shift)
 
         # Create schedule and shift
@@ -105,16 +105,18 @@ class ProductionClockInIssueTests(unittest.TestCase):
             'JWT_COOKIE_SECURE': False,  # Keep False for testing (no HTTPS)
             'ENV': 'production'
         }):
-            # Set the JWT cookie using the Cookie header approach
-            response = self.client.post(
-                '/api/v2/volunteer/time-tracking/clock-in',
-                json={},
-                headers={
-                    'Content-Type': 'application/json',
-                    'Cookie': f'access_token={self.token}'
-                    # NOTE: No X-CSRF-TOKEN header - this is the issue in production
-                }
-            )
+            # Set the JWT cookie properly using test client
+            with self.client:
+                self.client.set_cookie('access_token', self.token)
+                
+                response = self.client.post(
+                    '/api/v2/volunteer/time-tracking/clock-in',
+                    json={},
+                    headers={
+                        'Content-Type': 'application/json',
+                        # NOTE: No X-CSRF-TOKEN header - this is the issue in production
+                    }
+                )
 
             # This should fail with authentication error in production due to missing CSRF token
             print(f"Response status: {response.status_code}")
@@ -135,10 +137,10 @@ class ProductionClockInIssueTests(unittest.TestCase):
                     f"Expected CSRF-related error, got: {response_data.get('message')}"
                 )
 
-    @patch('App.utils.time_utils.trinidad_now')
-    def test_clock_in_succeeds_with_bearer_token_in_production(self, mock_trinidad_now):
+    @patch('App.controllers.tracking.trinidad_now')
+    def test_clock_in_succeeds_with_bearer_token_in_production(self, mock_trinidad_now):     
         """Test that clock-in succeeds when using Authorization header instead of cookies."""
-        _, current_time = self._create_sunday_shift_in_progress()
+        shift, current_time = self._create_sunday_shift_in_progress()
         mock_trinidad_now.return_value = current_time
 
         # Simulate production environment with CSRF protection enabled
@@ -150,20 +152,16 @@ class ProductionClockInIssueTests(unittest.TestCase):
             # Attempt clock-in using Bearer token in Authorization header
             response = self.client.post(
                 '/api/v2/volunteer/time-tracking/clock-in',
-                json={},
+                json={'shift_id': shift.id},
                 headers={
                     'Content-Type': 'application/json',
                     'Authorization': f'Bearer {self.token}',
                     # No CSRF token needed when using Authorization header
                 }
             )
-
             print(f"Response status: {response.status_code}")
             print(f"Response data: {response.get_data(as_text=True)}")
-
-            # This should succeed with the fixed @jwt_required_secure() decorator
-            self.assertEqual(response.status_code, 200, 
-                           "Clock-in should succeed with Bearer token")
+            self.assertEqual(response.status_code, 200, "Clock-in should succeed with Bearer token")
             
             response_data = response.get_json()
             self.assertIsNotNone(response_data, "Response should contain JSON data")
@@ -171,7 +169,7 @@ class ProductionClockInIssueTests(unittest.TestCase):
             self.assertIn('message', response_data, "Response should contain success message")
             self.assertIn('data', response_data, "Response should contain data")
 
-    @patch('App.utils.time_utils.trinidad_now')
+    @patch('App.controllers.tracking.trinidad_now')
     def test_clock_in_succeeds_in_development_without_csrf(self, mock_trinidad_now):
         """Test that clock-in works in development environment without CSRF protection."""
         shift, current_time = self._create_sunday_shift_in_progress()
@@ -183,16 +181,18 @@ class ProductionClockInIssueTests(unittest.TestCase):
 
         # Simulate development environment
         with patch.dict('os.environ', {'ENV': 'development'}):
-            # Attempt clock-in using only cookie authentication (no CSRF token)
-            response = self.client.post(
-                '/api/v2/volunteer/time-tracking/clock-in',
-                json={},
-                headers={
-                    'Content-Type': 'application/json',
-                    # No X-CSRF-TOKEN header needed in development
-                },
-                environ_base={'HTTP_COOKIE': f'access_token={self.token}'}
-            )
+            # Set the JWT cookie properly using test client
+            with self.client:
+                self.client.set_cookie('access_token', self.token)
+                
+                response = self.client.post(
+                    '/api/v2/volunteer/time-tracking/clock-in',
+                    json={'shift_id': shift.id},
+                    headers={
+                        'Content-Type': 'application/json',
+                        # No X-CSRF-TOKEN header needed in development
+                    }
+                )
 
             # This should succeed in development
             self.assertEqual(response.status_code, 200, 
@@ -203,7 +203,7 @@ class ProductionClockInIssueTests(unittest.TestCase):
 
     def test_timing_validation_during_sunday_shift(self):
         """Test that timing validation works correctly for late clock-in on Sunday."""
-        with patch('App.utils.time_utils.trinidad_now') as mock_trinidad_now:
+        with patch('App.controllers.tracking.trinidad_now') as mock_trinidad_now:
             shift, current_time = self._create_sunday_shift_in_progress()
             mock_trinidad_now.return_value = current_time
 
@@ -225,7 +225,6 @@ class ProductionClockInIssueTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # Run the specific test that demonstrates the production issue
     suite = unittest.TestSuite()
     suite.addTest(ProductionClockInIssueTests('test_clock_in_fails_with_csrf_protection_using_standard_jwt_required'))
     runner = unittest.TextTestRunner(verbosity=2)

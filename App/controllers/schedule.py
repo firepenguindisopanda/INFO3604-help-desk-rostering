@@ -530,8 +530,6 @@ def generate_help_desk_schedule(start_date=None, end_date=None, **generation_opt
         if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
             # Clear existing allocations for these shifts
             clear_allocations_for_shifts(shifts)
-            
-            # OPTIMIZATION: Batch create allocations to reduce database round trips
             new_allocations = []
             assignment_count = 0
             
@@ -551,9 +549,7 @@ def generate_help_desk_schedule(start_date=None, end_date=None, **generation_opt
             if new_allocations:
                 db.session.add_all(new_allocations)
                 logger.info(f"Created {len(new_allocations)} allocations in batch")
-            
             # Transaction will be committed by decorator
-            
             logger.info(f"Schedule generated successfully with status: {status}, {assignment_count} assignments")
             
             return {
@@ -622,8 +618,6 @@ def clear_shifts_in_range(schedule_id, start_date, end_date):
     # Delete allocations for these shifts
     for shift in shifts_to_delete:
         Allocation.query.filter_by(shift_id=shift.id).delete()
-        
-        # Delete course demands for these shifts using text() for SQL
         db.session.execute(
             text("DELETE FROM shift_course_demand WHERE shift_id = :shift_id"),
             {'shift_id': shift.id}
@@ -649,8 +643,6 @@ def add_course_demand_to_shift(shift_id, course_code, tutors_required=2, weight=
     # If weight is not provided, use tutors_required as the weight
     if weight is None:
         weight = tutors_required
-    
-    # Use text() for SQL queries to avoid the error
     db.session.execute(
         text("INSERT INTO shift_course_demand (shift_id, course_code, tutors_required, weight) VALUES (:shift_id, :course_code, :tutors_required, :weight)"),
         {
@@ -666,7 +658,6 @@ def add_course_demand_to_shift(shift_id, course_code, tutors_required=2, weight=
 def get_course_demands_for_shift(shift_id):
 
     try:
-        # Use text() for SQL queries to avoid the error
         result = db.session.execute(
             text("SELECT course_code, tutors_required, weight FROM shift_course_demand WHERE shift_id = :shift_id"),
             {'shift_id': shift_id}
@@ -726,8 +717,7 @@ def sync_schedule_data():
             if not student:
                 logger.warning(f"Allocation {allocation.id} references non-existent student {allocation.username}")
         
-        return True
-        
+        return True    
     except Exception as e:
         logger.error(f"Error syncing schedule data: {e}")
         return False
@@ -752,8 +742,7 @@ def publish_and_notify(schedule_id):
             "status": "success",
             "message": "Schedule published and notifications sent",
             "sync_status": "success" if sync_success else "warning"
-        }
-            
+        }        
     except Exception as e:
         logger.error(f"Error publishing and notifying: {e}")
         return {
@@ -780,8 +769,7 @@ def publish_schedule(schedule_id):
                 
             return {"status": "success", "message": "Schedule published and notifications sent"}
         else:
-            return {"status": "error", "message": "Schedule is already published"}
-            
+            return {"status": "error", "message": "Schedule is already published"}       
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
@@ -805,7 +793,6 @@ def get_assistants_for_shift(shift_id):
 
 
 def clear_schedule_by_id(schedule_id):
-
     try:
         # Get the schedule
         schedule = Schedule.query.get(schedule_id)
@@ -857,8 +844,7 @@ def clear_schedule_by_id(schedule_id):
                 "shifts_removed": shift_count,
                 "allocations_removed": allocation_count
             }
-        }
-        
+        }   
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error clearing schedule: {e}")
@@ -870,7 +856,6 @@ def clear_schedule_by_id(schedule_id):
 
 
 def clear_schedule():
-
     try:
         # Get the main schedule
         schedule = Schedule.query.get(1)
@@ -922,7 +907,6 @@ def clear_schedule():
                 "allocations_removed": allocation_count
             }
         }
-        
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error clearing schedule: {e}")
@@ -935,7 +919,6 @@ def clear_schedule():
 def get_schedule_data(schedule_id):
     """Optimized schedule data retrieval with eager loading to prevent N+1 queries"""
     try:
-        # OPTIMIZATION: Single query with eager loading (if available) for schedule, shifts, allocations, and students
         if EAGER_LOADING_AVAILABLE and selectinload:
             schedule = (
                 db.session.query(Schedule)
@@ -1024,15 +1007,14 @@ def get_schedule_data(schedule_id):
                 "date": day_date.strftime("%d %b"),
                 "shifts": day_shifts
             })
-        
         logger.info(f"Successfully formatted schedule data for {len(formatted_schedule['days'])} days")
         return formatted_schedule
-        
     except Exception as e:
         logger.error(f"Error getting schedule data: {e}")
         import traceback
         traceback.print_exc()
         return None
+    
 @performance_monitor("get_current_schedule")
 def get_current_schedule():
     """Get the current schedule with all shifts"""
@@ -1072,10 +1054,8 @@ def get_current_schedule():
             }
             
         logger.info(f"Loaded schedule {schedule.id} with {len(schedule.shifts)} shifts using eager loading")
-            
         # Format the schedule for display using pre-loaded data
         shifts_by_day = {}
-        
         for shift in schedule.shifts:
             day_idx = shift.date.weekday()  # 0=Monday, 6=Sunday
             if day_idx >= 5:  # Skip weekend shifts
@@ -1134,7 +1114,6 @@ def get_current_schedule():
         
         logger.info(f"Successfully formatted current schedule with {len(days)} days")
         return result
-        
     except Exception as e:
         # Log the error
         logger.error(f"Error getting current schedule: {e}")
@@ -1352,7 +1331,6 @@ def generate_lab_schedule(start_date=None, end_date=None, **generation_options):
         solver.parameters.num_search_workers = 8  # Use more worker threads
         solver.parameters.log_search_progress = True  # Log search progress
         status = solver.Solve(model)
-        
         if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
             # Clear existing allocations for these shifts
             clear_allocations_for_shifts(shifts)
@@ -1803,8 +1781,7 @@ def _parse_time_to_hour(time_str: str, schedule_type: str) -> Optional[int]:
                 return lab_mapping[time_str_lower]
         
         # Validate hour range
-        return hour if 0 <= hour <= 23 else None
-        
+        return hour if 0 <= hour <= 23 else None    
     except (ValueError, TypeError, AttributeError) as e:
         logger.warning(f"Invalid time format encountered: '{time_str}' - {e}")
         return None
@@ -1897,10 +1874,8 @@ def save_schedule_assignments(schedule_type: str, start_date_str: str, end_date_
                 if existing_allocation:
                     continue
                 db.session.add(Allocation(student.username, shift.id, schedule.id))
-
         db.session.commit()
         return {'status': 'success', 'message': 'Schedule assignments saved successfully.'}, 200
-
     except Exception as exc:
         logger.error(f"Error saving schedule assignments: {exc}")
         db.session.rollback()
@@ -1949,7 +1924,6 @@ def remove_staff_allocation(schedule_type: str, staff_id: Union[str, int], day_l
         db.session.delete(allocation)
         db.session.commit()
         return {'status': 'success', 'message': 'Staff removed from shift successfully.'}, 200
-
     except Exception as exc:
         logger.error(f"Error removing staff from shift: {exc}")
         db.session.rollback()
@@ -1991,7 +1965,6 @@ def _check_time_slot_availability(availability_slots, requested_time):
         except (TypeError, ValueError) as e:
             logger.warning(f"Skipping availability slot {slot.id}: {e}")
             continue
-    
     return None
 
 
@@ -2029,7 +2002,6 @@ def list_available_staff_for_slot(schedule_type: str, day_label: str, time_slot:
                 available_staff.append(assistant_data)
 
         return {'status': 'success', 'available_staff': available_staff}, 200
-
     except Exception as exc:
         logger.error(f"Error fetching available staff: {exc}")
         return {'status': 'error', 'message': str(exc)}, 500
@@ -2082,9 +2054,7 @@ def check_staff_availability_for_slot(schedule_type: str, staff_id: Union[str, i
                 'start_time': str(matching_slot.start_time),
                 'end_time': str(matching_slot.end_time)
             }
-
         return response, 200
-
     except Exception as exc:
         logger.error(f"Error checking staff availability: {exc}")
         return {'status': 'error', 'message': str(exc)}, 500
@@ -2129,7 +2099,6 @@ def batch_staff_availability(schedule_type: str, queries: list[dict[str, Any]]):
             })
         
         return {'status': 'success', 'results': results}, 200
-        
     except Exception as exc:
         logger.error(f"Error in batch availability check: {exc}")
         return {'status': 'error', 'message': str(exc)}, 500
@@ -2152,7 +2121,6 @@ def generate_schedule_pdf_for_type(schedule_type: str):
 
         filename = f"{schedule_type}_schedule_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         return pdf_buffer, filename, None, 200
-
     except Exception as exc:
         logger.error(f"Error generating schedule PDF for {schedule_type}: {exc}")
         return None, None, {'status': 'error', 'message': str(exc)}, 500

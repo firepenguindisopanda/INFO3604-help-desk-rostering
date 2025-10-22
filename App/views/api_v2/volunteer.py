@@ -22,7 +22,7 @@ from App.controllers.tracking import (
     get_time_distribution,
     get_today_shift,
 )
-from App.models import Student, HelpDeskAssistant, LabAssistant, Availability
+from App.models import Student, HelpDeskAssistant, LabAssistant, Availability, Shift, Allocation
 from App.database import db
 
 # VOLUNTEER PROFILE ENDPOINTS
@@ -390,19 +390,28 @@ def volunteer_clock_in():
         request_data = request.get_json(silent=True) or {}
         shift_id = request_data.get("shift_id")
 
-        today_shift = get_today_shift(username)
-
-        if not today_shift or today_shift.get("status") != "active":
-            return api_error("No active shift found for clocking in", status_code=400)
-
-        if today_shift.get("starts_now"):
-            return api_error("You are already clocked in for this shift", status_code=400)
-
         if not shift_id:
+            today_shift = get_today_shift(username)
+
+            if not today_shift or today_shift.get("status") != "active":
+                return api_error("No active shift found for clocking in", status_code=400)
+
+            if today_shift.get("starts_now"):
+                return api_error("You are already clocked in for this shift", status_code=400)
+
             shift_id = today_shift.get("shift_id")
 
-        if not shift_id:
-            return api_error("Unable to identify the active shift", status_code=400)
+            if not shift_id:
+                return api_error("Unable to identify the active shift", status_code=400)
+        else:
+            # If shift_id is provided, verify it exists and user is assigned
+            shift = Shift.query.get(shift_id)
+            if not shift:
+                return api_error("Shift not found", status_code=404)
+            
+            allocation = Allocation.query.filter_by(username=username, shift_id=shift_id).first()
+            if not allocation:
+                return api_error("You are not assigned to this shift", status_code=403)
 
         result = clock_in(username, shift_id)
 

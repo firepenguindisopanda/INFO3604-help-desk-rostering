@@ -25,18 +25,13 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time
 from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
-try:  # pragma: no cover - import guard is defensive
+try:
     import pulp  # type: ignore
-except ImportError as exc:  # pragma: no cover - clearer error for callers
+except ImportError as exc: 
     raise ImportError(
         "PuLP is required to use scheduler_lp.\n"
         "Install it with `pip install pulp` or add it to your environment."
     ) from exc
-
-
-# ---------------------------------------------------------------------------
-# Data structures
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -176,10 +171,7 @@ class ScheduleResult:
             matrix.setdefault(assistant_id, []).append(shift_id)
         return matrix
 
-
-# ---------------------------------------------------------------------------
 # Fairness helper functions
-# ---------------------------------------------------------------------------
 
 
 def _calculate_baseline_hours(
@@ -240,10 +232,7 @@ def _check_baseline_feasibility(
     
     return True, "Baseline hours targets appear feasible"
 
-
-# ---------------------------------------------------------------------------
 # Solver
-# ---------------------------------------------------------------------------
 
 
 def solve_helpdesk_schedule(
