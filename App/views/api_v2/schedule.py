@@ -175,7 +175,7 @@ def generate_schedule():
 @admin_required  
 def get_current_schedule():
     """
-    OPTIMIZED: Get the current active schedule for the admin's domain (helpdesk/lab)
+    Get the current active schedule for the admin's domain (helpdesk/lab)
     and format response to match the classic endpoint structure so the Next.js
     calendar renders consistently.
     """

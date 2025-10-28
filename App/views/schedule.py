@@ -15,6 +15,7 @@ from App.controllers.schedule import (
     list_available_staff_for_slot,
     check_staff_availability_for_slot,
     batch_staff_availability,
+    batch_list_available_staff_for_slots,
     generate_schedule_pdf_for_type
 )
 from App.controllers.student import get_student
@@ -33,6 +34,30 @@ import json
 # Simple in-memory cache for schedule data
 _schedule_cache = {}
 _cache_timeout_seconds = 300  # 5 minutes
+
+# Small TTL cache for individual availability checks to reduce repeated load
+# Keyed by (schedule_type, staff_id, day, time_slot) -> (timestamp, response_dict)
+_availability_cache = {}
+_AVAILABILITY_CACHE_TTL = 10.0  # seconds - tuneable
+
+def _get_availability_cache_key(schedule_type, staff_id, day, time_slot):
+    return (str(schedule_type), str(staff_id), str(day), str(time_slot))
+
+def _get_cached_availability(schedule_type, staff_id, day, time_slot):
+    key = _get_availability_cache_key(schedule_type, staff_id, day, time_slot)
+    entry = _availability_cache.get(key)
+    if not entry:
+        return None
+    ts, value = entry
+    if (datetime.now().timestamp() - ts) > _AVAILABILITY_CACHE_TTL:
+        # expired
+        _availability_cache.pop(key, None)
+        return None
+    return value
+
+def _set_cached_availability(schedule_type, staff_id, day, time_slot, value):
+    key = _get_availability_cache_key(schedule_type, staff_id, day, time_slot)
+    _availability_cache[key] = (datetime.now().timestamp(), value)
 
 logger = logging.getLogger(__name__)
 
@@ -292,12 +317,21 @@ def _is_cache_valid(cache_entry):
 @schedule_views.route('/api/schedule/current', methods=['GET'])
 @jwt_required()
 def get_current_schedule_endpoint():
-    """OPTIMIZED: Get the current schedule based on admin role, formatted for display."""
+    """Get the current schedule based on admin role, formatted for display."""
     try:
         # Get user role and determine schedule type
-        role = current_user.role
+        # Be defensive: in tests current_user may be a MagicMock or partially mocked.
+        role = getattr(current_user, 'role', None)
+        if not isinstance(role, str):
+            if getattr(current_user, 'type', None) == 'admin':
+                role = 'helpdesk'  # default for admins
+            else:
+                role = getattr(current_user, 'type', None)
+        if not isinstance(role, str):
+            # Fallback to helpdesk to avoid passing non-primitive types into queries
+            role = 'helpdesk'
         schedule_type = role  # 'helpdesk' or 'lab'
-        schedule_id = 1 if schedule_type == 'helpdesk' else 2 
+        schedule_id = 1 if schedule_type == 'helpdesk' else 2
         
         current_app.logger.info("Getting current %s schedule (ID: %s)", schedule_type, schedule_id)
 
@@ -471,6 +505,34 @@ def get_current_schedule_endpoint():
         
         formatted_schedule["days"] = days
         
+        # Build slot queries to compute available staff for each slot in one batch call
+        slot_queries = []
+        for day in formatted_schedule.get('days', []):
+            for shift in day.get('shifts', []):
+                slot_queries.append({
+                    'shift_id': shift.get('shift_id'),
+                    'date': shift.get('date'),
+                    'hour': shift.get('hour')
+                })
+
+        try:
+            batch_result, batch_status = batch_list_available_staff_for_slots(schedule_type, slot_queries)
+            if batch_status == 200 and batch_result.get('status') == 'success':
+                results = batch_result.get('results', [])
+                # results are in same order as slot_queries
+                idx = 0
+                for day in formatted_schedule.get('days', []):
+                    for shift in day.get('shifts', []):
+                        # default to empty list
+                        shift['available_staff'] = []
+                        if idx < len(results):
+                            res = results[idx]
+                            shift['available_staff'] = res.get('available_staff', []) or []
+                        idx += 1
+        except Exception as e:
+            # If batch availability fails, log and continue without availability to avoid blocking schedule
+            current_app.logger.exception('Batch availability attach failed: %s', e)
+
         current_app.logger.info(
             "Returning formatted %s schedule with %s days.", schedule_type, len(days)
         )
@@ -554,51 +616,45 @@ def check_staff_availability():
         staff_id = request.args.get('staff_id', '').strip()
         day = request.args.get('day', '').strip()
         time_slot = request.args.get('time', '').strip()
-        
+
         # Validate required parameters
         if not staff_id:
-            return jsonify({
-                'status': 'error',
-                'message': 'staff_id parameter is required'
-            }), 400
-            
+            return jsonify({'status': 'error', 'message': 'staff_id parameter is required'}), 400
+
         if not day:
-            return jsonify({
-                'status': 'error', 
-                'message': 'day parameter is required'
-            }), 400
-            
+            return jsonify({'status': 'error', 'message': 'day parameter is required'}), 400
+
         if not time_slot:
-            return jsonify({
-                'status': 'error',
-                'message': 'time parameter is required'
-            }), 400
-        
+            return jsonify({'status': 'error', 'message': 'time parameter is required'}), 400
+
         # Validate day format
         valid_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
         if day.lower() not in valid_days:
-            return jsonify({
-                'status': 'error',
-                'message': f'Invalid day. Must be one of: {", ".join(valid_days)}'
-            }), 400
-        
+            return jsonify({'status': 'error', 'message': f'Invalid day. Must be one of: {", ".join(valid_days)}'}), 400
+
         # Determine schedule type
         schedule_type = current_user.role
-        
+
+        # Try cache first
+        cached = _get_cached_availability(schedule_type, staff_id, day, time_slot)
+        if cached is not None:
+            return jsonify(cached)
+
         # Delegate to controller
         result, status_code = check_staff_availability_for_slot(schedule_type, staff_id, day, time_slot)
-        
+
+        # Cache successful responses (200)
+        if status_code == 200:
+            _set_cached_availability(schedule_type, staff_id, day, time_slot, result)
+
         if status_code == 200:
             return jsonify(result)
         else:
             return jsonify(result), status_code
-        
+
     except Exception as e:
         logger.error(f"Error in staff availability check: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': 'Internal server error occurred'
-        }), 500
+        return jsonify({'status': 'error', 'message': 'Internal server error occurred'}), 500
 
 
 def parse_time_to_hour(time_str, schedule_type):

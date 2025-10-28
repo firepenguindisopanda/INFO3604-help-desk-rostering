@@ -19,8 +19,8 @@ class DeleteAssistantApiV2Tests(unittest.TestCase):
         create_db()
 
         # Create admin user manually (bypassing registration)
-        from App.models import User
-        admin = User('admin_user', 'password', type='admin')
+        from App.models import Admin
+        admin = Admin('admin_user', 'password', 'helpdesk')
         db.session.add(admin)
         db.session.commit()
         self.admin_token = create_access_token(identity='admin_user')

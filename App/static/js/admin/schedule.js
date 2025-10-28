@@ -452,7 +452,16 @@ function renderSchedule(days) {
             if (shift && shift.shift_id) {
                 cell.setAttribute('data-shift-id', shift.shift_id);
             }
-            
+
+            // Attach available staff info (provided by server) to avoid per-cell API calls
+            try {
+                const available = (shift && shift.available_staff) ? shift.available_staff : [];
+                const usernames = available.map(a => (a.username || a.id || a) ).filter(Boolean);
+                cell.setAttribute('data-available-staff', usernames.join(','));
+            } catch (e) {
+                // ignore
+            }
+
             const staffContainer = document.createElement('div');
             staffContainer.className = 'staff-container';
             
@@ -488,6 +497,7 @@ function renderSchedule(days) {
             }
             
             cell.appendChild(staffContainer);
+            // After adding staff container we can initialize availability-based classes: leave neutral until drag
             row.appendChild(cell);
         });
         
@@ -1065,15 +1075,16 @@ function highlightAllCellsForStaff(staffId) {
     // Clear any existing highlights first
     clearAllCellHighlights();
     
-    // Collect queries for batch request
+    // Use server-provided availability attached to cells to avoid network calls.
     const cells = Array.from(document.querySelectorAll('.schedule-cell'));
-    const batchQueries = [];
-    const cellMeta = []; // parallel metadata to map results
+    let anyConsidered = false;
     cells.forEach(cell => {
         const staffContainer = cell.querySelector('.staff-container');
         const staffElements = staffContainer ? staffContainer.querySelectorAll('.staff-name') : [];
         const staffCount = staffElements.length;
         if (staffCount >= 3) return; // full
+
+        // Check if staff already assigned
         let isAlreadyAssigned = false;
         for (let i = 0; i < staffElements.length; i++) {
             if (staffElements[i].getAttribute('data-staff-id') === staffId) { isAlreadyAssigned = true; break; }
@@ -1088,49 +1099,25 @@ function highlightAllCellsForStaff(staffId) {
             }
             return;
         }
-        const day = cell.getAttribute('data-day');
-        const timeSlot = cell.getAttribute('data-time');
-        batchQueries.push({ staff_id: staffId, day: day, time: timeSlot });
-        cellMeta.push({ cell, day, timeSlot });
+
+        anyConsidered = true;
+        const availableAttr = cell.getAttribute('data-available-staff') || '';
+        const availableList = availableAttr ? availableAttr.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+        // Determine availability by membership in availableList
+        const isAvail = availableList.includes(String(staffId));
+
+        if (isAvail) {
+            cell.classList.add('droppable');
+            cell.classList.remove('not-available');
+        } else {
+            cell.classList.add('not-available');
+            cell.classList.remove('droppable');
+        }
     });
 
-    if (batchQueries.length === 0) return;
-
-    // Perform single batch request
-    fetch('/api/staff/check-availability/batch', {
-        method: 'POST',
-        headers: buildAuthHeaders(),
-        body: JSON.stringify({ queries: batchQueries })
-    })
-    .then(r => r.ok ? r.json() : Promise.reject(new Error('Batch availability failed')))
-    .then(data => {
-        if (!data || data.status !== 'success') return;
-        const resultMap = new Map();
-        data.results.forEach(r => {
-            const key = `${r.staff_id}-${r.day}-${r.time}`;
-            resultMap.set(key, r.is_available);
-            // Populate cache for future single lookups
-            availabilityCache[key] = r.is_available;
-        });
-        // Apply to cells
-        cellMeta.forEach(meta => {
-            const k = `${staffId}-${meta.day}-${meta.timeSlot}`;
-            const isAvail = resultMap.get(k);
-            if (isAvail === undefined) return;
-            if (isAvail) {
-                meta.cell.classList.add('droppable');
-                meta.cell.classList.remove('not-available');
-            } else {
-                meta.cell.classList.add('not-available');
-                meta.cell.classList.remove('droppable');
-            }
-        });
-    })
-    .catch(err => {
-        console.error('Batch availability error', err);
-        // Fallback: mark all as droppable to not block UI
-        cellMeta.forEach(meta => meta.cell.classList.add('droppable'));
-    });
+    // If no cells were considered (e.g., schedule empty), no-op
+    if (!anyConsidered) return;
 }
 
 function checkAndUpdateCellAvailability(staffId, day, timeSlot, cell) {
@@ -1160,23 +1147,22 @@ function checkAndUpdateCellAvailability(staffId, day, timeSlot, cell) {
         return;
     }
     
-    // Make API call if no cached result
-    fetch(`/api/staff/check-availability?staff_id=${encodeURIComponent(staffId)}&day=${encodeURIComponent(day)}&time=${encodeURIComponent(timeSlot)}`, {
-        headers: buildAuthHeaders()
-    })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Server error: ${response.status}`);
-            }
-            return response.json();
-        })
+    // Use batch endpoint for single query
+    callBatchAvailability([{ staff_id: staffId, day: day, time: timeSlot }])
         .then(data => {
-            const isAvailable = data.status === 'success' && data.is_available;
+            if (!data || data.status !== 'success' || !Array.isArray(data.results) || data.results.length === 0) {
+                // be permissive on failure
+                if (cell) {
+                    cell.classList.add('droppable');
+                    cell.classList.remove('not-available');
+                }
+                return;
+            }
+            const isAvailable = data.results[0].is_available;
             availabilityCache[cacheKey] = isAvailable;
-            
+
             console.log(`API result: ${staffId} on ${day} at ${timeSlot}: ${isAvailable ? 'Available ✓' : 'Not Available ✗'}`);
-            
-            // Only update if we're still dragging
+
             const currentlyDragging = document.querySelector('.staff-name.dragging');
             if (currentlyDragging && currentlyDragging.getAttribute('data-staff-id') === staffId) {
                 if (isAvailable) {
@@ -1189,9 +1175,7 @@ function checkAndUpdateCellAvailability(staffId, day, timeSlot, cell) {
             }
         })
         .catch(error => {
-            console.error(`Error checking availability: ${error.message}`);
-            
-            // Default to droppable on error
+            console.error(`Error checking availability: ${error}`);
             if (cell) {
                 cell.classList.add('droppable');
                 cell.classList.remove('not-available');
@@ -1206,26 +1190,18 @@ function checkAndUpdateCellAvailability(staffId, day, timeSlot, cell) {
 function fetchAndUpdateAvailability(staffId, day, timeSlot, cell) {
     const cacheKey = `${staffId}-${day}-${timeSlot}`;
     
-    // Make the API call
-    fetch(`/api/staff/check-availability?staff_id=${staffId}&day=${encodeURIComponent(day)}&time=${encodeURIComponent(timeSlot)}`, {
-        headers: buildAuthHeaders()
-    })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Failed to fetch availability');
-            }
-            return response.json();
-        })
+    // Use batch endpoint for single query
+    callBatchAvailability([{ staff_id: staffId, day: day, time: timeSlot }])
         .then(data => {
-            // Update cache with real availability data
-            const isAvailable = data.status === 'success' && data.is_available;
+            if (!data || data.status !== 'success' || !Array.isArray(data.results) || data.results.length === 0) {
+                availabilityCache[cacheKey] = true;
+                return;
+            }
+            const isAvailable = data.results[0].is_available;
             availabilityCache[cacheKey] = isAvailable;
-            
-            // Only update the highlighting if we're still in drag mode with this staff
-            // This prevents changing highlights if the operation is already done
+
             const currentlyDragging = document.querySelector('.staff-name.dragging');
             if (currentlyDragging && currentlyDragging.getAttribute('data-staff-id') === staffId) {
-                // Update cell highlighting
                 if (isAvailable) {
                     cell.classList.add('droppable');
                     cell.classList.remove('not-available');
@@ -1233,11 +1209,9 @@ function fetchAndUpdateAvailability(staffId, day, timeSlot, cell) {
                     cell.classList.add('not-available');
                     cell.classList.remove('droppable');
                 }
-                
-                // Check if we have ANY available cells after this update
+
                 const availableCells = document.querySelectorAll('.schedule-cell.droppable');
                 if (availableCells.length === 0) {
-                    // If no available cells, make some available to ensure dragging works
                     console.warn('No available cells after availability check, ensuring dragging can work');
                     const cells = document.querySelectorAll('.schedule-cell');
                     cells.forEach(c => {
@@ -1251,10 +1225,7 @@ function fetchAndUpdateAvailability(staffId, day, timeSlot, cell) {
         })
         .catch(error => {
             console.error('Error checking availability:', error);
-            // Default to available in case of errors
             availabilityCache[cacheKey] = true;
-            
-            // Only update if still relevant
             const currentlyDragging = document.querySelector('.staff-name.dragging');
             if (currentlyDragging && currentlyDragging.getAttribute('data-staff-id') === staffId) {
                 cell.classList.add('droppable');
@@ -1491,36 +1462,19 @@ function clearAllCellHighlights() {
 
 
 function prefetchCommonAvailabilityData() {
-    // Gather staff IDs in schedule
-    const staffIds = [...new Set(Array.from(document.querySelectorAll('.staff-name')).map(s => s.getAttribute('data-staff-id')).filter(Boolean))];
-    if (staffIds.length === 0) return;
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-    const timeSlots = [];
-    document.querySelectorAll('.time-cell').forEach(cell => { const t = cell.textContent.trim(); if (t && !timeSlots.includes(t)) timeSlots.push(t); });
-    const limitedStaffIds = staffIds.slice(0,3);
-    // Build batch queries (cap to avoid huge payload)
-    const queries = [];
-    limitedStaffIds.forEach(id => {
-        days.forEach(d => {
-            timeSlots.forEach(ts => {
-                if (queries.length < 500) queries.push({ staff_id: id, day: d, time: ts });
-            });
+    // Populate availability cache from server-provided data-available-staff attributes on each cell.
+    const cells = Array.from(document.querySelectorAll('.schedule-cell'));
+    cells.forEach(cell => {
+        const day = cell.getAttribute('data-day');
+        const time = cell.getAttribute('data-time');
+        const availableAttr = cell.getAttribute('data-available-staff') || '';
+        const availableList = availableAttr ? availableAttr.split(',').map(s => s.trim()).filter(Boolean) : [];
+        availableList.forEach(username => {
+            const key = `${username}-${day}-${time}`;
+            availabilityCache[key] = true;
         });
     });
-    if (queries.length === 0) return;
-    console.log(`Batch prefetching ${queries.length} availability combinations`);
-    fetch('/api/staff/check-availability/batch', {
-        method: 'POST',
-        headers: buildAuthHeaders(),
-        body: JSON.stringify({ queries })
-    }).then(r => r.ok ? r.json() : null).then(data => {
-        if (!data || data.status !== 'success') return;
-        data.results.forEach(r => {
-            const key = `${r.staff_id}-${r.day}-${r.time}`;
-            availabilityCache[key] = r.is_available;
-        });
-        console.log(`Prefetch cache size now ${Object.keys(availabilityCache).length}`);
-    }).catch(e => console.warn('Batch prefetch failed', e));
+    // Note: we only populate positive availability. Absence of a key means unknown; callers remain permissive on unknowns.
 }
 
 // ==============================
@@ -1753,6 +1707,21 @@ function getMockStaffData() {
 // Cache for staff availability to reduce API calls
 const availabilityCache = {};
 
+// Helper to call the batch availability endpoint. Accepts an array of queries and
+// returns the JSON response (or null on failure).
+function callBatchAvailability(queries) {
+    try {
+        return fetch('/api/staff/check-availability/batch', {
+            method: 'POST',
+            headers: buildAuthHeaders(),
+            body: JSON.stringify({ queries })
+        }).then(r => r.ok ? r.json() : null).catch(err => { console.error('Batch availability fetch failed', err); return null; });
+    } catch (e) {
+        console.error('callBatchAvailability error', e);
+        return Promise.resolve(null);
+    }
+}
+
 // Function to check if a staff member is available for a specific time slot
 async function isStaffAvailableForTimeSlot(staffId, day, timeSlot) {
     const cacheKey = `${staffId}-${day}-${timeSlot}`;
@@ -1763,38 +1732,23 @@ async function isStaffAvailableForTimeSlot(staffId, day, timeSlot) {
     }
     
     try {
-        // Make API call to check availability
-        const encodedDay = encodeURIComponent(day);
-        const encodedTime = encodeURIComponent(timeSlot);
-        const url = `/api/staff/check-availability?staff_id=${staffId}&day=${encodedDay}&time=${encodedTime}`;
-        
-        console.log(`Checking availability: ${url}`);
-        const response = await fetch(url, {
-            headers: buildAuthHeaders()
-        });
-        
-        if (!response.ok) {
-            console.error(`Error checking availability: ${response.statusText}`);
-            // Default to true in case of error to not block the UI
-            availabilityCache[cacheKey] = true;
+        // Use batch endpoint even for single checks to reduce connection pressure
+        const payload = [{ staff_id: staffId, day: day, time: timeSlot }];
+        const data = await callBatchAvailability(payload);
+        if (!data) {
+            availabilityCache[cacheKey] = true; // be permissive on error
             return true;
         }
-        
-        const data = await response.json();
-        
-        if (data.status === 'success') {
-            // Cache the result
-            availabilityCache[cacheKey] = data.is_available;
-            console.log(`Availability for ${staffId} on ${day} at ${timeSlot}: ${data.is_available}`);
-            return data.is_available;
-        } else {
-            console.error(`API error: ${data.message}`);
-            availabilityCache[cacheKey] = true;
-            return true;
+        if (data.status === 'success' && Array.isArray(data.results) && data.results.length > 0) {
+            const r = data.results[0];
+            availabilityCache[cacheKey] = r.is_available;
+            console.log(`Availability for ${staffId} on ${day} at ${timeSlot}: ${r.is_available}`);
+            return r.is_available;
         }
+        availabilityCache[cacheKey] = true;
+        return true;
     } catch (error) {
         console.error(`Error checking availability: ${error}`);
-        // Default to true in case of error to not block the UI
         availabilityCache[cacheKey] = true;
         return true;
     }
@@ -1809,29 +1763,21 @@ function checkAvailabilitySync(staffId, day, timeSlot) {
         return availabilityCache[cacheKey];
     }
     
-    // Force a cache reset if needed
+    // Force a cache reset if needed - use batch endpoint
     setTimeout(() => {
         const currentKey = `${staffId}-${day}-${timeSlot}`;
         if (availabilityCache[currentKey] === undefined) {
-            // Fetch fresh availability
-            fetch(`/api/staff/check-availability?staff_id=${encodeURIComponent(staffId)}&day=${encodeURIComponent(day)}&time=${encodeURIComponent(timeSlot)}`, {
-                headers: buildAuthHeaders()
-            })
-                .then(response => response.json())
+            callBatchAvailability([{ staff_id: staffId, day: day, time: timeSlot }])
                 .then(data => {
-                    if (data && data.status === 'success') {
-                        availabilityCache[currentKey] = data.is_available;
-                        
-                        // Update the cell if needed
+                    if (data && data.status === 'success' && Array.isArray(data.results) && data.results.length > 0) {
+                        availabilityCache[currentKey] = data.results[0].is_available;
                         const cell = document.querySelector(`.schedule-cell[data-day="${day}"][data-time="${timeSlot}"]`);
                         if (cell) {
                             checkAndUpdateCellAvailability(staffId, day, timeSlot, cell);
                         }
                     }
                 })
-                .catch(error => {
-                    console.error(`Error checking availability: ${error.message}`);
-                });
+                .catch(error => console.error(`Error checking availability: ${error}`));
         }
     }, 10);
     
@@ -1894,11 +1840,13 @@ function preloadAvailabilityData() {
             // Only process each combination once
             if (!processedCombinations.has(comboKey)) {
                 processedCombinations.add(comboKey);
-                
-                // Check if we already have this in the cache
-                if (availabilityCache[comboKey] === undefined) {
-                    // Preload availability
-                    checkAvailabilitySync(staffId, day, timeSlot);
+                // Populate from DOM-provided availability where available
+                const cellAvailable = cell.getAttribute('data-available-staff') || '';
+                const availableList = cellAvailable ? cellAvailable.split(',').map(s => s.trim()).filter(Boolean) : [];
+                if (availableList.includes(String(staffId))) {
+                    availabilityCache[comboKey] = true;
+                } else {
+                    // leave unknowns as undefined; later checks will be permissive or fetch if necessary
                 }
             }
         }
