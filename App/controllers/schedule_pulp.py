@@ -500,7 +500,7 @@ def clear_schedule():
 
 @performance_monitor("get_schedule_data")
 def get_schedule_data(schedule_id):
-    """Optimized schedule data retrieval with eager loading."""
+    """schedule data retrieval with eager loading."""
     try:
         from sqlalchemy.orm import selectinload
         

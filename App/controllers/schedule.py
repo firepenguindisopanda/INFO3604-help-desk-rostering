@@ -917,7 +917,7 @@ def clear_schedule():
 
 @performance_monitor("get_schedule_data")
 def get_schedule_data(schedule_id):
-    """Optimized schedule data retrieval with eager loading to prevent N+1 queries"""
+    """schedule data retrieval with eager loading to prevent N+1 queries"""
     try:
         if EAGER_LOADING_AVAILABLE and selectinload:
             schedule = (
@@ -2101,6 +2101,130 @@ def batch_staff_availability(schedule_type: str, queries: list[dict[str, Any]]):
         return {'status': 'success', 'results': results}, 200
     except Exception as exc:
         logger.error(f"Error in batch availability check: {exc}")
+        return {'status': 'error', 'message': str(exc)}, 500
+
+
+def batch_list_available_staff_for_slots(schedule_type: str, slot_queries: list[dict]):
+    """
+    Optimized batch availability lookup for multiple slots.
+    Each slot_query may contain: 'shift_id' (optional), 'date' (ISO string) or 'day' (name), and 'hour' (int) or 'time' (string).
+
+    Returns: {'status':'success','results': [ {'shift_id':..., 'date':..., 'hour':..., 'available_staff':[assistant_dict,...]} ]}
+    Results list preserves the input order so callers can map back easily.
+    """
+    try:
+        # Normalize queries and collect required day indices
+        normalized = []
+        day_indices = set()
+
+        for q in slot_queries:
+            entry = {'shift_id': q.get('shift_id')}
+
+            # Determine day index from date or day label
+            if q.get('date'):
+                try:
+                    dt = datetime.fromisoformat(q.get('date'))
+                    day_idx = dt.weekday()
+                except Exception:
+                    # fallback to normalize by label
+                    day_idx = _normalize_day_index(q.get('day'))
+            else:
+                day_idx = _normalize_day_index(q.get('day'))
+
+            if day_idx is None:
+                # invalid day, still append empty result
+                entry.update({'date': q.get('date'), 'hour': q.get('hour') or q.get('time'), 'available_staff': []})
+                normalized.append(entry)
+                continue
+
+            entry['day_idx'] = day_idx
+            day_indices.add(day_idx)
+
+            # Determine hour
+            hour = q.get('hour')
+            if hour is None and q.get('time'):
+                hour = _parse_time_to_hour(q.get('time'), schedule_type)
+            entry['hour'] = hour
+            entry['date'] = q.get('date')
+            normalized.append(entry)
+
+        # Load active assistants once, with availabilities preloaded when possible
+        assistants_query = HelpDeskAssistant.query.filter_by(active=True)
+        try:
+            # prefer eager loading if available
+            from sqlalchemy.orm import selectinload
+            assistants_query = assistants_query.options(
+                selectinload(HelpDeskAssistant.student).selectinload(Student.availabilities)
+            )
+        except Exception:
+            pass
+
+        assistants = assistants_query.all()
+        if not assistants:
+            # No staff available at all
+            results = []
+            for e in normalized:
+                results.append({'shift_id': e.get('shift_id'), 'date': e.get('date'), 'hour': e.get('hour'), 'available_staff': []})
+            return {'status': 'success', 'results': results}, 200
+
+        # Build availability index per assistant (username -> list of Availability)
+        usernames = [a.username for a in assistants]
+        avail_map = {u: [] for u in usernames}
+
+        # Try to use preloaded availabilities from student relationship first
+        for assistant in assistants:
+            if getattr(assistant, 'student', None) and getattr(assistant.student, 'availabilities', None) is not None:
+                # Filter only relevant day indices
+                avail_map[assistant.username] = [av for av in assistant.student.availabilities if av.day_of_week in day_indices]
+
+        # For any assistant with empty list (not preloaded), query Availability table
+        missing_usernames = [u for u, v in avail_map.items() if not v]
+        if missing_usernames and day_indices:
+            extra_avails = Availability.query.filter(Availability.username.in_(missing_usernames), Availability.day_of_week.in_(list(day_indices))).all()
+            for av in extra_avails:
+                if av.username in avail_map:
+                    avail_map[av.username].append(av)
+
+        # Prepare results by checking each normalized entry against assistants availabilities
+        results = []
+        from datetime import time as dt_time
+
+        for entry in normalized:
+            hour = entry.get('hour')
+            if hour is None:
+                # cannot determine hour -> empty
+                results.append({'shift_id': entry.get('shift_id'), 'date': entry.get('date'), 'hour': hour, 'available_staff': []})
+                continue
+
+            requested_time = dt_time(int(hour), 0)
+            available_staff = []
+
+            for assistant in assistants:
+                user = assistant.username
+                slots = avail_map.get(user, [])
+                # Check if any slot covers requested_time on this day
+                match = None
+                for slot in slots:
+                    try:
+                        if _check_time_slot_availability([slot], requested_time):
+                            match = slot
+                            break
+                    except Exception:
+                        continue
+
+                if match:
+                    assistant_data = {
+                        'id': assistant.username,
+                        'username': assistant.username,
+                        'name': getattr(assistant, 'name', None) or (assistant.student.get_name() if getattr(assistant, 'student', None) else None)
+                    }
+                    available_staff.append(assistant_data)
+
+            results.append({'shift_id': entry.get('shift_id'), 'date': entry.get('date'), 'hour': hour, 'available_staff': available_staff})
+
+        return {'status': 'success', 'results': results}, 200
+    except Exception as exc:
+        logger.error(f"Error in batch_list_available_staff_for_slots: {exc}")
         return {'status': 'error', 'message': str(exc)}, 500
 
 
