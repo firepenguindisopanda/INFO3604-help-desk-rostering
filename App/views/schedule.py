@@ -463,6 +463,8 @@ def get_current_schedule_endpoint():
         formatted_schedule = {
             "schedule_id": schedule.id,
             "date_range": f"{schedule.start_date.strftime('%d %b')} - {schedule.end_date.strftime('%d %b, %Y')}",
+            "start_date": schedule.start_date.strftime('%Y-%m-%d'),
+            "end_date": schedule.end_date.strftime('%Y-%m-%d'),
             "is_published": schedule.is_published,
             "type": schedule_type,
             "days": [],
