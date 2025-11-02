@@ -40,11 +40,170 @@ document.addEventListener('DOMContentLoaded', function() {
         preloadAvailabilityData();
         prefetchCommonAvailabilityData();
     }, 1000);
+    applyHelpdeskConfigStyles();
 });
 
 // Determine current admin role (helpdesk or lab)
 const CURRENT_ROLE = document.querySelector('.schedule-header-helpdesk') ? 'helpdesk' : 'lab';
 console.log(`Current admin role: ${CURRENT_ROLE}`);
+
+const ACTIVE_CONFIG = typeof window !== 'undefined' ? (window.ACTIVE_SCHEDULE_CONFIG || null) : null;
+const ACTIVE_CONFIG_META = typeof window !== 'undefined' ? (window.ACTIVE_SCHEDULE_CONFIG_META || null) : null;
+const HELP_DESK_DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+function getHelpdeskOperatingDays() {
+    if (CURRENT_ROLE !== 'helpdesk' || !ACTIVE_CONFIG || !Array.isArray(ACTIVE_CONFIG.operating_days)) {
+        return [0, 1, 2, 3, 4];
+    }
+    return ACTIVE_CONFIG.operating_days
+        .map(day => parseInt(day, 10))
+        .filter(day => Number.isInteger(day) && day >= 0 && day <= 6)
+        .sort((a, b) => a - b);
+}
+
+function parseConfigTimeToMinutes(timeString) {
+    if (!timeString || typeof timeString !== 'string') {
+        return null;
+    }
+    const parts = timeString.split(':');
+    if (parts.length < 2) {
+        return null;
+    }
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+        return null;
+    }
+    return hours * 60 + minutes;
+}
+
+function formatMinutesToDisplay(totalMinutes) {
+    const baseDate = new Date();
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    baseDate.setHours(hours, minutes, 0, 0);
+    return baseDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toLowerCase();
+}
+
+function getHelpdeskTimeSlots() {
+    if (CURRENT_ROLE !== 'helpdesk') {
+        return [
+            { minutes: 9 * 60, hour: 9, minute: 0, label: '9:00 am' },
+            { minutes: 10 * 60, hour: 10, minute: 0, label: '10:00 am' },
+            { minutes: 11 * 60, hour: 11, minute: 0, label: '11:00 am' },
+            { minutes: 12 * 60, hour: 12, minute: 0, label: '12:00 pm' },
+            { minutes: 13 * 60, hour: 13, minute: 0, label: '1:00 pm' },
+            { minutes: 14 * 60, hour: 14, minute: 0, label: '2:00 pm' },
+            { minutes: 15 * 60, hour: 15, minute: 0, label: '3:00 pm' },
+            { minutes: 16 * 60, hour: 16, minute: 0, label: '4:00 pm' }
+        ];
+    }
+
+    const startMinutes = parseConfigTimeToMinutes(ACTIVE_CONFIG?.start_time);
+    const endMinutes = parseConfigTimeToMinutes(ACTIVE_CONFIG?.end_time);
+    let duration = parseInt(ACTIVE_CONFIG?.shift_duration_minutes, 10);
+    if (!Number.isFinite(duration) || duration <= 0) {
+        duration = 60;
+    }
+
+    if (!Number.isFinite(startMinutes) || !Number.isFinite(endMinutes) || endMinutes <= startMinutes) {
+        return [
+            { minutes: 9 * 60, hour: 9, minute: 0, label: '9:00 am' },
+            { minutes: 10 * 60, hour: 10, minute: 0, label: '10:00 am' },
+            { minutes: 11 * 60, hour: 11, minute: 0, label: '11:00 am' },
+            { minutes: 12 * 60, hour: 12, minute: 0, label: '12:00 pm' },
+            { minutes: 13 * 60, hour: 13, minute: 0, label: '1:00 pm' },
+            { minutes: 14 * 60, hour: 14, minute: 0, label: '2:00 pm' },
+            { minutes: 15 * 60, hour: 15, minute: 0, label: '3:00 pm' },
+            { minutes: 16 * 60, hour: 16, minute: 0, label: '4:00 pm' }
+        ];
+    }
+
+    const slots = [];
+    let current = startMinutes;
+    let guard = 0;
+    while (current + duration <= endMinutes && guard < 200) {
+        const hour = Math.floor(current / 60);
+        const minute = current % 60;
+        slots.push({
+            minutes: current,
+            hour,
+            minute,
+            label: formatMinutesToDisplay(current)
+        });
+        current += duration;
+        guard += 1;
+    }
+
+    return slots.length ? slots : [
+        { minutes: 9 * 60, hour: 9, minute: 0, label: '9:00 am' },
+        { minutes: 10 * 60, hour: 10, minute: 0, label: '10:00 am' },
+        { minutes: 11 * 60, hour: 11, minute: 0, label: '11:00 am' },
+        { minutes: 12 * 60, hour: 12, minute: 0, label: '12:00 pm' },
+        { minutes: 13 * 60, hour: 13, minute: 0, label: '1:00 pm' },
+        { minutes: 14 * 60, hour: 14, minute: 0, label: '2:00 pm' },
+        { minutes: 15 * 60, hour: 15, minute: 0, label: '3:00 pm' },
+        { minutes: 16 * 60, hour: 16, minute: 0, label: '4:00 pm' }
+    ];
+}
+
+function getMaxStaffPerShift() {
+    if (CURRENT_ROLE === 'helpdesk' && ACTIVE_CONFIG) {
+        const parsed = parseInt(ACTIVE_CONFIG.staff_per_shift, 10);
+        if (Number.isFinite(parsed) && parsed > 0) {
+            return parsed;
+        }
+    }
+    return CURRENT_ROLE === 'helpdesk' ? 3 : 3;
+}
+
+function isHelpdeskDayEnabled(dayIndex) {
+    if (CURRENT_ROLE !== 'helpdesk') {
+        return true;
+    }
+    const configuredDays = new Set(getHelpdeskOperatingDays());
+    return configuredDays.has(dayIndex);
+}
+
+function applyHelpdeskConfigStyles(days = []) {
+    if (CURRENT_ROLE !== 'helpdesk') {
+        return;
+    }
+
+    const headers = document.querySelectorAll('.schedule-table thead th');
+    const configuredDays = new Set(getHelpdeskOperatingDays());
+
+    headers.forEach((header, index) => {
+        if (index === 0) {
+            return;
+        }
+        const dayIndex = index - 1;
+        if (configuredDays.has(dayIndex)) {
+            header.classList.remove('disabled-day');
+        } else {
+            header.classList.add('disabled-day');
+        }
+    });
+
+    if (!Array.isArray(days) || !days.length) {
+        return;
+    }
+
+    days.forEach((day, idx) => {
+        const header = headers[idx + 1];
+        if (!header) {
+            return;
+        }
+        const nameEl = header.querySelector('.day-name');
+        const dateEl = header.querySelector('.day-date');
+        if (nameEl && day.day) {
+            nameEl.textContent = day.day;
+        }
+        if (dateEl && day.date) {
+            dateEl.textContent = day.date;
+        }
+    });
+}
 
 // ==============================
 // UPDATED NOTIFICATION SYSTEM
@@ -259,18 +418,31 @@ function setDefaultDates() {
     // Calculate Monday of current week
     const monday = getMonday(today);
     
-    // Determine the current user role (helpdesk or lab)
-    const currentRole = document.querySelector('.schedule-header-helpdesk') ? 'helpdesk' : 'lab';
-    
-    // Calculate end date based on role (Friday for helpdesk, Saturday for lab)
-    const daysToAdd = currentRole === 'helpdesk' ? 4 : 5; // 4 days from Monday = Friday, 5 days = Saturday
+    if (CURRENT_ROLE === 'helpdesk' && ACTIVE_CONFIG) {
+        const operatingDays = getHelpdeskOperatingDays();
+        if (operatingDays.length > 0) {
+            const minDay = Math.min(...operatingDays);
+            const maxDay = Math.max(...operatingDays);
+
+            const configStart = new Date(monday);
+            configStart.setDate(monday.getDate() + (Number.isFinite(minDay) ? minDay : 0));
+
+            const configEnd = new Date(monday);
+            configEnd.setDate(monday.getDate() + (Number.isFinite(maxDay) ? maxDay : 4));
+
+            console.log(`Setting date range for helpdesk via config:`, configStart.toDateString(), 'to', configEnd.toDateString());
+            startDate.valueAsDate = configStart;
+            endDate.valueAsDate = configEnd;
+            return;
+        }
+    }
+
+    // Determine end date based on role (Friday for helpdesk fallback, Saturday for lab)
+    const daysToAdd = CURRENT_ROLE === 'helpdesk' ? 4 : 5;
     const endDay = new Date(monday);
     endDay.setDate(monday.getDate() + daysToAdd);
-    
-    // Log the calculated dates
-    console.log(`Setting date range for ${currentRole}:`, monday.toDateString(), "to", endDay.toDateString());
-    
-    // Set form values
+
+    console.log(`Setting date range for ${CURRENT_ROLE}:`, monday.toDateString(), 'to', endDay.toDateString());
     startDate.valueAsDate = monday;
     endDate.valueAsDate = endDay;
 }
@@ -356,6 +528,7 @@ function loadCurrentSchedule() {
                 if (currentRole === 'helpdesk') {
                     console.log("Rendering helpdesk schedule on page load");
                     renderSchedule(data.schedule.days);
+                    applyHelpdeskConfigStyles(data.schedule.days);
                 } else {
                     console.log("Rendering lab schedule on page load");
                     renderScheduleLab(data.schedule.days);
@@ -400,6 +573,7 @@ function loadScheduleData(scheduleId) {
                 // Choose the correct render function based on role
                 if (currentRole === 'helpdesk') {
                     renderSchedule(data.schedule.days);
+                    applyHelpdeskConfigStyles(data.schedule.days);
                 } else {
                     renderScheduleLab(data.schedule.days);
                 }
@@ -422,91 +596,108 @@ function loadScheduleData(scheduleId) {
 
 function renderSchedule(days) {
     const scheduleBodyHelpDesk = document.getElementById('scheduleBodyHelpDesk');
+    if (!scheduleBodyHelpDesk) {
+        console.error('Help desk schedule table not found');
+        return;
+    }
+
     scheduleBodyHelpDesk.innerHTML = '';
-    
-    const timeSlots = ["9:00 am", "10:00 am", "11:00 am", "12:00 pm", 
-                    "1:00 pm", "2:00 pm", "3:00 pm", "4:00 pm"];
-    
-    timeSlots.forEach((timeSlot, timeIndex) => {
+    applyHelpdeskConfigStyles(days);
+
+    const timeSlots = getHelpdeskTimeSlots();
+    const maxStaffPerShift = getMaxStaffPerShift();
+    const configuredDays = new Set(getHelpdeskOperatingDays());
+
+    timeSlots.forEach((slot, timeIndex) => {
         const row = document.createElement('tr');
-        
+
         const timeCell = document.createElement('td');
         timeCell.className = 'time-cell';
-        timeCell.textContent = timeSlot;
+        timeCell.textContent = slot.label;
         row.appendChild(timeCell);
-        
+
         days.forEach((day, dayIndex) => {
             const cell = document.createElement('td');
             cell.className = 'schedule-cell';
-            
+
+            const dayIdx = typeof day.day_idx === 'number' ? day.day_idx : dayIndex;
+            const isDayEnabled = configuredDays.has(dayIdx);
+
+            if (!isDayEnabled) {
+                cell.classList.add('disabled-slot');
+                cell.setAttribute('data-disabled', 'true');
+            } else {
+                cell.setAttribute('data-disabled', 'false');
+            }
+
             const cellId = `cell-${dayIndex}-${timeIndex}`;
             cell.id = cellId;
-            cell.setAttribute('data-day', day.day);
-            cell.setAttribute('data-time', timeSlot);
+            cell.setAttribute('data-day', day.day || HELP_DESK_DAY_NAMES[dayIdx] || '');
+            cell.setAttribute('data-time', slot.label);
             cell.setAttribute('data-id', cellId);
-            
-            // Get shift data for this cell if it exists
-            const shift = day.shifts[timeIndex];
-            
-            // Store shift ID if it exists
+            cell.setAttribute('data-day-index', dayIdx.toString());
+            cell.setAttribute('data-slot-minutes', slot.minutes);
+
+            const shift = Array.isArray(day.shifts)
+                ? day.shifts.find(s => {
+                    const hourValue = parseInt(s.hour, 10);
+                    const minuteValue = parseInt(s.minute ?? 0, 10) || 0;
+                    if (!Number.isFinite(hourValue)) {
+                        return false;
+                    }
+                    const shiftMinutes = hourValue * 60 + minuteValue;
+                    return shiftMinutes === slot.minutes;
+                })
+                : null;
+
             if (shift && shift.shift_id) {
                 cell.setAttribute('data-shift-id', shift.shift_id);
             }
 
-            // Attach available staff info (provided by server) to avoid per-cell API calls
             try {
                 const available = (shift && shift.available_staff) ? shift.available_staff : [];
-                const usernames = available.map(a => (a.username || a.id || a) ).filter(Boolean);
+                const usernames = available.map(a => (a.username || a.id || a)).filter(Boolean);
                 cell.setAttribute('data-available-staff', usernames.join(','));
-            } catch (e) {
-                // ignore
+            } catch (error) {
+                cell.setAttribute('data-available-staff', '');
             }
 
             const staffContainer = document.createElement('div');
             staffContainer.className = 'staff-container';
-            
-            // Show the number of staff assigned
+
             const staffIndicator = document.createElement('div');
             staffIndicator.className = 'staff-slot-indicator';
-            
-            if (shift && shift.assistants && shift.assistants.length > 0) {
-                staffIndicator.textContent = `Staff: ${shift.assistants.length}/3`;
-                
-                // Add each staff member
-                shift.assistants.forEach(assistant => {
-                    addStaffToContainer(staffContainer, assistant.username || assistant.id, assistant.name);
-                });
-            } else {
-                staffIndicator.textContent = 'Staff: 0/3';
-            }
-            
+
+            const assistants = (shift && Array.isArray(shift.assistants)) ? shift.assistants : [];
+            staffIndicator.textContent = `Staff: ${assistants.length}/${maxStaffPerShift}`;
             staffContainer.appendChild(staffIndicator);
-            
-            // Add "Add Staff" button
-            const addButton = document.createElement('button');
-            addButton.className = 'add-staff-btn';
-            addButton.textContent = '+ Add Staff';
-            addButton.onclick = function(e) {
-                e.stopPropagation();
-                openStaffSearchModal(cell);
-            };
-            
-            // Only add the button if there's room for more staff
-            if (!shift || !shift.assistants || shift.assistants.length < 3) {
+
+            assistants.forEach(assistant => {
+                const identifier = assistant.username || assistant.id;
+                const displayName = assistant.name || identifier;
+                addStaffToContainer(staffContainer, identifier, displayName);
+            });
+
+            if (isDayEnabled && assistants.length < maxStaffPerShift) {
+                const addButton = document.createElement('button');
+                addButton.className = 'add-staff-btn';
+                addButton.textContent = '+ Add Staff';
+                addButton.onclick = function(e) {
+                    e.stopPropagation();
+                    openStaffSearchModal(cell);
+                };
                 staffContainer.appendChild(addButton);
             }
-            
+
             cell.appendChild(staffContainer);
-            // After adding staff container we can initialize availability-based classes: leave neutral until drag
             row.appendChild(cell);
         });
-        
+
         scheduleBodyHelpDesk.appendChild(row);
     });
-    
-    // After rendering is complete, attach events to all remove buttons
+
     document.querySelectorAll('.remove-staff').forEach(button => {
-        button.removeEventListener('click', handleStaffRemoval); // Remove any existing handlers
+        button.removeEventListener('click', handleStaffRemoval);
         button.addEventListener('click', handleStaffRemoval);
     });
 }
@@ -717,6 +908,7 @@ function initializeGenerateButton() {
                             if (currentRole === 'helpdesk') {
                                 console.log("Rendering helpdesk schedule");
                                 renderSchedule(scheduleData.schedule.days);
+                                applyHelpdeskConfigStyles(scheduleData.schedule.days);
                             } else {
                                 console.log("Rendering lab schedule");
                                 renderScheduleLab(scheduleData.schedule.days);
@@ -1032,6 +1224,8 @@ function updateStaffCounter(cell) {
     
     const staffCount = staffContainer.querySelectorAll('.staff-name').length;
     let indicator = staffContainer.querySelector('.staff-slot-indicator');
+    const maxStaffPerShift = getMaxStaffPerShift();
+    const isDisabled = cell.classList.contains('disabled-slot') || cell.getAttribute('data-disabled') === 'true';
     
     if (!indicator) {
         indicator = document.createElement('div');
@@ -1040,10 +1234,10 @@ function updateStaffCounter(cell) {
     }
     
     // Update the counter text
-    indicator.textContent = `Staff: ${staffCount}/3`;
+    indicator.textContent = `Staff: ${staffCount}/${maxStaffPerShift}`;
     
     // Add the "add staff" button if it doesn't exist
-    if (!staffContainer.querySelector('.add-staff-btn')) {
+    if (!isDisabled && !staffContainer.querySelector('.add-staff-btn')) {
         const addButton = document.createElement('button');
         addButton.className = 'add-staff-btn';
         addButton.textContent = '+ Add Staff';
@@ -1055,7 +1249,7 @@ function updateStaffCounter(cell) {
     }
     
     // Remove the add button if maximum staff reached
-    if (staffCount >= 3) {
+    if (staffCount >= maxStaffPerShift) {
         const addButton = staffContainer.querySelector('.add-staff-btn');
         if (addButton) {
             addButton.remove();
@@ -1079,10 +1273,14 @@ function highlightAllCellsForStaff(staffId) {
     const cells = Array.from(document.querySelectorAll('.schedule-cell'));
     let anyConsidered = false;
     cells.forEach(cell => {
+        if (cell.classList.contains('disabled-slot')) {
+            return;
+        }
         const staffContainer = cell.querySelector('.staff-container');
         const staffElements = staffContainer ? staffContainer.querySelectorAll('.staff-name') : [];
         const staffCount = staffElements.length;
-        if (staffCount >= 3) return; // full
+        const maxStaff = getMaxStaffPerShift();
+        if (staffCount >= maxStaff) return; // full
 
         // Check if staff already assigned
         let isAlreadyAssigned = false;
@@ -1284,6 +1482,11 @@ function initializeDragAndDrop() {
             
             const cell = e.target.closest('.schedule-cell');
             if (cell) {
+                if (cell.classList.contains('disabled-slot')) {
+                    cell.style.cursor = 'not-allowed';
+                    return;
+                }
+                const maxStaff = getMaxStaffPerShift();
                 // Remove drag-over highlight from all cells
                 document.querySelectorAll('.schedule-cell.drag-over').forEach(c => {
                     c.classList.remove('drag-over');
@@ -1302,7 +1505,7 @@ function initializeDragAndDrop() {
                     // Cell is not available - show unavailable indicators
                     cell.classList.add('unavailable-hover');
                     cell.style.cursor = 'not-allowed';
-                } else if (staffCount >= 3) {
+                } else if (staffCount >= maxStaff) {
                     // Cell is full - show not allowed cursor
                     cell.style.cursor = 'not-allowed';
                 } else {
@@ -1341,6 +1544,12 @@ function initializeDragAndDrop() {
             try {
                 // Parse staff data early to use in error messages
                 const staffData = JSON.parse(e.dataTransfer.getData('text/plain'));
+
+                if (cell.classList.contains('disabled-slot')) {
+                    showNotification('This slot is disabled by the active configuration', 'warning');
+                    clearAllCellHighlights();
+                    return;
+                }
                 
                 // Check if cell is unavailable before anything else
                 if (cell.classList.contains('not-available')) {
@@ -1357,8 +1566,9 @@ function initializeDragAndDrop() {
                 
                 // Check if cell is already full (3 staff)
                 let staffContainer = cell.querySelector('.staff-container');
-                if (staffContainer && staffContainer.querySelectorAll('.staff-name').length >= 3) {
-                    showNotification("This cell already has the maximum of 3 staff members", "warning");
+                const maxStaff = getMaxStaffPerShift();
+                if (staffContainer && staffContainer.querySelectorAll('.staff-name').length >= maxStaff) {
+                    showNotification(`This slot already has the maximum of ${maxStaff} staff members`, "warning");
                     return; // Cell is full
                 }
                 
@@ -1400,7 +1610,7 @@ function initializeDragAndDrop() {
                     // Create staff indicator
                     const indicator = document.createElement('div');
                     indicator.className = 'staff-slot-indicator';
-                    indicator.textContent = 'Staff: 0/3';
+                    indicator.textContent = `Staff: 0/${maxStaff}`;
                     staffContainer.appendChild(indicator);
                     
                     cell.appendChild(staffContainer);
@@ -1465,6 +1675,9 @@ function prefetchCommonAvailabilityData() {
     // Populate availability cache from server-provided data-available-staff attributes on each cell.
     const cells = Array.from(document.querySelectorAll('.schedule-cell'));
     cells.forEach(cell => {
+        if (cell.classList.contains('disabled-slot')) {
+            return;
+        }
         const day = cell.getAttribute('data-day');
         const time = cell.getAttribute('data-time');
         const availableAttr = cell.getAttribute('data-available-staff') || '';
@@ -1508,7 +1721,15 @@ function initializeStaffSearchModal() {
 }
 
 function openStaffSearchModal(cell) {
+    if (cell.classList.contains('disabled-slot') || cell.getAttribute('data-disabled') === 'true') {
+        showNotification('This slot is disabled by the active configuration', 'info');
+        return;
+    }
     const modal = document.getElementById('staffSearchModal');
+    if (cell && cell.classList.contains('disabled-slot')) {
+        showNotification('This slot is disabled by the active configuration', 'warning');
+        return;
+    }
     const searchInput = document.getElementById('staffSearchInput');
     
     // Clear previous search
@@ -1642,6 +1863,11 @@ function selectStaffMember(staffId, staffName) {
                      document.querySelector(`.schedule-cell[data-id="${targetCellId}"]`);
     
     if (targetCell) {
+        if (targetCell.classList.contains('disabled-slot') || targetCell.getAttribute('data-disabled') === 'true') {
+            showNotification('This slot is disabled by the active configuration', 'info');
+            modal.style.display = 'none';
+            return;
+        }
         // Double-check availability
         isStaffAvailableForTimeSlot(staffId, day, timeSlot).then(isAvailable => {
             if (!isAvailable) {
@@ -1663,8 +1889,9 @@ function selectStaffMember(staffId, staffName) {
             }
             
             // Check if the container is full
-            if (existingStaff.length >= 3) {
-                alert('This shift already has the maximum number of staff (3)');
+            const maxStaff = getMaxStaffPerShift();
+            if (existingStaff.length >= maxStaff) {
+                alert(`This shift already has the maximum number of staff (${maxStaff})`);
                 modal.style.display = 'none';
                 return;
             }

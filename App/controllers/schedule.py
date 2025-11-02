@@ -26,6 +26,7 @@ from App.models import (
 )
 from App.database import db
 from App.controllers.course import create_course, get_all_courses
+from App.controllers import schedule_config as schedule_config_controller
 from App.controllers.lab_assistant import *
 from App.controllers.notification import notify_schedule_published
 from App.controllers.shift import create_shift
@@ -284,28 +285,72 @@ def generate_help_desk_schedule(start_date=None, end_date=None, **generation_opt
         shifts = []
         current_date = start_date
 
+        active_config = schedule_config_controller.get_active_config()
+        config_days = set(active_config.operating_days) if active_config else None
+        config_shift_delta = (timedelta(minutes=active_config.shift_duration_minutes)
+                              if active_config else timedelta(hours=1))
+
+        def _create_configured_shifts(day_dt):
+            """Generate shifts for a specific day using the active configuration."""
+            base_date = day_dt.date() if isinstance(day_dt, datetime) else day_dt
+            day_start = datetime.combine(base_date, active_config.start_time)
+            day_end = datetime.combine(base_date, active_config.end_time)
+            shift_start = day_start
+
+            while shift_start < day_end:
+                shift_end = shift_start + config_shift_delta
+                if shift_end > day_end:
+                    break
+
+                shift = Shift(day_dt, shift_start, shift_end, schedule.id)
+                db.session.add(shift)
+                db.session.flush()
+                shifts.append(shift)
+
+                for course in all_courses:
+                    try:
+                        add_course_demand_to_shift(
+                            shift.id,
+                            course.code,
+                            active_config.staff_per_shift,
+                            active_config.staff_per_shift
+                        )
+                    except Exception as e:
+                        logger.error(
+                            "Error adding course demand for %s to shift %s: %s",
+                            course.code,
+                            shift.id,
+                            str(e)
+                        )
+
+                shift_start = shift_end
+
         while current_date <= end_date:
-            # Skip weekends (day_of_week >= 5)
-            if current_date.weekday() < 5:  # 0=Monday through 4=Friday
-                # Generate hourly shifts for this day (9am-5pm)
-                for hour in range(9, 17):  # 9am through 4pm
-                    base_date = current_date.date() if isinstance(current_date, datetime) else current_date
-                    shift_start = datetime.combine(base_date, time(0, 0)) + timedelta(hours=hour)
-                    shift_end = shift_start + timedelta(hours=1)
-                    
-                    shift = Shift(current_date, shift_start, shift_end, schedule.id)
-                    db.session.add(shift)
-                    db.session.flush()  # Get the shift ID
-                    shifts.append(shift)
-                    
-                    # Default requirement is 2 tutors per course
-                    for course in all_courses:
-                        try:
-                            add_course_demand_to_shift(shift.id, course.code, 2, 2)
-                        except Exception as e:
-                            logger.error(f"Error adding course demand for {course.code} to shift {shift.id}: {str(e)}")
-                            # Continue with other courses
-            
+            if active_config:
+                if config_days and current_date.weekday() in config_days:
+                    _create_configured_shifts(current_date)
+            else:
+                # Skip weekends (day_of_week >= 5)
+                if current_date.weekday() < 5:  # 0=Monday through 4=Friday
+                    # Generate hourly shifts for this day (9am-5pm)
+                    for hour in range(9, 17):  # 9am through 4pm
+                        base_date = current_date.date() if isinstance(current_date, datetime) else current_date
+                        shift_start = datetime.combine(base_date, time(0, 0)) + timedelta(hours=hour)
+                        shift_end = shift_start + timedelta(hours=1)
+                        
+                        shift = Shift(current_date, shift_start, shift_end, schedule.id)
+                        db.session.add(shift)
+                        db.session.flush()  # Get the shift ID
+                        shifts.append(shift)
+                        
+                        # Default requirement is 2 tutors per course
+                        for course in all_courses:
+                            try:
+                                add_course_demand_to_shift(shift.id, course.code, 2, 2)
+                            except Exception as e:
+                                logger.error(f"Error adding course demand for {course.code} to shift {shift.id}: {str(e)}")
+                                # Continue with other courses
+
             # Move to the next day
             current_date += timedelta(days=1)
         

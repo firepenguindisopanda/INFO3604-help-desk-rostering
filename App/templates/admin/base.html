@@ -14,6 +14,7 @@
     <nav class="nav-container">
         <div class="nav-links">
             <a href="{{ url_for('schedule_views.schedule') }}" class="nav-link {% if request.endpoint == 'schedule_views.schedule' %}active{% endif %}">Schedule</a>
+            <a href="{{ url_for('schedule_config_views.schedule_config') }}" class="nav-link {% if request.endpoint.startswith('schedule_config_views') %}active{% endif %}">Schedule Config</a>
             <a href="{{ url_for('tracking_views.time_tracking') }}" class="nav-link {% if request.endpoint.startswith('tracking') %}active{% endif %}">Time Tracking</a>
             <a href="{{ url_for('requests_views.requests') }}" class="nav-link {% if request.endpoint.startswith('requests') %}active{% endif %}">Requests</a>
             <a href="{{ url_for('profile_views.profile') }}" class="nav-link {% if request.endpoint.startswith('profile') %}active{% endif %}">Profile</a>
