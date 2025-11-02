@@ -1,0 +1,731 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Schedule Configuration - Help Desk System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .config-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .config-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .config-form {
+        background: white;
+        border-radius: 8px;
+        padding: 30px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+    
+    .form-section {
+        margin-bottom: 25px;
+    }
+    
+    .form-section h4 {
+        color: #333;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #555;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e9ecef;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: border-color 0.3s ease;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 0 3px rgba(0,123,255,0.25);
+    }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    
+    .operating-days {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 15px;
+    }
+    
+    .day-checkbox {
+        display: flex;
+        align-items: center;
+        padding: 12px;
+        border: 2px solid #e9ecef;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .day-checkbox:hover {
+        background-color: #f8f9fa;
+        border-color: #007bff;
+    }
+    
+    .day-checkbox.selected {
+        background-color: #007bff;
+        border-color: #007bff;
+        color: white;
+    }
+    
+    .day-checkbox input[type="checkbox"] {
+        margin-right: 8px;
+    }
+    
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
+    }
+    
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #0056b3;
+    }
+    
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #545b62;
+    }
+    
+    .btn-success {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .btn-success:hover {
+        background-color: #1e7e34;
+    }
+    
+    .preview-section {
+        background: white;
+        border-radius: 8px;
+        padding: 30px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-top: 20px;
+    }
+    
+    .shifts-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+    
+    .shifts-table th,
+    .shifts-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .shifts-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #333;
+    }
+    
+    .shifts-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .config-list {
+        background: white;
+        border-radius: 8px;
+        padding: 30px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .config-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        margin-bottom: 10px;
+    }
+    
+    .config-item.active {
+        border-color: #28a745;
+        background-color: #f8fff9;
+    }
+    
+    .config-info h5 {
+        margin: 0 0 5px 0;
+        color: #333;
+    }
+    
+    .config-info p {
+        margin: 0;
+        color: #666;
+        font-size: 14px;
+    }
+    
+    .config-actions {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .alert {
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+    }
+    
+    .alert-success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+    
+    .alert-danger {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+    
+    .loading {
+        text-align: center;
+        padding: 20px;
+        color: #666;
+    }
+    
+    @media (max-width: 768px) {
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+        
+        .operating-days {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .config-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 15px;
+        }
+        
+        .config-actions {
+            width: 100%;
+            justify-content: flex-end;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="config-container">
+    <div class="config-header">
+        <h2>Schedule Configuration</h2>
+        <button type="button" class="btn btn-success" id="createDefaultBtn">
+            Create Default Config
+        </button>
+    </div>
+    
+    <!-- Configuration Form -->
+    <div class="config-form">
+        <h3>Create/Edit Schedule Configuration</h3>
+        <form id="configForm">
+            <input type="hidden" id="configId">
+            
+            <div class="form-section">
+                <h4>Basic Information</h4>
+                <div class="form-group">
+                    <label for="configName">Configuration Name *</label>
+                    <input type="text" class="form-control" id="configName" required 
+                           placeholder="e.g., Default Help Desk Schedule">
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h4>Operating Schedule</h4>
+                <div class="form-group">
+                    <label>Operating Days *</label>
+                    <div class="operating-days" id="operatingDays">
+                        <div class="day-checkbox" data-day="0">
+                            <input type="checkbox" value="0" id="dayMon">
+                            <label for="dayMon">Monday</label>
+                        </div>
+                        <div class="day-checkbox" data-day="1">
+                            <input type="checkbox" value="1" id="dayTue">
+                            <label for="dayTue">Tuesday</label>
+                        </div>
+                        <div class="day-checkbox" data-day="2">
+                            <input type="checkbox" value="2" id="dayWed">
+                            <label for="dayWed">Wednesday</label>
+                        </div>
+                        <div class="day-checkbox" data-day="3">
+                            <input type="checkbox" value="3" id="dayThu">
+                            <label for="dayThu">Thursday</label>
+                        </div>
+                        <div class="day-checkbox" data-day="4">
+                            <input type="checkbox" value="4" id="dayFri">
+                            <label for="dayFri">Friday</label>
+                        </div>
+                        <div class="day-checkbox" data-day="5">
+                            <input type="checkbox" value="5" id="daySat">
+                            <label for="daySat">Saturday</label>
+                        </div>
+                        <div class="day-checkbox" data-day="6">
+                            <input type="checkbox" value="6" id="daySun">
+                            <label for="daySun">Sunday</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="startTime">Start Time *</label>
+                        <input type="time" class="form-control" id="startTime" value="10:00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="endTime">End Time *</label>
+                        <input type="time" class="form-control" id="endTime" value="14:00" required>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h4>Shift Configuration</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="shiftDuration">Shift Duration (minutes) *</label>
+                        <input type="number" class="form-control" id="shiftDuration" value="60" 
+                               min="15" step="15" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="staffPerShift">Staff Per Shift *</label>
+                        <input type="number" class="form-control" id="staffPerShift" value="1" 
+                               min="1" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="isActive" checked>
+                        Set as Active Configuration
+                    </label>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 15px; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="previewBtn">Preview Shifts</button>
+                <button type="button" class="btn btn-secondary" id="resetBtn">Reset Form</button>
+                <button type="submit" class="btn btn-primary" id="saveBtn">Save Configuration</button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Preview Section -->
+    <div id="previewSection" class="preview-section" style="display: none;">
+        <h4>Generated Shifts Preview</h4>
+        <div id="previewSummary"></div>
+        <div id="shiftPreview"></div>
+    </div>
+    
+    <!-- Existing Configurations -->
+    <div class="config-list">
+        <h3>Existing Configurations</h3>
+        <div id="configsList" class="loading">Loading configurations...</div>
+    </div>
+</div>
+
+<!-- Alert container for messages -->
+<div id="alertContainer"></div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// Schedule Configuration Management
+(function() {
+    let currentConfigs = [];
+    
+    // DOM Elements
+    const form = document.getElementById('configForm');
+    const previewBtn = document.getElementById('previewBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const createDefaultBtn = document.getElementById('createDefaultBtn');
+    const configsList = document.getElementById('configsList');
+    const previewSection = document.getElementById('previewSection');
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        setupEventListeners();
+        loadConfigurations();
+        setupDayCheckboxes();
+    });
+    
+    function setupEventListeners() {
+        form.addEventListener('submit', handleFormSubmit);
+        previewBtn.addEventListener('click', handlePreviewShifts);
+        resetBtn.addEventListener('click', resetForm);
+        createDefaultBtn.addEventListener('click', createDefaultConfig);
+    }
+    
+    function setupDayCheckboxes() {
+        const dayCheckboxes = document.querySelectorAll('.day-checkbox');
+        dayCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('click', function(e) {
+                if (e.target.tagName !== 'INPUT') {
+                    const input = this.querySelector('input[type="checkbox"]');
+                    input.checked = !input.checked;
+                }
+                this.classList.toggle('selected', this.querySelector('input').checked);
+            });
+        });
+    }
+    
+    function getFormData() {
+        const checkedDays = Array.from(
+            document.querySelectorAll('#operatingDays input:checked')
+        ).map(cb => parseInt(cb.value));
+        
+        return {
+            name: document.getElementById('configName').value.trim(),
+            operating_days: checkedDays,
+            start_time: document.getElementById('startTime').value,
+            end_time: document.getElementById('endTime').value,
+            shift_duration_minutes: parseInt(document.getElementById('shiftDuration').value),
+            staff_per_shift: parseInt(document.getElementById('staffPerShift').value),
+            is_active: document.getElementById('isActive').checked
+        };
+    }
+    
+    function validateForm(data) {
+        if (!data.name) return 'Configuration name is required';
+        if (data.operating_days.length === 0) return 'Select at least one operating day';
+        if (data.start_time >= data.end_time) return 'End time must be after start time';
+        if (data.shift_duration_minutes <= 0) return 'Shift duration must be positive';
+        if (data.staff_per_shift <= 0) return 'Staff per shift must be positive';
+        return null;
+    }
+    
+    async function handleFormSubmit(e) {
+        e.preventDefault();
+        
+        const data = getFormData();
+        const error = validateForm(data);
+        
+        if (error) {
+            showAlert(error, 'danger');
+            return;
+        }
+        
+        try {
+            const configId = document.getElementById('configId').value;
+            const url = configId ? `/api/v2/schedule-config/${configId}` : '/api/v2/schedule-config';
+            const method = configId ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showAlert(result.message, 'success');
+                resetForm();
+                loadConfigurations();
+            } else {
+                showAlert(result.message || 'Failed to save configuration', 'danger');
+            }
+        } catch (error) {
+            showAlert('Network error: ' + error.message, 'danger');
+        }
+    }
+    
+    async function handlePreviewShifts() {
+        const data = getFormData();
+        const error = validateForm(data);
+        
+        if (error) {
+            showAlert(error, 'danger');
+            return;
+        }
+        
+        try {
+            // First create/update the config
+            const response = await fetch('/api/v2/schedule-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({...data, is_active: false}) // Don't activate for preview
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to create temporary configuration');
+            }
+            
+            const result = await response.json();
+            const configId = result.data.id;
+            
+            // Fetch preview
+            const previewResponse = await fetch(`/api/v2/schedule-config/${configId}/preview-shifts`);
+            const preview = await previewResponse.json();
+            
+            if (previewResponse.ok) {
+                displayPreview(preview.data);
+            } else {
+                showAlert('Failed to generate preview', 'danger');
+            }
+        } catch (error) {
+            showAlert('Preview error: ' + error.message, 'danger');
+        }
+    }
+    
+    function displayPreview(data) {
+        const previewSummary = document.getElementById('previewSummary');
+        const shiftPreview = document.getElementById('shiftPreview');
+        const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        
+        // Summary
+        previewSummary.innerHTML = `
+            <p><strong>Total Shifts:</strong> ${data.generated_shifts.length}</p>
+            <p><strong>Total Hours per Week:</strong> ${data.summary.total_hours_per_week} hours</p>
+            <p><strong>Operating Days:</strong> ${data.summary.operating_days_names.join(', ')}</p>
+            <p><strong>Time Range:</strong> ${data.summary.time_range}</p>
+        `;
+        
+        // Shifts table
+        let html = '<table class="shifts-table"><thead><tr><th>Day</th><th>Time</th><th>Duration</th><th>Staff</th></tr></thead><tbody>';
+        
+        data.generated_shifts.forEach(shift => {
+            html += `<tr>
+                <td>${dayNames[shift.day_of_week]}</td>
+                <td>${shift.start} - ${shift.end}</td>
+                <td>${shift.duration_minutes} minutes</td>
+                <td>${shift.min_staff}</td>
+            </tr>`;
+        });
+        
+        html += '</tbody></table>';
+        shiftPreview.innerHTML = html;
+        previewSection.style.display = 'block';
+    }
+    
+    async function loadConfigurations() {
+        try {
+            const response = await fetch('/api/v2/schedule-config/summary');
+            const result = await response.json();
+            
+            if (response.ok) {
+                currentConfigs = result.data;
+                displayConfigurations(result.data);
+            } else {
+                configsList.innerHTML = '<p class="alert alert-danger">Failed to load configurations</p>';
+            }
+        } catch (error) {
+            configsList.innerHTML = '<p class="alert alert-danger">Network error loading configurations</p>';
+        }
+    }
+    
+    function displayConfigurations(configs) {
+        if (configs.length === 0) {
+            configsList.innerHTML = '<p>No configurations found. Create your first configuration above.</p>';
+            return;
+        }
+        
+        let html = '';
+        configs.forEach(summary => {
+            const config = summary.config;
+            html += `
+                <div class="config-item ${config.is_active ? 'active' : ''}">
+                    <div class="config-info">
+                        <h5>${config.name} ${config.is_active ? '(Active)' : ''}</h5>
+                        <p>${summary.operating_days_names.join(', ')} | ${summary.time_range} | ${summary.shift_count} shifts</p>
+                    </div>
+                    <div class="config-actions">
+                        <button class="btn btn-secondary" onclick="editConfig(${config.id})">Edit</button>
+                        <button class="btn btn-secondary" onclick="previewConfig(${config.id})">Preview</button>
+                        ${!config.is_active ? `<button class="btn btn-primary" onclick="activateConfig(${config.id})">Activate</button>` : ''}
+                        <button class="btn btn-danger" onclick="deleteConfig(${config.id})">Delete</button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        configsList.innerHTML = html;
+    }
+    
+    function resetForm() {
+        form.reset();
+        document.getElementById('configId').value = '';
+        document.getElementById('startTime').value = '10:00';
+        document.getElementById('endTime').value = '14:00';
+        document.getElementById('shiftDuration').value = '60';
+        document.getElementById('staffPerShift').value = '1';
+        document.getElementById('isActive').checked = true;
+        
+        // Reset day checkboxes
+        document.querySelectorAll('.day-checkbox').forEach(checkbox => {
+            checkbox.classList.remove('selected');
+            checkbox.querySelector('input').checked = false;
+        });
+        
+        previewSection.style.display = 'none';
+    }
+    
+    async function createDefaultConfig() {
+        try {
+            const response = await fetch('/api/v2/schedule-config/default', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showAlert('Default configuration created successfully', 'success');
+                loadConfigurations();
+            } else {
+                showAlert(result.message || 'Failed to create default configuration', 'danger');
+            }
+        } catch (error) {
+            showAlert('Network error: ' + error.message, 'danger');
+        }
+    }
+    
+    function showAlert(message, type) {
+        const alertContainer = document.getElementById('alertContainer');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+        
+        alertContainer.appendChild(alert);
+        
+        setTimeout(() => {
+            alert.remove();
+        }, 5000);
+    }
+    
+    // Global functions for config management
+    window.editConfig = function(id) {
+        const config = currentConfigs.find(c => c.config.id === id);
+        if (!config) return;
+        
+        const data = config.config;
+        document.getElementById('configId').value = data.id;
+        document.getElementById('configName').value = data.name;
+        document.getElementById('startTime').value = data.start_time;
+        document.getElementById('endTime').value = data.end_time;
+        document.getElementById('shiftDuration').value = data.shift_duration_minutes;
+        document.getElementById('staffPerShift').value = data.staff_per_shift;
+        document.getElementById('isActive').checked = data.is_active;
+        
+        // Set operating days
+        document.querySelectorAll('.day-checkbox').forEach(checkbox => {
+            const day = parseInt(checkbox.dataset.day);
+            const isSelected = data.operating_days.includes(day);
+            checkbox.classList.toggle('selected', isSelected);
+            checkbox.querySelector('input').checked = isSelected;
+        });
+        
+        // Scroll to form
+        form.scrollIntoView({ behavior: 'smooth' });
+    };
+    
+    window.previewConfig = async function(id) {
+        try {
+            const response = await fetch(`/api/v2/schedule-config/${id}/preview-shifts`);
+            const result = await response.json();
+            
+            if (response.ok) {
+                displayPreview(result.data);
+            } else {
+                showAlert('Failed to generate preview', 'danger');
+            }
+        } catch (error) {
+            showAlert('Preview error: ' + error.message, 'danger');
+        }
+    };
+    
+    window.activateConfig = async function(id) {
+        try {
+            const response = await fetch(`/api/v2/schedule-config/${id}/activate`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showAlert('Configuration activated successfully', 'success');
+                loadConfigurations();
+            } else {
+                showAlert(result.message || 'Failed to activate configuration', 'danger');
+            }
+        } catch (error) {
+            showAlert('Network error: ' + error.message, 'danger');
+        }
+    };
+    
+    window.deleteConfig = async function(id) {
+        if (!confirm('Are you sure you want to delete this configuration?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/v2/schedule-config/${id}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showAlert('Configuration deleted successfully', 'success');
+                loadConfigurations();
+            } else {
+                showAlert(result.message || 'Failed to delete configuration', 'danger');
+            }
+        } catch (error) {
+            showAlert('Network error: ' + error.message, 'danger');
+        }
+    };
+})();
+</script>
+{% endblock %}

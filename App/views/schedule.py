@@ -18,6 +18,7 @@ from App.controllers.schedule import (
     batch_list_available_staff_for_slots,
     generate_schedule_pdf_for_type
 )
+from App.controllers import schedule_config as schedule_config_controller
 from App.controllers.student import get_student
 from App.controllers.help_desk_assistant import get_help_desk_assistant
 from App.database import db
@@ -64,11 +65,100 @@ logger = logging.getLogger(__name__)
 
 schedule_views = Blueprint('schedule_views', __name__, template_folder='../templates')
 
+HELPDESK_DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+
+
+def _format_time_label(hour: int, minute: int) -> str:
+    """Return a consistent 12-hour time label without leading zeros."""
+    try:
+        display_dt = datetime.now().replace(hour=hour, minute=minute, second=0, microsecond=0)
+        return display_dt.strftime('%I:%M %p').lstrip('0').replace(' 0', ' ')
+    except ValueError:
+        # Fallback if hour/minute out of range
+        return f"{hour:02d}:{minute:02d}"
+
+
+def _get_helpdesk_time_slots(active_config=None):
+    """Build ordered time slots for help desk schedule rendering."""
+    default_slots = [
+        {
+            'hour': hour,
+            'minute': 0,
+            'minutes': hour * 60,
+            'label': _format_time_label(hour, 0)
+        }
+        for hour in range(9, 17)
+    ]
+
+    if not active_config:
+        return default_slots
+
+    duration = getattr(active_config, 'shift_duration_minutes', None) or 60
+    if duration <= 0:
+        return default_slots
+
+    start_time = getattr(active_config, 'start_time', None)
+    end_time = getattr(active_config, 'end_time', None)
+    if not start_time or not end_time:
+        return default_slots
+
+    start_minutes = start_time.hour * 60 + start_time.minute
+    end_minutes = end_time.hour * 60 + end_time.minute
+
+    if end_minutes <= start_minutes:
+        return default_slots
+
+    slots = []
+    current = start_minutes
+    safety_counter = 0
+    while current + duration <= end_minutes and safety_counter < 200:
+        hour = current // 60
+        minute = current % 60
+        slots.append({
+            'hour': hour,
+            'minute': minute,
+            'minutes': current,
+            'label': _format_time_label(hour, minute)
+        })
+        current += duration
+        safety_counter += 1
+
+    return slots or default_slots
+
+
+def _is_configured_helpdesk_day(day_index: int, active_config=None) -> bool:
+    if not active_config or not getattr(active_config, 'operating_days', None):
+        return True
+    try:
+        configured_days = {int(day) for day in active_config.operating_days}
+    except (TypeError, ValueError):
+        return True
+    return day_index in configured_days
+
 @schedule_views.route('/schedule')
 @jwt_required()
 @admin_required
 def schedule():
-    return render_template('admin/schedule/view.html')
+    active_config_dict = None
+    active_config_meta = None
+    try:
+        if getattr(current_user, 'role', None) == 'helpdesk':
+            active_config = schedule_config_controller.get_active_config()
+            if active_config:
+                active_config_dict = active_config.to_dict()
+                active_config_meta = {
+                    'day_names': active_config.get_day_names(),
+                    'time_range': active_config.get_formatted_time_range(),
+                    'staff_per_shift': active_config.staff_per_shift,
+                }
+    except Exception as exc:
+        current_app.logger.warning('Unable to load active schedule configuration: %s', exc)
+
+    return render_template(
+        'admin/schedule/view.html',
+        active_config=active_config_dict,
+        active_config_meta=active_config_meta,
+    )
 
 @schedule_views.route('/api/schedule/save', methods=['POST'])
 @jwt_required()
@@ -363,12 +453,20 @@ def get_current_schedule_endpoint():
         current_app.logger.info("Loaded %s shifts with eager loading", len(schedule.shifts))
         
         # Format the schedule base
+        active_config = None
+        if schedule_type == 'helpdesk':
+            try:
+                active_config = schedule_config_controller.get_active_config()
+            except Exception as exc:
+                current_app.logger.warning('Failed to load active schedule configuration for API response: %s', exc)
+
         formatted_schedule = {
             "schedule_id": schedule.id,
             "date_range": f"{schedule.start_date.strftime('%d %b')} - {schedule.end_date.strftime('%d %b, %Y')}",
             "is_published": schedule.is_published,
             "type": schedule_type,
-            "days": []
+            "days": [],
+            "active_config": active_config.to_dict() if active_config else None
         }
         
         # Group shifts by day index using pre-loaded data
@@ -396,10 +494,13 @@ def get_current_schedule_endpoint():
                     })
             
             # Store shift with ALL necessary data for later operations
+            start_dt = shift.start_time
             shifts_by_day[day_idx].append({
                 "shift_id": shift.id,
-                "time": f"{shift.start_time.strftime('%-I:%M %p')}",  # Store original time format
-                "hour": shift.start_time.hour,
+                "time": start_dt.strftime('%I:%M %p').lstrip('0').replace(' 0', ' '),
+                "hour": start_dt.hour,
+                "minute": start_dt.minute,
+                "start_minutes": start_dt.hour * 60 + start_dt.minute,
                 "date": shift.date.isoformat(),  # Store the actual date for this shift
                 "assistants": assistants
             })
@@ -458,48 +559,49 @@ def get_current_schedule_endpoint():
 
         # HELPDESK SCHEDULE LOGIC
         else:
-            day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-            day_codes = ["MON", "TUE", "WED", "THUR", "FRI"]
-            
+            time_slots = _get_helpdesk_time_slots(active_config)
+            configured_days = {
+                idx for idx in range(5) if _is_configured_helpdesk_day(idx, active_config)
+            }
+
             for day_idx in range(5):
                 day_date = schedule.start_date + timedelta(days=day_idx)
-                day_shifts_data = []
-                
                 actual_shifts_today = shifts_by_day.get(day_idx, [])
-                
-                for hour in range(9, 17):
-                    matching_shift = next((s for s in actual_shifts_today if s["hour"] == hour), None)
+                day_shifts_data = []
+
+                for slot in time_slots:
+                    slot_minutes = slot['minutes']
+                    matching_shift = next(
+                        (s for s in actual_shifts_today if s.get('start_minutes') == slot_minutes),
+                        None
+                    )
 
                     if matching_shift:
-                        start_dt = datetime.now().replace(hour=hour, minute=0)
-                        end_dt = start_dt + timedelta(hours=1)
-                        time_str = f"{start_dt.strftime('%-I:%M %p')}"
-                        
                         shift_data = {
                             "shift_id": matching_shift['shift_id'],
-                            "time": time_str,
-                            "hour": hour,
+                            "time": matching_shift.get('time') or slot['label'],
+                            "hour": matching_shift['hour'],
+                            "minute": matching_shift.get('minute', 0),
                             "date": matching_shift['date'],
                             "assistants": matching_shift['assistants']
                         }
                         day_shifts_data.append(shift_data)
                     else:
-                        start_dt = datetime.now().replace(hour=hour, minute=0)
-                        time_str = f"{start_dt.strftime('%-I:%M %p')}"
-                        
                         day_shifts_data.append({
                             "shift_id": None,
-                            "time": time_str,
-                            "hour": hour,
+                            "time": slot['label'],
+                            "hour": slot['hour'],
+                            "minute": slot['minute'],
                             "date": day_date.isoformat(),
                             "assistants": []
                         })
 
                 days.append({
-                    "day": day_names[day_idx],
-                    "day_code": day_codes[day_idx],
+                    "day": HELPDESK_DAY_NAMES[day_idx],
+                    "day_code": HELPDESK_DAY_NAMES[day_idx][:3].upper(),
                     "date": day_date.strftime("%d %b"),
                     "day_idx": day_idx,
+                    "is_config_day": day_idx in configured_days,
                     "shifts": day_shifts_data
                 })
         

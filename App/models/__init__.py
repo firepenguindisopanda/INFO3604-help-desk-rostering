@@ -11,6 +11,7 @@ from .registration_request import *
 from .registration_availability import *
 from .request import *
 from .schedule import *
+from .schedule_config import *
 from .semester import *
 from .shift_course_demand import *
 from .shift import *

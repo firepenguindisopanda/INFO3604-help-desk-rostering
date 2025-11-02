@@ -12,6 +12,23 @@
     <div class="schedule-header-helpdesk">
         <h2>Help Desk Schedule</h2>
     </div>
+    {% if active_config_meta %}
+        <div class="schedule-config-banner">
+            <div class="banner-title">Active Configuration</div>
+            <div class="banner-body">
+                <span class="banner-chip">{{ active_config_meta.day_names | join(', ') }}</span>
+                <span class="banner-chip">{{ active_config_meta.time_range }}</span>
+                <span class="banner-chip">{{ active_config_meta.staff_per_shift }} staff / shift</span>
+            </div>
+        </div>
+    {% else %}
+        <div class="schedule-config-banner banner-warning">
+            <div class="banner-title">No Active Configuration</div>
+            <div class="banner-body">
+                Slots default to Monday–Friday, 9:00 am – 5:00 pm with space for 3 staff.
+            </div>
+        </div>
+    {% endif %}
 {% elif current_user.role == 'lab' %}
     <div class="schedule-header-lab">
         <h2>Lab Schedule</h2>
@@ -33,6 +50,7 @@
     
     <div class="date-group" style="justify-content: flex-end;">
         <div class="btn-group">
+            <a class="btn btn-outline-primary" href="{{ url_for('schedule_config_views.schedule_config') }}">Configure Schedule</a>
             <button class="btn btn-danger" id="clearSchedule">Clear Schedule</button>
             <button class="btn btn-primary" id="generateSchedule">Generate Schedule</button>
             <button class="btn btn-primary" id="saveSchedule">Save Changes</button>
@@ -64,7 +82,8 @@
       </div>
       <div class="legend-item">
         <div class="legend-color full"></div>
-        <span>Slot Full (Max 3)</span>
+                {% set staff_limit = active_config_meta.staff_per_shift if active_config_meta else 3 %}
+                <span>Slot Full (Max {{ staff_limit }})</span>
       </div>
     </div>
   </div>
@@ -212,5 +231,9 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+    window.ACTIVE_SCHEDULE_CONFIG = JSON.parse('{{ active_config | tojson | safe }}');
+    window.ACTIVE_SCHEDULE_CONFIG_META = JSON.parse('{{ active_config_meta | tojson | safe }}');
+</script>
 <script src="{{ url_for('static', filename='js/admin/schedule.js') }}"></script>
 {% endblock %}
