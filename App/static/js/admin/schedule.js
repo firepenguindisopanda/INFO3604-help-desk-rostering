@@ -524,6 +524,17 @@ function loadCurrentSchedule() {
             if (data.status === 'success' && data.schedule && data.schedule.schedule_id !== null) {
                 console.log(`Existing ${currentRole} schedule found, rendering:`, data.schedule);
                 
+                // Update date inputs to match the loaded schedule
+                if (data.schedule.start_date && data.schedule.end_date) {
+                    const startDateInput = document.getElementById('startDate');
+                    const endDateInput = document.getElementById('endDate');
+                    if (startDateInput && endDateInput) {
+                        startDateInput.value = data.schedule.start_date;
+                        endDateInput.value = data.schedule.end_date;
+                        console.log(`Updated date inputs: ${data.schedule.start_date} to ${data.schedule.end_date}`);
+                    }
+                }
+                
                 // Now render with the fixed days array using the appropriate renderer
                 if (currentRole === 'helpdesk') {
                     console.log("Rendering helpdesk schedule on page load");
@@ -887,22 +898,33 @@ function initializeGenerateButton() {
                     return;
                 }
                 
-                // For helpdesk, continue with the normal flow (fetch and render)
-                console.log(`Fetching schedule details for ID: ${scheduleId}`);
-                return fetch(`/api/schedule/details?id=${scheduleId}`, {
+                // For helpdesk, reload the current schedule to get proper formatting and dates
+                console.log(`Fetching current schedule after generation`);
+                return fetch('/api/schedule/current', {
                     headers: buildAuthHeaders()
                 })
                     .then(response => {
                         if (!response.ok) {
-                            throw new Error('Failed to fetch schedule details.');
+                            throw new Error('Failed to fetch current schedule.');
                         }
                         return response.json();
                     })
                     .then(scheduleData => {
                         loadingIndicator.style.display = 'none';
                         
-                        if (scheduleData.status === 'success') {
+                        if (scheduleData.status === 'success' && scheduleData.schedule) {
                             console.log(`Successfully fetched ${currentRole} schedule:`, scheduleData.schedule);
+                            
+                            // Update date inputs to match the generated schedule
+                            if (scheduleData.schedule.start_date && scheduleData.schedule.end_date) {
+                                const startDateInput = document.getElementById('startDate');
+                                const endDateInput = document.getElementById('endDate');
+                                if (startDateInput && endDateInput) {
+                                    startDateInput.value = scheduleData.schedule.start_date;
+                                    endDateInput.value = scheduleData.schedule.end_date;
+                                    console.log(`Updated date inputs: ${scheduleData.schedule.start_date} to ${scheduleData.schedule.end_date}`);
+                                }
+                            }
                             
                             // Render the appropriate schedule
                             if (currentRole === 'helpdesk') {
