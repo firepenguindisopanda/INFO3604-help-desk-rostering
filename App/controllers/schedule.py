@@ -1585,21 +1585,14 @@ def generate_schedule_pdf(schedule_data, export_format='standard'):
                     </tr>
                 </thead>
                 <tbody>
-                    {% set time_slots = [] %}
-                    {% if days %}
-                        {% for shift in days[0].shifts %}
-                            {% set _ = time_slots.append(shift.time) %}
-                        {% endfor %}
-                    {% endif %}
-                    
                     {% for time_slot in time_slots %}
                     <tr>
                         <td class="time-slot">{{ time_slot }}</td>
                         {% for day in days %}
-                            {% set shift = day.shifts[loop.index0] if loop.index0 < day.shifts|length else None %}
+                            {% set matching_shift = day_shift_map.get(day.day, {}).get(time_slot) %}
                             <td>
-                                {% if shift and shift.assistants %}
-                                    {% for assistant in shift.assistants %}
+                                {% if matching_shift and matching_shift.assistants %}
+                                    {% for assistant in matching_shift.assistants %}
                                     <span class="staff-name">{{ assistant.name or assistant.id }}</span>
                                     {% endfor %}
                                 {% else %}
@@ -1622,6 +1615,38 @@ def generate_schedule_pdf(schedule_data, export_format='standard'):
         
         # Get days data or create empty structure
         days = schedule_data.get('days', [])
+
+        # Precompute shift lookup per day and ordered time slots to avoid Jinja scoping issues
+        day_shift_map = {}
+        time_slot_entries = []
+        seen_slots = set()
+
+        for day in days or []:
+            day_label = day.get('day') if isinstance(day, dict) else None
+            shifts = day.get('shifts', []) if isinstance(day, dict) else []
+
+            if not day_label:
+                continue
+
+            shift_lookup = {}
+            for shift in shifts or []:
+                if not isinstance(shift, dict):
+                    continue
+
+                time_label = shift.get('time')
+                if not time_label:
+                    continue
+
+                shift_lookup[time_label] = shift
+
+                if time_label not in seen_slots:
+                    seen_slots.add(time_label)
+                    time_slot_entries.append((shift.get('hour'), time_label))
+
+            day_shift_map[day_label] = shift_lookup
+
+        time_slot_entries.sort(key=lambda item: ((item[0] is None), item[0] if item[0] is not None else item[1]))
+        ordered_time_slots = [label for _, label in time_slot_entries]
         
         # Add current timestamp
         from datetime import datetime
@@ -1634,6 +1659,8 @@ def generate_schedule_pdf(schedule_data, export_format='standard'):
             schedule_id=schedule_id,
             date_range=date_range,
             days=days,
+            time_slots=ordered_time_slots,
+            day_shift_map=day_shift_map,
             current_time=current_time,
             export_format=export_format
         )
