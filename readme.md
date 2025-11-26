@@ -39,6 +39,8 @@ own experiments. If you prefer a notebook workflow, open
 and follow the embedded steps to install dependencies and pull the latest
 module files from GitHub.
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/firepenguindisopanda/INFO3604-help-desk-rostering/blob/routes_v2_fix/notebooks/scheduler_lp_colab_demo.ipynb)
+
 ## The Help Desk Model
 This is currently the model that is being used for the Help Desk website:  
 

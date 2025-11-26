@@ -235,6 +235,97 @@ def _check_baseline_feasibility(
 # Solver
 
 
+def solve_schedule(
+    assistants: Sequence[Assistant],
+    shifts: Sequence[Shift],
+    *,
+    strategy: Optional['ConstraintStrategy'] = None,
+    config: Optional[SchedulerConfig] = None,
+    solver: Optional[pulp.LpSolver] = None,
+) -> ScheduleResult:
+    """Generic scheduling solver using pluggable constraint strategies.
+    
+    This is the main entry point for domain-agnostic scheduling. Different
+    scheduling problems (help desk, exams, marking, etc.) are handled by
+    providing an appropriate ConstraintStrategy instance.
+    
+    Args:
+        assistants: Workers to schedule (TAs, invigilators, markers, etc.)
+        shifts: Time slots requiring coverage (or batches of work)
+        strategy: Domain-specific constraint strategy. If None, uses
+                  HelpDeskWeeklyStrategy for backward compatibility.
+        config: Penalty weights and solver settings
+        solver: PuLP solver instance (defaults to CBC)
+    
+    Returns:
+        ScheduleResult with assignments and diagnostics
+    
+    Example:
+        from scheduler_lp import solve_schedule
+        from scheduler_lp.constraint_strategies import ExamInvigilationStrategy
+        
+        result = solve_schedule(
+            invigilators,
+            exam_slots,
+            strategy=ExamInvigilationStrategy(),
+            config=SchedulerConfig(log_solver_output=True)
+        )
+    """
+    _validate_inputs(assistants, shifts)
+    config = config or SchedulerConfig()
+    
+    # Default to help desk strategy for backward compatibility
+    if strategy is None:
+        from .constraint_strategies import HelpDeskWeeklyStrategy
+        strategy = HelpDeskWeeklyStrategy()
+    
+    # Allow strategy to perform custom validation
+    strategy.validate_inputs(assistants, shifts, config)
+    
+    problem = pulp.LpProblem("GenericSchedule", pulp.LpMinimize)
+    
+    # Build assignment variables (domain-agnostic)
+    assignment_vars = _build_assignment_variables(assistants, shifts)
+    
+    # Let strategy prepare its auxiliary variables
+    strategy_vars = strategy.prepare_variables(assistants, shifts, config)
+    
+    # Delegate constraint generation to strategy
+    for constraint in strategy.build_constraints(
+        assistants, shifts, assignment_vars, config, **strategy_vars
+    ):
+        problem += constraint
+    
+    # Delegate objective function to strategy
+    objective_terms = strategy.build_objective_terms(
+        assistants, shifts, assignment_vars, config, **strategy_vars
+    )
+    problem += pulp.lpSum(objective_terms), "TotalPenalty"
+    
+    # Solve
+    if solver is None:
+        solver = pulp.PULP_CBC_CMD(
+            msg=int(config.log_solver_output),
+            timeLimit=config.solver_time_limit,
+            gapRel=config.solver_gap,
+        )
+    
+    status_code = problem.solve(solver)
+    status = pulp.LpStatus.get(status_code, "Unknown")
+    objective_value = None if problem.objective is None else pulp.value(problem.objective)
+    
+    # Let strategy collect results (allows customization)
+    return strategy.collect_results(
+        status,
+        status_code,
+        objective_value,
+        assistants,
+        shifts,
+        assignment_vars,
+        **strategy_vars
+    )
+
+
 def solve_helpdesk_schedule(
     assistants: Sequence[Assistant],
     shifts: Sequence[Shift],
@@ -242,7 +333,34 @@ def solve_helpdesk_schedule(
     config: Optional[SchedulerConfig] = None,
     solver: Optional[pulp.LpSolver] = None,
 ) -> ScheduleResult:
-    """Solve the scheduling problem using PuLP with fairness constraints."""
+    """Solve help desk scheduling problem (backward compatible).
+    
+    This is a convenience wrapper around solve_schedule() that uses the
+    HelpDeskWeeklyStrategy. Existing Flask integration code can continue
+    using this function without any changes.
+    
+    For new code or custom scheduling domains, consider using solve_schedule()
+    directly with an appropriate ConstraintStrategy.
+    """
+    from .constraint_strategies import HelpDeskWeeklyStrategy
+    
+    return solve_schedule(
+        assistants,
+        shifts,
+        strategy=HelpDeskWeeklyStrategy(),
+        config=config,
+        solver=solver,
+    )
+
+
+def _solve_helpdesk_schedule_legacy(
+    assistants: Sequence[Assistant],
+    shifts: Sequence[Shift],
+    *,
+    config: Optional[SchedulerConfig] = None,
+    solver: Optional[pulp.LpSolver] = None,
+) -> ScheduleResult:
+    """Legacy monolithic solver (kept for reference, not used)."""
 
     _validate_inputs(assistants, shifts)
     config = config or SchedulerConfig()
