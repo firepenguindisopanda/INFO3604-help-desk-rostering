@@ -485,7 +485,7 @@ def solve_helpdesk_schedule(
     solver.parameters.log_search_progress = bool(cfg.log_search_progress)
 
     status_code = solver.Solve(model)
-    status = cp_model.StatusName(status_code)
+    status = solver.StatusName(status_code)
 
     if status_code not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         return ScheduleResult(
