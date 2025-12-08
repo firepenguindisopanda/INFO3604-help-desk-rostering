@@ -5,9 +5,9 @@ name: Unit & Integration Tests
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "routes_v2_fix" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "routes_v2_fix" ]
 
 jobs:
   build-test:
