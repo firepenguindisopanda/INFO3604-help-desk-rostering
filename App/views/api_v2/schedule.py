@@ -503,29 +503,24 @@ def _process_schedule_assignments(schedule, assignments, start_date, end_date):
                 # If day is beyond end date, skip
                 continue
                 
-            # Find the matching shift
+            # Find the matching shift by constructing the expected start time
+            shift_start_time = datetime.combine(target_date, datetime.min.time()) + timedelta(hours=hour)
+            shift_end_time = shift_start_time + timedelta(hours=1)
+            
+            # Find or create shift matching this exact time
             matching_shift = Shift.query.filter(
                 Shift.schedule_id == schedule.id,
                 Shift.date == target_date,
-                Shift.start_time.hour == hour
+                Shift.start_time >= shift_start_time,
+                Shift.start_time < shift_end_time
             ).first()
             
+            # Create shift if it doesn't exist
             if not matching_shift:
-                # Try to find any shift on this day and hour
-                matching_shift = Shift.query.filter(
-                    Shift.schedule_id == schedule.id,
-                    Shift.date == target_date
-                ).filter(
-                    Shift.start_time >= datetime.combine(target_date, datetime.min.time()) + timedelta(hours=hour),
-                    Shift.start_time < datetime.combine(target_date, datetime.min.time()) + timedelta(hours=hour+1)
-                ).first()
-                
-            if not matching_shift:
-                errors.append({
-                    "assignment": assignment,
-                    "error": f"No shift found for {day} at {time_str} (date: {target_date}, hour: {hour})"
-                })
-                continue
+                matching_shift = Shift(target_date, shift_start_time, shift_end_time, schedule.id)
+                db.session.add(matching_shift)
+                db.session.flush()  # Get the shift ID
+                logger.debug(f"Created new shift: {day} {time_str} (shift_id={matching_shift.id})")
             
             # Process each staff assignment for this shift
             staff_processed = 0

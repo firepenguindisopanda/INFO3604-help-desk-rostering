@@ -42,6 +42,7 @@ from App.utils.performance_monitor import (
     structured_logger,
     query_profiler
 )
+from App.services.scheduler_factory import SchedulerFactory
 
 
 logger = logging.getLogger(__name__)
@@ -219,10 +220,11 @@ def check_scheduling_feasibility():
             "message": f"Error checking feasibility: {str(e)}"
         }
 
-@performance_monitor("generate_help_desk_schedule", log_slow_threshold=2.0)
-def generate_help_desk_schedule(start_date=None, end_date=None, **generation_options):
+def generate_help_desk_schedule_ortools(start_date=None, end_date=None, **generation_options):
     """
-    Generate a help desk schedule with flexible date range
+    Generate a help desk schedule using OR-Tools CP-SAT solver.
+    
+    This is the original OR-Tools implementation, kept for fallback/comparison.
     
     Args:
         start_date: The start date for this schedule (datetime object)
@@ -624,7 +626,36 @@ def generate_help_desk_schedule(start_date=None, end_date=None, **generation_opt
                 "status": "error",
                 "message": message
             }
+
+
+@performance_monitor("generate_help_desk_schedule", log_slow_threshold=2.0)
+def generate_help_desk_schedule(start_date=None, end_date=None, **generation_options):
+    """
+    Generate a help desk schedule using configured solver.
     
+    Uses PuLP by default (fairness-focused), OR-Tools as fallback.
+    Can be overridden via 'solver' in generation_options or SCHEDULER_ENGINE config.
+    
+    Args:
+        start_date: The start date for this schedule (datetime object)
+        end_date: The end date for this schedule (datetime object)
+        **generation_options: Additional options including 'solver' to override default
+    
+    Returns:
+        A dictionary with the schedule information
+    """
+    # Allow per-request solver override
+    solver = generation_options.pop('solver', None)
+    
+    # Use factory to route to appropriate solver
+    return SchedulerFactory.generate_helpdesk_schedule(
+        start_date=start_date,
+        end_date=end_date,
+        solver=solver,
+        **generation_options
+    )
+
+
 def get_schedule(id, start_date, end_date, type='helpdesk'):
     """Get or create the main schedule object based on type"""
     # Use different IDs for different schedule types
@@ -1185,7 +1216,12 @@ def get_current_schedule():
         }
 
 
-def generate_lab_schedule(start_date=None, end_date=None, **generation_options):
+def generate_lab_schedule_ortools(start_date=None, end_date=None, **generation_options):
+    """
+    Generate a lab schedule using OR-Tools CP-SAT solver.
+    
+    This is the original OR-Tools implementation, kept for fallback/comparison.
+    """
     try:
         model = cp_model.CpModel()
         
@@ -1432,6 +1468,33 @@ def generate_lab_schedule(start_date=None, end_date=None, **generation_options):
             "status": "error",
             "message": str(e)
         }
+
+
+def generate_lab_schedule(start_date=None, end_date=None, **generation_options):
+    """
+    Generate a lab schedule using configured solver.
+    
+    Uses PuLP by default (fairness-focused), OR-Tools as fallback.
+    Can be overridden via 'solver' in generation_options or SCHEDULER_ENGINE config.
+    
+    Args:
+        start_date: The start date for this schedule (datetime object)
+        end_date: The end date for this schedule (datetime object)
+        **generation_options: Additional options including 'solver' to override default
+    
+    Returns:
+        A dictionary with the schedule information
+    """
+    # Allow per-request solver override
+    solver = generation_options.pop('solver', None)
+    
+    # Use factory to route to appropriate solver
+    return SchedulerFactory.generate_lab_schedule(
+        start_date=start_date,
+        end_date=end_date,
+        solver=solver,
+        **generation_options
+    )
 
 
 def generate_help_desk_schedule_pdf(schedule_data):

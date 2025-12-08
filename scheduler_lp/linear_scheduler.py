@@ -26,7 +26,7 @@ from datetime import date, datetime, time
 from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 try:
-    import pulp  # type: ignore
+    import pulp
 except ImportError as exc: 
     raise ImportError(
         "PuLP is required to use scheduler_lp.\n"
@@ -143,9 +143,9 @@ class SchedulerConfig:
     min_hours_penalty: float = 10.0
     max_hours_penalty: float = 5.0
     understaffed_penalty: float = 100.0  # High penalty to ensure shifts are covered
-    extra_hours_penalty: float = 5.0     # Lower penalty for extra hours
-    max_extra_penalty: float = 20.0      # Moderate penalty to encourage fairness
-    baseline_hours_target: int = 6       # Baseline hours target per assistant
+    extra_hours_penalty: float = 5.0 # Lower penalty for extra hours
+    max_extra_penalty: float = 20.0 # Moderate penalty to encourage fairness
+    baseline_hours_target: int = 6 # Baseline hours target per assistant
     allow_minimum_violation: bool = False  # Flag to allow baseline violations
     staff_shortfall_max: Optional[int] = None
     solver_time_limit: Optional[int] = None
