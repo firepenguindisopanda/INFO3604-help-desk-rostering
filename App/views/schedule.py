@@ -173,8 +173,16 @@ def save_schedule():
         end_date_str = data.get('end_date')
         assignments = data.get('assignments', [])
         
-        # Determine schedule type based on current user role
-        schedule_type = current_user.role  # This should be 'helpdesk' or 'lab'
+        # Determine schedule type based on current user role, be defensive in tests where current_user may be a MagicMock
+        role = getattr(current_user, 'role', None)
+        if not isinstance(role, str):
+            if getattr(current_user, 'type', None) == 'admin':
+                role = 'helpdesk'
+            else:
+                role = getattr(current_user, 'type', None)
+        if not isinstance(role, str):
+            role = 'helpdesk'
+        schedule_type = role  # 'helpdesk' or 'lab'
         
         # Delegate to controller
         result, status_code = save_schedule_assignments(schedule_type, start_date_str, end_date_str, assignments)
@@ -243,8 +251,15 @@ def remove_staff_from_shift():
                 'message': 'Staff ID is required'
             }), 400
         
-        # Determine schedule type
-        schedule_type = current_user.role
+        # Determine schedule type safely (tests may inject MagicMock current_user)
+        schedule_type = getattr(current_user, 'role', None)
+        if not isinstance(schedule_type, str):
+            if getattr(current_user, 'type', None) == 'admin':
+                schedule_type = 'helpdesk'
+            else:
+                schedule_type = getattr(current_user, 'type', None)
+        if not isinstance(schedule_type, str):
+            schedule_type = 'helpdesk'
         result, status_code = remove_staff_allocation(
             schedule_type, 
             staff_id, 

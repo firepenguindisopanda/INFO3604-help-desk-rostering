@@ -63,22 +63,24 @@ class AuthIntegrationTests(unittest.TestCase):
         pass  # No database setup required for this class
 
     def test_login_success(self):
-        User.query = MagicMock()
-        User.query.filter_by.return_value.first.return_value = self.mock_user
+        # Use patch as context manager to avoid polluting global User.query
+        with patch.object(User, 'query') as mock_query:
+            mock_query.filter_by.return_value.first.return_value = self.mock_user
 
-        with self.app.app_context():
-            token, user_type = login("a", "password")
-            self.assertIsNotNone(token)
-            self.assertEqual(user_type, "admin")
+            with self.app.app_context():
+                token, user_type = login("a", "password")
+                self.assertIsNotNone(token)
+                self.assertEqual(user_type, "admin")
 
     def test_login_failure(self):
-        User.query = MagicMock()
-        User.query.filter_by.return_value.first.return_value = None
+        # Use patch as context manager to avoid polluting global User.query
+        with patch.object(User, 'query') as mock_query:
+            mock_query.filter_by.return_value.first.return_value = None
 
-        with self.app.app_context():
-            token, user_type = login("wronguser", "wrongpassword")
-            self.assertIsNone(token)
-            self.assertIsNone(user_type)
+            with self.app.app_context():
+                token, user_type = login("wronguser", "wrongpassword")
+                self.assertIsNone(token)
+                self.assertIsNone(user_type)
 
 
 class CourseIntegrationTests(unittest.TestCase):
@@ -152,12 +154,12 @@ class DashboardIntegrationTests(unittest.TestCase):
         patch.stopall()
 
     def test_get_dashboard_data_success(self):
-        Student.query.get = MagicMock(return_value=self.mock_student)
-
-        with patch('App.controllers.dashboard.get_next_shift', return_value={"date": "29 March, 2025", "time": "9:00 AM to 5:00 PM"}):
-            with patch('App.controllers.dashboard.get_my_upcoming_shifts', return_value=[{"date": "29 Mar", "time": "9:00 AM to 5:00 PM"}]):
-                with patch('App.controllers.schedule.get_current_schedule', return_value={"days": []}):
-                    dashboard_data = get_dashboard_data("a")
+        # Use patch context manager instead of direct assignment
+        with patch.object(Student.query, 'get', return_value=self.mock_student):
+            with patch('App.controllers.dashboard.get_next_shift', return_value={"date": "29 March, 2025", "time": "9:00 AM to 5:00 PM"}):
+                with patch('App.controllers.dashboard.get_my_upcoming_shifts', return_value=[{"date": "29 Mar", "time": "9:00 AM to 5:00 PM"}]):
+                    with patch('App.controllers.schedule.get_current_schedule', return_value={"days": []}):
+                        dashboard_data = get_dashboard_data("a")
 
         self.assertIsNotNone(dashboard_data)
         self.assertEqual(dashboard_data['student'].username, "a")
@@ -193,12 +195,12 @@ class DashboardIntegrationTests(unittest.TestCase):
 
     def test_get_full_schedule(self):
         self.mock_db_session.query.return_value.filter.return_value.order_by.return_value.all.return_value = [self.mock_shift]
-        Allocation.query = MagicMock()
-        Allocation.query.filter_by.return_value.all.return_value = [self.mock_allocation]
-        Student.query.get = MagicMock(return_value=self.mock_student)
-
-        today = datetime(2025, 3, 29)
-        full_schedule = get_full_schedule(today)
+        # Use patch context managers instead of direct assignment to avoid polluting global state
+        with patch.object(Allocation, 'query') as mock_alloc_query:
+            mock_alloc_query.filter_by.return_value.all.return_value = [self.mock_allocation]
+            with patch.object(Student.query, 'get', return_value=self.mock_student):
+                today = datetime(2025, 3, 29)
+                full_schedule = get_full_schedule(today)
 
         self.assertIn('days_of_week', full_schedule)
         self.assertIn('time_slots', full_schedule)

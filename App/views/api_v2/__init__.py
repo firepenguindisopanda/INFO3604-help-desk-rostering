@@ -20,7 +20,10 @@ from . import (
     tracking,
     users,
     password_resets,
-    registrations
+    registrations,
+    docs,
+    notifications,
+    profiles,
 )
 
 def register_api_v2(app):

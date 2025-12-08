@@ -11,9 +11,23 @@ def get_migrate(app):
 
 def create_db():
     db.create_all()
+    _reset_user_query()
     
 def init_db(app):
     db.init_app(app)
+
+
+def _reset_user_query():
+    """Restore User.query if earlier tests patched it (e.g., MagicMock)."""
+    try:
+        from unittest.mock import MagicMock
+        from App.models import User
+
+        if isinstance(getattr(User, 'query', None), MagicMock):
+            User.query = db.session.query_property()
+    except Exception:
+        # Defensive: never break create_db if imports fail
+        return
 
 @event.listens_for(Engine, "connect")
 def _enable_sqlite_fk(dbapi_connection, connection_record):

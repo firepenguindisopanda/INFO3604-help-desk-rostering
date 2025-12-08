@@ -790,6 +790,43 @@ def publish_schedule(schedule_id):
         )
 
 
+@api_v2.route('/admin/schedule/<int:schedule_id>/publish-with-sync', methods=['POST'])
+@jwt_required()
+@admin_required
+def publish_schedule_with_sync(schedule_id):
+    """Publish a schedule, notify staff, and sync schedule data."""
+    try:
+        logger.info(f"API v2: Publish-with-sync requested (id={schedule_id})")
+        from App.controllers.schedule import publish_and_notify as publish_and_notify_controller
+
+        result = publish_and_notify_controller(schedule_id)
+
+        if result and result.get('status') == 'success':
+            return api_success(
+                data={
+                    "schedule_id": schedule_id,
+                    "published_at": _get_current_timestamp(),
+                    "sync_status": result.get('sync_status', 'unknown'),
+                    "message": result.get('message', 'Schedule published and synced')
+                },
+                message="Schedule published with sync"
+            )
+
+        logger.error(f"API v2: Failed to publish-with-sync schedule (id={schedule_id})")
+        return api_error(
+            "Failed to publish schedule with sync",
+            errors={"reason": result.get('message', UNKNOWN_ERROR_MSG) if result else NO_RESPONSE_MSG}
+        )
+
+    except Exception as e:
+        logger.exception("API v2: Internal error during publish-with-sync")
+        return api_error(
+            "Internal server error during publish-with-sync",
+            errors={"exception": str(e)},
+            status_code=500
+        )
+
+
 # ===========================
 # STAFF MANAGEMENT & AVAILABILITY
 # ===========================
