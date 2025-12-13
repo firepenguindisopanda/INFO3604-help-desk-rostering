@@ -308,22 +308,6 @@ flask user list
 flask db --help         # View all database commands
 ```
 
-### Project Structure
-
-```
-App/
-├── controllers/        # Business logic and data operations
-├── models/            # Database models (SQLAlchemy)
-├── views/             # Flask routes and view functions
-├── templates/         # Jinja2 HTML templates
-├── static/           # CSS, JS, images
-├── tests/            # Unit and integration tests
-└── utils/            # Helper functions
-
-migrations/           # Database migration files
-sample/              # Sample CSV data for initialization
-```
-
 ### Troubleshooting
 
 **Database Issues:**
