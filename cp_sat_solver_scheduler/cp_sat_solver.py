@@ -24,17 +24,11 @@ from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 try:
     from ortools.sat.python import cp_model
-except ImportError as exc:  # pragma: no cover - dependency guard
+except ImportError as exc:
     raise ImportError(
         "OR-Tools is required to use cp_sat_solver_scheduler.\n"
         "Install it with `pip install ortools` or add it to your environment."
     ) from exc
-
-
-# ---------------------------------------------------------------------------
-# Data structures (mirrors scheduler_lp for notebook parity)
-# ---------------------------------------------------------------------------
-
 
 @dataclass(frozen=True)
 class AvailabilityWindow:
@@ -168,12 +162,7 @@ class ScheduleResult:
             matrix.setdefault(assistant_id, []).append(shift_id)
         return matrix
 
-
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
-
-
 def _infer_date_range(shifts: Sequence[Shift], config: SchedulerConfig) -> Tuple[Optional[date], Optional[date]]:
     if config.start_date and config.end_date:
         return config.start_date, config.end_date

@@ -27,7 +27,7 @@ def build_demo_inputs() -> tuple[list[Assistant], list[Shift], SchedulerConfig]:
         config: :class:`SchedulerConfig` with tuned penalty weights.
     """
 
-    # Assistants -----------------------------------------------------------
+    # Assistants
     assistants = [
         Assistant(
             id="alice",
@@ -60,7 +60,7 @@ def build_demo_inputs() -> tuple[list[Assistant], list[Shift], SchedulerConfig]:
         ),
     ]
 
-    # Shifts ----------------------------------------------------------------
+    # Shifts
     shifts = [
         Shift(
             id="mon_09",

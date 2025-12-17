@@ -172,8 +172,6 @@ class ScheduleResult:
         return matrix
 
 # Fairness helper functions
-
-
 def _calculate_baseline_hours(
     assistants: Sequence[Assistant],
     shifts: Sequence[Shift],
@@ -233,8 +231,6 @@ def _check_baseline_feasibility(
     return True, "Baseline hours targets appear feasible"
 
 # Solver
-
-
 def solve_schedule(
     assistants: Sequence[Assistant],
     shifts: Sequence[Shift],
@@ -533,7 +529,6 @@ def _build_objective_terms(
     max_extra_var: pulp.LpVariable,
 ) -> List[pulp.LpAffineExpression]:
     objective_terms: List[pulp.LpAffineExpression] = []
-
     # Course shortfall penalties
     for (shift_id, course_code), var in course_shortfall_vars.items():
         shift = next(shift for shift in shifts if shift.id == shift_id)
@@ -619,8 +614,7 @@ def _build_baseline_constraints(
 ) -> Iterable[pulp.LpConstraint]:
     """Build baseline hour constraints for an assistant."""
     if baseline <= 0:
-        return
-        
+        return  
     # Always use soft constraints with very high penalties for baseline
     # This implements the fairness requirement while maintaining feasibility
     slack = min_hours_vars.get(assistant.id)
@@ -646,8 +640,7 @@ def _build_fairness_constraints(
     """Build fairness constraints for extra hours."""
     extra_hours = extra_hours_vars.get(assistant.id)
     if extra_hours is None:
-        return
-        
+        return  
     # Track extra hours above baseline (can be 0 if total_hours <= baseline)
     # extra_hours = max(0, total_hours - baseline)
     # We implement this as: extra_hours >= total_hours - baseline AND extra_hours >= 0

@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     )
 
 try:
-    import pulp  # type: ignore
+    import pulp
 except ImportError as exc:
     raise ImportError(
         "PuLP is required to use scheduler_lp.\n"
