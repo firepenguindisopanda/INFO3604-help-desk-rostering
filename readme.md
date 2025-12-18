@@ -346,6 +346,14 @@ $ flask test app unit # Run unit tests only
 $ flask test app int # Run integration tests only
 ```
 
+### Run quality checks:
+```bash
+$ black App/
+$ isort App/
+$ flake8 App/
+$ pytest App/tests/ --cov=App
+```
+
 ### Performance Testing
 To run the performance tests, you can use the following command
 

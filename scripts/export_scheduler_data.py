@@ -621,13 +621,25 @@ def redact_database_url(url: str) -> str:
     return "***@" + suffix
 
 
-def _format_time(value: time) -> str:
+def _format_time(value) -> str:
+    """
+    Format a time value to HH:MM string.
+    Handles datetime.time objects, datetime.datetime objects, and string representations.
+    """
     if hasattr(value, "strftime"):
+        # datetime.time or datetime.datetime object
         return value.strftime("%H:%M")
-    raise ExportError(f"Unexpected time object {value!r}")
+    elif isinstance(value, str):
+        # String representation - extract HH:MM
+        if len(value) >= 5:
+            return value[:5]  # Take first 5 chars (HH:MM)
+        else:
+            return value
+    else:
+        raise ExportError(f"Unexpected time object {value!r} (type: {type(value)})")
 
 
-if __name__ == "__main__":  # pragma: no cover - CLI entry point
+if __name__ == "__main__":
     try:
         main()
     except ExportError as exc:

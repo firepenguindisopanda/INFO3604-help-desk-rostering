@@ -4,9 +4,59 @@
 
 This document describes the API v2 endpoints for the Help Desk Rostering application. These endpoints are designed to support a React/Next.js frontend and provide a clean separation between the backend API and frontend presentation.
 
+**For a complete list of all implemented endpoints**, see [`api_v2_conversion_status.md`](api_v2_conversion_status.md) which provides:
+- Complete endpoint inventory organized by category
+- Migration status tracking
+- Design principles and implementation notes
+
 ## Base URL
 
 All API v2 endpoints are prefixed with `/api/v2/`
+
+## Interactive Documentation
+
+The **recommended way** to explore the API is through the interactive documentation:
+
+- **Swagger UI**: Visit `/api/v2/docs` in your browser for interactive API documentation
+- **OpenAPI Spec**: Get the raw OpenAPI 3.0 specification at `/api/v2/openapi.json`
+
+These endpoints provide:
+- Complete endpoint descriptions
+- Request/response schemas
+- Authentication requirements
+- Try-it-out functionality
+- Example requests and responses
+
+## Endpoint Categories
+
+API v2 provides comprehensive coverage across all application functionality:
+
+### Core Features
+- **Authentication** (`/api/v2/auth/*`) - Login, register, logout, profile management
+- **Schedule Management** (`/api/v2/admin/schedule/*`) - Generate, publish, export schedules
+- **Schedule Configuration** (`/api/v2/schedule-config/*`) - CRUD for schedule settings
+- **Course Management** (`/api/v2/courses/*`) - Full course CRUD operations
+- **Request Management** (`/api/v2/requests/*`) - Shift change requests
+- **User Management** (`/api/v2/users/*`) - User lifecycle management
+
+### Dashboards & Views
+- **Admin Dashboard** (`/api/v2/admin/dashboard`) - Administrative overview
+- **Student Dashboard** (`/api/v2/student/dashboard`) - Student-specific views
+- **Volunteer Dashboard** (`/api/v2/volunteer/dashboard`) - Volunteer portal
+
+### Time & Attendance
+- **Time Tracking** (`/api/v2/volunteer/time-tracking/*`) - Clock in/out
+- **Attendance Reports** (`/api/v2/staff/*/attendance`) - Attendance records and reports
+
+### Admin Tools
+- **Registration Management** (`/api/v2/registrations/*`) - Approve/reject registrations
+- **Password Resets** (`/api/v2/password-resets/*`) - Password reset workflow
+- **Assistant Management** (`/api/v2/assistants/*`, `/api/v2/admin/assistants/*`) - Assistant CRUD
+- **Performance Monitoring** (`/api/v2/admin/performance/*`) - System health and metrics
+
+### Communication
+- **Notifications** (`/api/v2/notifications/*`) - In-app notification system
+- **Profile Management** (`/api/v2/profiles/*`) - Staff and student profiles
 
 ## Authentication
 
@@ -288,8 +338,29 @@ curl -X GET http://localhost:8080/api/v2/admin/dashboard \
 
 ## Next Steps
 
-1. Start the Flask development server: `flask run`
-2. Test endpoints using curl or Postman
-3. Create Next.js frontend to consume these APIs
-4. Implement error handling and loading states
-5. Add more endpoints as needed (courses, availability, etc.)
+### For Frontend Developers
+1. Visit `/api/v2/docs` in your browser for interactive API exploration
+2. Use the Swagger UI to test endpoints and understand request/response formats
+3. Refer to [`api_v2_conversion_status.md`](api_v2_conversion_status.md) for the complete endpoint list
+4. Implement React/Next.js frontend using the standardized API responses
+
+### For Backend Developers
+1. All core functionality has been migrated to API v2
+2. Follow the patterns in `App/views/api_v2/` for any new endpoints
+3. Use `api_success()` and `api_error()` helpers for consistent responses
+4. Always use controllers instead of direct model queries in API routes
+5. See [`API_V2_DESIGN_PRINCIPLES_IMPLEMENTATION.md`](API_V2_DESIGN_PRINCIPLES_IMPLEMENTATION.md) for architectural guidance
+
+## Migration Status
+
+ **API v2 Migration Complete!** All core functionality has been migrated:
+- Authentication & authorization
+- Schedule management & configuration
+- Time tracking & attendance
+- User & assistant management
+- Request & registration workflows
+- Notifications & profiles
+- Performance monitoring
+- Interactive API documentation
+
+Legacy routes remain available for the HTML web interface to maintain backward compatibility.
