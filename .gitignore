@@ -1,4 +1,6 @@
 App/temp-database.db
+scripts/sync_base_state.py
+fish.md
 App/static/uploads/
 # Byte-compiled / optimized / DLL files
 __pycache__/
