@@ -115,7 +115,7 @@ if __name__ == "__main__":
         check_models()
         
         print("\nAPI v2 Implementation Complete!")
-        print("\n🔧 Next Steps:")
+        print("\nNext Steps:")
         print("  1. Install dependencies: pip install flask flask-sqlalchemy flask-jwt-extended flask-cors")
         print("  2. Test endpoints: flask run")
         print("  3. Create Next.js frontend to consume these APIs")

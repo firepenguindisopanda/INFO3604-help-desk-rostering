@@ -133,25 +133,25 @@ function initializePagination() {
     button.addEventListener('click', function() {
       // Skip if it's already active or it's an arrow button
       if (this.classList.contains('active') || 
-          this.textContent === '←' || 
-          this.textContent === '→') {
+          this.textContent === '<-' || 
+          this.textContent === '->') {
         return;
       }
       
       // Handle arrow buttons
-      if (this.textContent === '←') {
+      if (this.textContent === '<-') {
         const activePage = document.querySelector('.page-btn.active');
         if (activePage && activePage.previousElementSibling && 
-            activePage.previousElementSibling.textContent !== '←') {
+            activePage.previousElementSibling.textContent !== '<-') {
           activePage.previousElementSibling.click();
         }
         return;
       }
       
-      if (this.textContent === '→') {
+      if (this.textContent === '->') {
         const activePage = document.querySelector('.page-btn.active');
         if (activePage && activePage.nextElementSibling && 
-            activePage.nextElementSibling.textContent !== '→') {
+            activePage.nextElementSibling.textContent !== '->') {
           activePage.nextElementSibling.click();
         }
         return;
