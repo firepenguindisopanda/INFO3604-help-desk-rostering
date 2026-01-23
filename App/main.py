@@ -106,7 +106,7 @@ def create_app(overrides={}):
     CORS(app, resources={
         r"/api/*": {
             "origins": [
-                "http://localhost:3001",  # Next.js dev server
+                "http://localhost:3001",
                 "http://127.0.0.1:3001",
                 "https://help-desk-rostering-lybtet35y-firepenguindisopandas-projects.vercel.app",
                 "https://help-desk-rostering.vercel.app"

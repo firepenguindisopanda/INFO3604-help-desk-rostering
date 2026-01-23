@@ -1,6 +1,12 @@
-from flask import Blueprint
+
+from flask import Blueprint, jsonify
 
 api_v2 = Blueprint('api_v2', __name__, url_prefix='/api/v2')
+
+# Health check endpoint
+@api_v2.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "ok"}), 200
 
 # NOTE: Additional admin assistant management routes are added in new modules.
 
@@ -24,6 +30,7 @@ from . import (
     docs,
     notifications,
     profiles,
+    me,
 )
 
 def register_api_v2(app):
