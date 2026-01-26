@@ -118,23 +118,30 @@ def student_schedule():
 
         # Get shifts using controller function
         shifts = get_shifts_for_student_in_range(username, start_date, end_date)
+        import logging
         shifts_data = []
-        
+        logger = logging.getLogger("student_schedule")
         if shifts:
             for shift in shifts:
-                shift_data = {
-                    "id": shift.id,
-                    "date": shift.date.isoformat() if shift.date else None,
-                    "start_time": shift.start_time.strftime('%H:%M') if shift.start_time else None,
-                    "end_time": shift.end_time.strftime('%H:%M') if shift.end_time else None,
-                    "schedule_id": shift.schedule_id,
-                    "duration_hours": (
-                        (shift.end_time.hour - shift.start_time.hour) + 
-                        (shift.end_time.minute - shift.start_time.minute) / 60
-                    ) if shift.start_time and shift.end_time else 0
-                }
-                shifts_data.append(shift_data)
-        
+                # Validate all required fields
+                if not (shift.date and shift.start_time and shift.end_time):
+                    logger.warning(f"Skipping shift {getattr(shift, 'id', None)} due to missing date/time fields: date={shift.date}, start_time={shift.start_time}, end_time={shift.end_time}")
+                    continue
+                try:
+                    shift_data = {
+                        "id": shift.id,
+                        "date": shift.date.isoformat(),
+                        "start_time": shift.start_time.isoformat(),
+                        "end_time": shift.end_time.isoformat(),
+                        "schedule_id": shift.schedule_id,
+                        "duration_hours": (
+                            (shift.end_time - shift.start_time).total_seconds() / 3600.0
+                        ),
+                    }
+                    shifts_data.append(shift_data)
+                except Exception as e:
+                    logger.warning(f"Error serializing shift {getattr(shift, 'id', None)}: {e}")
+                    continue
         return api_success({
             "shifts": shifts_data,
             "date_range": {
